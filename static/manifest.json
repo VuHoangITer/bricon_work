@@ -1,23 +1,25 @@
 {
   "name": "BWORK",
-  "short_name": "BWORK",
+  "short_name": "BRICON",
+  "description": "Hệ thống quản lý công việc, chấm công và KPI nội bộ BRICON",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0e9aff",
-  "theme_color": "#0071ff",
-  "lang": "vi",
+  "orientation": "portrait-primary",
+  "background_color": "#111111",
+  "theme_color": "#111111",
   "icons": [
     {
       "src": "/static/img/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
       "src": "/static/img/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }
