@@ -233,6 +233,15 @@ def create_app(config_class=Config):
         db.session.commit()
         click.echo(f"Đã nhắc chấm công {so_luong} người.")
 
+    @app.cli.command("nhac-cham-cong-chieu")
+    def nhac_cham_cong_chieu():
+        """Chạy bằng cron lúc 17:32: nhắc chấm công RA cho người đã chấm
+        vào hôm nay nhưng chưa chấm ra (trừ Sếp/Admin)."""
+        import services
+        so_luong = services.nhac_cham_cong_chieu()
+        db.session.commit()
+        click.echo(f"Đã nhắc chấm công ra {so_luong} người.")
+
     @app.cli.command("nhac-viec-hom-nay")
     def nhac_viec_hom_nay():
         """Chạy bằng cron lúc 08:00: gửi link xem việc hôm nay cho từng

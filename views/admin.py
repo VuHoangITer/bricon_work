@@ -316,6 +316,9 @@ def chay_thu_bao_cao(ten_lenh):
     if ten_lenh == "cham-cong-sang":
         so = services.nhac_cham_cong_sang()
         thong_bao = f"Đã gửi nhắc chấm công cho {so} người."
+    elif ten_lenh == "cham-cong-chieu":
+        so = services.nhac_cham_cong_chieu()
+        thong_bao = f"Đã gửi nhắc chấm công ra cho {so} người."
     elif ten_lenh == "viec-hom-nay":
         so = services.nhac_viec_hom_nay()
         thong_bao = f"Đã gửi nhắc xem việc hôm nay cho {so} người."

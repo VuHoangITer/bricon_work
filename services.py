@@ -294,6 +294,26 @@ def nhac_cham_cong_sang() -> int:
     return len(ds)
 
 
+def nhac_cham_cong_chieu() -> int:
+    """17h32: nhắc chấm công RA — chỉ nhắc đúng người đã chấm công VÀO hôm
+    nay nhưng CHƯA chấm ra (không làm phiền người đã ra rồi hoặc chưa từng
+    chấm vào). Trả về số người đã gửi."""
+    base = current_app.config["BASE_URL"]
+    hom_nay = date.today()
+    ds = (ChamCong.query.filter_by(ngay=hom_nay)
+          .filter(ChamCong.gio_vao.isnot(None), ChamCong.gio_ra.is_(None))
+          .all())
+    nd = f"⏰ Nhớ chấm công ra trước khi về nhé!\n\n{base}/cham-cong"
+    so_luong = 0
+    for cc in ds:
+        nv = cc.nguoi_dung
+        if not nv or not nv.dang_hoat_dong or nv.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
+            continue
+        gui_cho_nhan_vien(nv, nd)
+        so_luong += 1
+    return so_luong
+
+
 def nhac_viec_hom_nay() -> int:
     """8h00: gửi link xem việc hôm nay cho từng nhân viên/quản lý (trừ
     Sếp/Admin). Trả về số người đã gửi."""
