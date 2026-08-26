@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Đổi mật khẩu · BRICON{% endblock %}
+{% block content %}
+<h1>Đổi mật khẩu</h1>
+<form class="the" method="post">
+  {% if not current_user.doi_mat_khau %}
+  <div class="o-nhap">
+    <label for="mat_khau_cu">Mật khẩu hiện tại</label>
+    <input id="mat_khau_cu" name="mat_khau_cu" type="password" autocomplete="current-password" required>
+  </div>
+  {% else %}
+  <div class="canh-bao-nho" style="margin-bottom:14px">
+    Đây là lần đăng nhập đầu tiên. Đặt mật khẩu riêng của bạn để tiếp tục.
+  </div>
+  {% endif %}
+  <div class="o-nhap">
+    <label for="mat_khau_moi">Mật khẩu mới</label>
+    <input id="mat_khau_moi" name="mat_khau_moi" type="password" autocomplete="new-password" required minlength="6">
+    <div class="goi-y">Ít nhất 6 ký tự.</div>
+  </div>
+  <div class="o-nhap">
+    <label for="nhac_lai">Nhập lại mật khẩu mới</label>
+    <input id="nhac_lai" name="nhac_lai" type="password" autocomplete="new-password" required minlength="6">
+  </div>
+  <button class="nut nut--rong" type="submit">Lưu mật khẩu</button>
+</form>
+{% endblock %}

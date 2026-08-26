@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Chấm công · BRICON{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Chấm công</h1></div>
+  <div class="page-actions">
+    <a class="nut nut--phu" href="{{ url_for('attendance.xin_nghi') }}">Xin nghỉ phép →</a>
+  </div>
+</div>
+
+{% if not diems %}
+<div class="canh-bao-nho" style="margin-bottom:12px">
+  Chưa có điểm chấm công nào được cấu hình, hệ thống tạm thời không kiểm tra phạm vi.
+</div>
+{% endif %}
+
+{% if not hom_nay %}
+<form class="the" method="post" data-can-vi-tri
+      action="{{ url_for('attendance.cham_cong_vao') }}">
+  <h2>Chấm công vào</h2>
+  <input type="hidden" name="lat"><input type="hidden" name="lng">
+  <input type="hidden" name="do_chinh_xac">
+
+  <div class="o-nhap">
+    <label for="gc-vao">Ghi chú (nếu chấm công ngoài văn phòng)</label>
+    <input id="gc-vao" type="text" name="ghi_chu" placeholder="VD: đi công trình quận 7">
+  </div>
+
+  <button class="nut nut--rong" type="submit" data-nut-gui>Lấy vị trí &amp; chấm công vào</button>
+  <div class="goi-y" style="text-align:center" data-vi-tri>Bấm nút để trình duyệt xin quyền vị trí.</div>
+</form>
+
+{% else %}
+<div class="the">
+  <h2>Hôm nay {{ hom_nay.ngay|ngay }}</h2>
+  <div class="dong-tt"><span>Giờ vào</span>
+    <span>{{ hom_nay.gio_vao.strftime('%H:%M') if hom_nay.gio_vao else '—' }}
+      {%- if hom_nay.di_tre %} <span style="color:var(--lam-lai)">(trễ {{ hom_nay.so_phut_tre }}′)</span>{% endif %}</span></div>
+  <div class="dong-tt"><span>Giờ ra</span>
+    <span>{{ hom_nay.gio_ra.strftime('%H:%M') if hom_nay.gio_ra else 'chưa chấm' }}
+      {%- if hom_nay.ve_som %} <span style="color:var(--lam-lai)">(sớm {{ hom_nay.so_phut_som }}′)</span>{% endif %}</span></div>
+  <div class="dong-tt"><span>Điểm</span>
+    <span>{{ hom_nay.diem_vao.ten if hom_nay.diem_vao else 'Ngoài điểm đăng ký' }}
+      {%- if hom_nay.khoang_cach_vao is not none %} · {{ hom_nay.khoang_cach_vao }}m{% endif %}</span></div>
+</div>
+
+{% if not hom_nay.gio_ra %}
+<form class="the" method="post" data-can-vi-tri
+      action="{{ url_for('attendance.cham_cong_ra') }}">
+  <h2>Chấm công ra</h2>
+  <input type="hidden" name="lat"><input type="hidden" name="lng">
+  <input type="hidden" name="do_chinh_xac">
+  <button class="nut nut--rong nut--phu" type="submit" data-nut-gui>Lấy vị trí &amp; chấm công ra</button>
+  <div class="goi-y" style="text-align:center" data-vi-tri>Giờ ra chuẩn: {{ '%02d:%02d'|format(config.GIO_RA[0], config.GIO_RA[1]) }}</div>
+</form>
+{% endif %}
+{% endif %}
+
+<div class="tieu-khu"><h2>30 ngày gần nhất</h2></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Ghi nhận</th></tr></thead>
+    <tbody>
+    {% for c in lich_su %}
+      {% set nghi = nghi_theo_ngay.get(c.ngay) %}
+      <tr>
+        <td>{{ c.ngay.strftime('%d/%m') }}</td>
+        <td>{{ c.gio_vao.strftime('%H:%M') if c.gio_vao else '—' }}</td>
+        <td>{{ c.gio_ra.strftime('%H:%M') if c.gio_ra else '—' }}</td>
+        <td>
+          {% if c.nghi_khong_phep %}<span class="nhan" data-tt="lam_lai">Nghỉ không phép</span>
+          {% else %}
+            {% if nghi %}<span class="nhan" data-tt="hoan_thanh">Nghỉ phép — {{ nghi.ten_buoi }}</span>{% endif %}
+            {% if c.di_tre %}<span class="nhan" data-tt="cho_duyet">Trễ {{ c.so_phut_tre }}′</span>{% endif %}
+            {% if c.ve_som %}<span class="nhan" data-tt="cho_duyet">Sớm {{ c.so_phut_som }}′</span>{% endif %}
+            {% if not (c.di_tre or c.ve_som or nghi) %}<span class="nhan" data-tt="hoan_thanh">Đủ</span>{% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có dữ liệu.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if current_user.la_quan_ly %}
+<a class="nut nut--phu nut--rong" href="{{ url_for('attendance.bang_cong') }}">Xem bảng công cả bộ phận</a>
+{% endif %}
+{% endblock %}

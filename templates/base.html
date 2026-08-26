@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>{% block title %}BRICON WORK{% endblock %}</title>
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="{{ 'da-dang-nhap' if current_user.is_authenticated else 'chua-dang-nhap' }}">
+
+{% if current_user.is_authenticated %}
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <a href="{{ url_for('tasks.dashboard') }}" class="brand-lockup" aria-label="BRICON Work">
+        <span class="brand-mark">B</span>
+        <span class="brand-copy"><strong>BRICON</strong><small>WORK SYSTEM</small></span>
+      </a>
+      <button class="sidebar-close" type="button" data-sidebar-close aria-label="Đóng menu">×</button>
+    </div>
+
+    <nav class="side-nav">
+      <div class="side-nav-label">Làm việc</div>
+      <a href="{{ url_for('tasks.dashboard') }}" class="side-link {{ 'active' if request.endpoint == 'tasks.dashboard' }}"><span class="side-icon">⌂</span><span>Hôm nay</span></a>
+      <a href="{{ url_for('tasks.danh_sach') }}" class="side-link {{ 'active' if request.endpoint in ('tasks.danh_sach','tasks.chi_tiet','tasks.giao_viec') }}"><span class="side-icon">☷</span><span>Công việc</span></a>
+      <a href="{{ url_for('attendance.trang_cham_cong') }}" class="side-link {{ 'active' if request.blueprint == 'attendance' }}"><span class="side-icon">◉</span><span>Chấm công</span></a>
+      <a href="{{ url_for('tasks.kpi') }}" class="side-link {{ 'active' if request.endpoint == 'tasks.kpi' }}"><span class="side-icon">◆</span><span>KPI</span></a>
+      <a href="{{ url_for('tasks.thu_vien') }}" class="side-link {{ 'active' if request.endpoint == 'tasks.thu_vien' }}"><span class="side-icon">🗂</span><span>Thư viện</span></a>
+      {% if current_user.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) %}
+      <div class="side-nav-label side-nav-label--spaced">Quản trị</div>
+      <a href="{{ url_for('admin.nhan_vien') }}" class="side-link {{ 'active' if request.blueprint == 'admin' }}"><span class="side-icon">⚙</span><span>Quản trị hệ thống</span></a>
+      {% endif %}
+    </nav>
+  </aside>
+
+  <div class="sidebar-backdrop" data-sidebar-close></div>
+  <div class="app-main">
+    <header class="topbar">
+      <button class="menu-button" type="button" data-sidebar-open aria-label="Mở menu">☰</button>
+      <div class="topbar-brand-mobile"><span class="brand-mark brand-mark--small">B</span><strong>BRICON WORK</strong></div>
+      <div class="topbar-right">
+        <div class="tai-khoan-menu" id="tai-khoan-menu">
+          <button type="button" class="tai-khoan-nut" id="nut-tai-khoan" aria-haspopup="true" aria-expanded="false">
+            <span class="tai-khoan-avatar">{{ current_user.ho_ten[0]|upper }}</span>
+            <span class="topbar-user">
+              <strong>{{ current_user.ho_ten }}</strong>
+              <small>{{ current_user.ten_vai_tro if current_user.ten_vai_tro is defined else 'Nhân viên BRICON' }}</small>
+            </span>
+            <span class="tai-khoan-chevron">▾</span>
+          </button>
+          <div class="tai-khoan-dropdown">
+            <a href="{{ url_for('auth.doi_mat_khau') }}">🔒 Đổi mật khẩu</a>
+            <a href="{{ url_for('auth.logout') }}">↪ Đăng xuất</a>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="content-wrap">
+{% else %}
+<main class="auth-shell">
+{% endif %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="{{ 'auth-flash ' if not current_user.is_authenticated else '' }}thong-bao-khu">
+      {% for loai, noi_dung in messages %}<div class="thong-bao thong-bao--{{ loai }}">{{ noi_dung }}</div>{% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+
+{% if current_user.is_authenticated %}
+    </main>
+  </div>
+</div>
+{% else %}
+</main>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script>
+(function () {
+  const body = document.body;
+  document.querySelectorAll('[data-sidebar-open]').forEach(btn => btn.addEventListener('click', () => body.classList.add('sidebar-open')));
+  document.querySelectorAll('[data-sidebar-close]').forEach(btn => btn.addEventListener('click', () => body.classList.remove('sidebar-open')));
+  window.addEventListener('resize', () => { if (window.innerWidth >= 1024) body.classList.remove('sidebar-open'); });
+
+  const menuTk = document.getElementById('tai-khoan-menu');
+  const nutTk = document.getElementById('nut-tai-khoan');
+  if (menuTk && nutTk) {
+    nutTk.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mo = menuTk.classList.toggle('mo');
+      nutTk.setAttribute('aria-expanded', mo);
+    });
+    document.addEventListener('click', (e) => {
+      if (!menuTk.contains(e.target)) {
+        menuTk.classList.remove('mo');
+        nutTk.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

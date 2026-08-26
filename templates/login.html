@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Đăng nhập · BRICON WORK{% endblock %}
+
+{% block content %}
+<div class="auth-card-wrap">
+  <div class="auth-brand">
+    <span class="brand-mark">B</span>
+    <span class="auth-brand-copy">
+      <strong>BRICON</strong>
+      <small>WORK SYSTEM</small>
+    </span>
+  </div>
+
+  <form method="post" class="auth-card">
+    <input type="hidden" name="next" value="{{ next or '' }}">
+    <h1>Đăng nhập</h1>
+    <p class="auth-sub">Hệ thống giao việc, KPI và chấm công nội bộ BRICON.</p>
+
+    <div class="o-nhap">
+      <label for="ma_dinh_danh">Mã nhân viên</label>
+      <input id="ma_dinh_danh" name="ma_dinh_danh" type="text" autocomplete="username"
+             inputmode="text" autocapitalize="characters" required
+             value="{{ ma_dinh_danh or '' }}" placeholder="Nhập mã nhân viên">
+    </div>
+
+    <div class="o-nhap">
+      <label for="mat_khau">Mật khẩu</label>
+      <input id="mat_khau" name="mat_khau" type="password" autocomplete="current-password"
+             required placeholder="Nhập mật khẩu">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:8px;font-weight:500;margin-bottom:16px;color:#b9b9be">
+      <input type="checkbox" name="nho_toi" checked style="width:18px;height:18px;accent-color:var(--chinh)">
+      Ghi nhớ máy này 90 ngày
+    </label>
+
+    <button class="nut nut--rong" type="submit">Đăng nhập hệ thống</button>
+  </form>
+  <div class="auth-help">Quên mật khẩu? Liên hệ phòng IT để được cấp lại.</div>
+</div>
+{% endblock %}

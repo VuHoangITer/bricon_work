@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Log Zalo · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Log gửi Zalo</h1>
+  <p>200 lần gửi gần nhất. Dùng để kiểm khi nhân viên báo không nhận được tin.</p></div>
+</div>
+
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
+  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.info_ai') }}">Info AI</a>
+</div>
+
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Lúc</th><th>Chat id</th><th>Kết quả</th><th>Nội dung</th></tr></thead>
+    <tbody>
+    {% for l in ds %}
+      <tr>
+        <td>{{ l.tao_luc.strftime('%H:%M %d/%m') }}</td>
+        <td style="font-family:ui-monospace,monospace;font-size:.78rem">{{ l.chat_id or '—' }}</td>
+        <td><span class="nhan" data-tt="{{ 'hoan_thanh' if l.thanh_cong else 'lam_lai' }}">
+          {{ 'OK' if l.thanh_cong else 'Lỗi' }}</span></td>
+        <td style="white-space:normal;max-width:340px">
+          {{ (l.noi_dung or '')|truncate(90) }}
+          {% if not l.thanh_cong %}
+          <div style="color:var(--lam-lai);font-size:.76rem">{{ (l.phan_hoi or '')|truncate(120) }}</div>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có log.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

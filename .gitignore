@@ -1,0 +1,28 @@
+# Bí mật — TUYỆT ĐỐI không đưa lên git
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+
+# Database local (SQLite cũ, nếu còn dùng lúc dev)
+instance/
+*.db
+*.sqlite3
+
+# File người dùng tải lên — có dữ liệu thật của nhân viên, không đưa lên git
+uploads/
+
+# Log
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/

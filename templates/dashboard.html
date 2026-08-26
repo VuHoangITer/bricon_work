@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Hôm nay · BRICON WORK{% endblock %}
+
+{% macro the_viec(v, hien_nguoi=false) %}
+<a class="viec" data-tt="{{ v.trang_thai }}" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}">
+  <div class="viec-dau">
+    <span class="ma-viec">{{ v.ma }}</span>
+    <span class="nhan" data-tt="{{ v.trang_thai }}">{{ v.ten_trang_thai }}</span>
+  </div>
+  <div class="viec-ten">{{ v.tieu_de }}</div>
+  <div class="viec-phu">
+    <span class="uu-tien" data-muc="{{ v.do_uu_tien }}">{{ v.ten_uu_tien }}</span>
+    {% if hien_nguoi %}<span>{{ v.nguoi_nhan.ho_ten }}</span>{% endif %}
+    {% if v.han %}
+      <span class="{{ 'qua-han' if v.qua_han }}">{{ 'Quá hạn' if v.qua_han else 'Hạn' }} {{ v.han|gio }}</span>
+    {% else %}<span>Không đặt hạn</span>{% endif %}
+    {% if v.so_sao_cuoi is not none %}
+      {% if v.so_sao_cuoi == 0 %}
+        <span style="color:var(--lam-lai);font-weight:700">0★ Tự động đóng</span>
+      {% else %}
+        <span class="sao-hien">{{ '★' * v.so_sao_cuoi }}</span>
+      {% endif %}
+    {% endif %}
+    {% if v.lan_gui > 1 %}<span>Lần nộp {{ v.lan_gui }}</span>{% endif %}
+  </div>
+</a>
+{% endmacro %}
+
+{% block content %}
+<div class="chao-mung-the">
+  <div class="chao-mung-noi-dung">
+    <h1>{{ loi_chao }}, {{ current_user.ho_ten.split()[-1] }}!</h1>
+    <p class="chao-mung-phu">{{ loi_chao_phu }}</p>
+    <p class="chao-mung-meta">📅 {{ hom_nay_hien_thi }} &nbsp;·&nbsp; 📋 Tổng quan công việc và chấm công hôm nay.</p>
+  </div>
+  <div class="chao-mung-trang-tri" aria-hidden="true">
+    {% if chao_mung_icon == "mat_troi" %}
+    <svg class="chao-mung-mat-troi" viewBox="0 0 60 60">
+      <circle cx="30" cy="30" r="12" fill="#f2b134"/>
+      <g stroke="#f2b134" stroke-width="3" stroke-linecap="round">
+        <line x1="30" y1="4" x2="30" y2="12"/>
+        <line x1="30" y1="48" x2="30" y2="56"/>
+        <line x1="4" y1="30" x2="12" y2="30"/>
+        <line x1="48" y1="30" x2="56" y2="30"/>
+        <line x1="11" y1="11" x2="17" y2="17"/>
+        <line x1="43" y1="43" x2="49" y2="49"/>
+        <line x1="11" y1="49" x2="17" y2="43"/>
+        <line x1="43" y1="17" x2="49" y2="11"/>
+      </g>
+    </svg>
+    {% elif chao_mung_icon == "hoang_hon" %}
+    <svg class="chao-mung-mat-troi" viewBox="0 0 60 60">
+      <circle cx="30" cy="34" r="11" fill="#e8834a"/>
+      <line x1="8" y1="46" x2="52" y2="46" stroke="#e8834a" stroke-width="3" stroke-linecap="round"/>
+      <g stroke="#e8834a" stroke-width="3" stroke-linecap="round">
+        <line x1="30" y1="10" x2="30" y2="16"/>
+        <line x1="12" y1="18" x2="16" y2="22"/>
+        <line x1="48" y1="18" x2="44" y2="22"/>
+      </g>
+    </svg>
+    {% else %}
+    <svg class="chao-mung-mat-troi" viewBox="0 0 60 60">
+      <path d="M38 12a20 20 0 1 0 10 34 16 16 0 0 1-10-34z" fill="#c9cee0"/>
+      <circle cx="14" cy="16" r="1.6" fill="#c9cee0"/>
+      <circle cx="10" cy="28" r="1.1" fill="#c9cee0"/>
+      <circle cx="20" cy="10" r="1.1" fill="#c9cee0"/>
+    </svg>
+    {% endif %}
+    <svg class="chao-mung-chim" viewBox="0 0 130 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 22 Q10 12 16 22 Q22 12 28 22" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M46 12 Q52 2 58 12 Q64 2 70 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M78 28 Q84 18 90 28 Q96 18 102 28" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+{% set chieu_cao_tro_ly = "min(48vh,460px)" %}
+{% include "_tro_ly_widget.html" %}
+
+{% if not current_user.la_admin_sep %}
+<div class="the dashboard-hero">
+  <div class="card-title-row">
+    <div>
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:#8f8f94;font-weight:700">Chấm công hôm nay</div>
+      <div style="font-size:1.05rem;font-weight:700;margin-top:4px">
+        {% if cc_hom_nay and cc_hom_nay.gio_ra %}
+          Đã hoàn tất ngày làm việc
+        {% elif cc_hom_nay %}
+          Đã chấm vào lúc {{ cc_hom_nay.gio_vao.strftime('%H:%M') }}
+        {% else %}
+          Chưa chấm công vào
+        {% endif %}
+      </div>
+      <div class="subtle" style="font-size:.78rem;margin-top:4px">
+        {% if cc_hom_nay and cc_hom_nay.gio_ra %}
+          Vào {{ cc_hom_nay.gio_vao.strftime('%H:%M') }} · Ra {{ cc_hom_nay.gio_ra.strftime('%H:%M') }}
+        {% elif cc_hom_nay and cc_hom_nay.di_tre %}
+          Đi trễ {{ cc_hom_nay.so_phut_tre }} phút
+        {% else %}
+          Hệ thống sẽ ghi nhận vị trí và thời gian thực tế.
+        {% endif %}
+      </div>
+    </div>
+    <a class="nut nut--vang nut--nho" href="{{ url_for('attendance.trang_cham_cong') }}">
+      {% if cc_hom_nay and cc_hom_nay.gio_ra %}Xem chấm công{% elif cc_hom_nay %}Chấm công ra{% else %}Chấm công vào{% endif %}
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<div class="dashboard-grid">
+  <a href="{{ url_for('tasks.danh_sach') }}" class="stat-card stat-card--lienket">
+    <span class="stat-card-icon stat-card-icon--xanh">📅</span>
+    <div class="stat-card-noi-dung">
+      <div class="stat-card-label">Việc hằng ngày</div>
+      <div class="stat-card-value">{{ viec_hom_nay_cong_ty if current_user.la_admin_sep else cua_toi|length }}</div>
+      <div class="stat-card-note">{{ 'hạn hôm nay · toàn công ty' if current_user.la_admin_sep else 'hạn hôm nay' }}</div>
+    </div>
+    <span class="stat-card-mui-ten">›</span>
+  </a>
+  {% if current_user.la_quan_ly %}
+  <a href="{{ url_for('tasks.danh_sach', trang_thai='cho_duyet') }}" class="stat-card stat-card--lienket">
+    <span class="stat-card-icon stat-card-icon--luc">✓</span>
+    <div class="stat-card-noi-dung">
+      <div class="stat-card-label">Chờ đánh giá</div>
+      <div class="stat-card-value">{{ cho_toi_duyet|length }}</div>
+      <div class="stat-card-note">đối chứng cần duyệt</div>
+    </div>
+    <span class="stat-card-mui-ten">›</span>
+  </a>
+  {% endif %}
+  {% if not current_user.la_admin_sep %}
+  <a href="{{ url_for('attendance.trang_cham_cong') }}" class="stat-card stat-card--lienket">
+    <span class="stat-card-icon stat-card-icon--cam">◷</span>
+    <div class="stat-card-noi-dung">
+      <div class="stat-card-label">Trạng thái công</div>
+      <div class="stat-card-value" style="font-size:1.1rem">
+        {% if cc_hom_nay and cc_hom_nay.gio_ra %}Đã xong{% elif cc_hom_nay %}Đang làm{% else %}Chưa vào{% endif %}
+      </div>
+      <div class="stat-card-note">hôm nay</div>
+    </div>
+    <span class="stat-card-mui-ten">›</span>
+  </a>
+  {% endif %}
+  <a href="{{ url_for('auth.doi_mat_khau') }}" class="stat-card stat-card--lienket">
+    <span class="stat-card-icon stat-card-icon--tim">☺</span>
+    <div class="stat-card-noi-dung">
+      <div class="stat-card-label">Tài khoản</div>
+      <div class="stat-card-value" style="font-size:1.1rem">{{ current_user.ho_ten }}</div>
+      <div class="stat-card-note">đang đăng nhập</div>
+    </div>
+    <span class="stat-card-mui-ten">›</span>
+  </a>
+</div>
+
+{% if current_user.la_quan_ly %}
+<div class="tieu-khu">
+  <h2>Chờ bạn đánh giá</h2>
+  <span class="dem">{{ cho_toi_duyet|length }}</span>
+</div>
+{% if cho_toi_duyet %}
+  {% for v in cho_toi_duyet %}{{ the_viec(v, true) }}{% endfor %}
+{% else %}
+  <div class="trong"><strong>Không có gì chờ duyệt</strong>Khi nhân viên gửi đối chứng, công việc sẽ xuất hiện tại đây.</div>
+{% endif %}
+{% endif %}
+
+{% if not current_user.la_admin_sep %}
+<div class="tieu-khu">
+  <h2>Việc hằng ngày</h2>
+  <span class="dem">{{ cua_toi|length }}</span>
+</div>
+{% if cua_toi %}
+<div class="luoi-uu-tien">
+  {% for ma, ten, ds in cua_toi_theo_cot %}
+  <div class="cot-uu-tien">
+    <div class="cot-uu-tien-dau">
+      <span class="uu-tien" data-muc="{{ ma }}">{{ ten }}</span>
+      <span class="dem">{{ ds|length }}</span>
+    </div>
+    {% for v in ds %}{{ the_viec(v) }}{% endfor %}
+    {% if not ds %}<div class="trong" style="padding:18px;font-size:.82rem">Không có việc</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+  <div class="trong"><strong>Hôm nay chưa có việc nào tới hạn</strong>Việc có hạn hôm nay sẽ hiện ở đây.</div>
+{% endif %}
+{% endif %}
+{% endblock %}

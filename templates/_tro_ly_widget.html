@@ -1,0 +1,165 @@
+{% if current_user.la_admin_sep %}
+  {% set goi_y_tro_ly = [
+    ("📄", "Có bao nhiêu việc đang chờ duyệt?"),
+    ("🕐", "Có việc nào đang quá hạn không?"),
+    ("👥", "Làm sao để giao việc mới?"),
+    ("📊", "Làm sao để xem bảng công cả công ty?"),
+  ] %}
+{% elif current_user.la_quan_ly %}
+  {% set goi_y_tro_ly = [
+    ("📋", "Hôm nay tôi có việc gì?"),
+    ("✅", "Có việc nào đang chờ tôi duyệt không?"),
+    ("👥", "Làm sao để giao việc mới?"),
+    ("🌴", "Làm sao để xin nghỉ phép?"),
+  ] %}
+{% else %}
+  {% set goi_y_tro_ly = [
+    ("📋", "Hôm nay tôi có việc gì?"),
+    ("📅", "Ngày mai tôi có việc gì?"),
+    ("🕐", "Tôi đã chấm công hôm nay chưa?"),
+    ("🌴", "Làm sao để xin nghỉ phép?"),
+  ] %}
+{% endif %}
+
+<div class="tro-ly-the">
+  <div class="tro-ly-dau">
+    <div class="tro-ly-avatar">🤖</div>
+    <div class="tro-ly-tieu-de">
+      <strong>Trợ lý AI</strong>
+      <span id="tro-ly-loi-chao">Chào mừng bạn trở lại! Tôi có thể hỗ trợ bạn với các công việc và thông tin nhanh chóng.</span>
+    </div>
+    <span class="tro-ly-lap-lanh" aria-hidden="true">✦</span>
+  </div>
+
+  <div id="tro-ly-goi-y" class="tro-ly-goi-y-hang">
+    {% for icon, goi_y in goi_y_tro_ly %}
+    <button type="button" class="tro-ly-goi-y-nut" data-cau-hoi="{{ goi_y }}"><span>{{ icon }}</span>{{ goi_y }}</button>
+    {% endfor %}
+  </div>
+
+  <div id="tro-ly-khung" class="tro-ly-khung" style="max-height:{{ chieu_cao_tro_ly|default('min(48vh,420px)') }}" hidden></div>
+
+  <form id="form-tro-ly" class="tro-ly-form">
+    <span class="tro-ly-form-icon" aria-hidden="true">✦</span>
+    <input type="text" id="tro-ly-input" placeholder="Hôm nay tôi có thể giúp gì cho bạn?" autocomplete="off">
+    <button class="nut nut--vang nut--nho" type="submit" id="tro-ly-gui">➤ Gửi</button>
+  </form>
+</div>
+
+<script>
+(function () {
+  const loiChao = document.getElementById('tro-ly-loi-chao');
+  if (loiChao) {
+    const noiDungDay = loiChao.textContent;
+    loiChao.textContent = '';
+    loiChao.classList.add('tro-ly-dang-go');
+    let i = 0;
+    (function goTung() {
+      loiChao.textContent = noiDungDay.slice(0, i);
+      i++;
+      if (i <= noiDungDay.length) {
+        setTimeout(goTung, 22);
+      } else {
+        loiChao.classList.remove('tro-ly-dang-go');
+      }
+    })();
+  }
+
+  const khung = document.getElementById('tro-ly-khung');
+  const form = document.getElementById('form-tro-ly');
+  const input = document.getElementById('tro-ly-input');
+  const nutGui = document.getElementById('tro-ly-gui');
+  const goiYKhoi = document.getElementById('tro-ly-goi-y');
+  let lichSu = [];
+
+  function themTin(vaiTro, noiDung, duongDan, nhanNut, media) {
+    khung.hidden = false;
+    const o = document.createElement('div');
+    o.className = 'tro-ly-tin tro-ly-tin--' + (vaiTro === 'user' ? 'nguoi' : 'ai');
+    o.textContent = noiDung;
+    khung.appendChild(o);
+
+    if (media) {
+      const duoi = media.split('?')[0].split('.').pop().toLowerCase();
+      let phanTu = null;
+      if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(duoi)) {
+        phanTu = document.createElement('img');
+        phanTu.src = media;
+        phanTu.style.cssText = 'max-width:240px;border-radius:10px;display:block';
+      } else if (['mp4', 'webm', 'mov'].includes(duoi)) {
+        phanTu = document.createElement('video');
+        phanTu.src = media;
+        phanTu.controls = true;
+        phanTu.style.cssText = 'max-width:240px;border-radius:10px;display:block';
+      } else if (['mp3', 'wav', 'm4a', 'ogg'].includes(duoi)) {
+        phanTu = document.createElement('audio');
+        phanTu.src = media;
+        phanTu.controls = true;
+      }
+      if (phanTu) {
+        phanTu.style.alignSelf = 'flex-start';
+        khung.appendChild(phanTu);
+      }
+    }
+
+    if (duongDan) {
+      const a = document.createElement('a');
+      a.href = duongDan;
+      a.className = 'nut nut--vang nut--nho';
+      a.style.cssText = 'align-self:flex-start';
+      a.textContent = nhanNut || 'Xem ngay';
+      khung.appendChild(a);
+    }
+    khung.scrollTop = khung.scrollHeight;
+    return o;
+  }
+
+  async function guiCauHoi(tin) {
+    themTin('user', tin);
+    lichSu.push({ vai_tro: 'user', noi_dung: tin });
+    input.value = '';
+    nutGui.disabled = true;
+    const dangGo = themTin('ai', 'Đang trả lời…');
+
+    try {
+      const r = await fetch('{{ url_for("tro_ly.hoi") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tin_nhan: tin, lich_su: lichSu }),
+      });
+      const d = await r.json();
+      dangGo.remove();
+      if (!d.ok) {
+        themTin('ai', 'Lỗi: ' + d.loi);
+        return;
+      }
+      themTin('ai', d.tra_loi, d.duong_dan, d.nhan_nut, d.media);
+      lichSu.push({ vai_tro: 'assistant', noi_dung: d.tra_loi });
+    } catch (err) {
+      dangGo.remove();
+      themTin('ai', 'Không kết nối được máy chủ.');
+    } finally {
+      nutGui.disabled = false;
+      input.focus();
+    }
+  }
+
+  if (goiYKhoi) {
+    goiYKhoi.querySelectorAll('.tro-ly-goi-y-nut').forEach((nut) => {
+      nut.addEventListener('click', () => {
+        const cauHoi = nut.dataset.cauHoi || nut.textContent.trim();
+        goiYKhoi.remove();
+        guiCauHoi(cauHoi);
+      });
+    });
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const tin = input.value.trim();
+    if (!tin) return;
+    if (goiYKhoi) goiYKhoi.remove();
+    guiCauHoi(tin);
+  });
+})();
+</script>

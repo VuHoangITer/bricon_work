@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Info AI · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Info AI</h1>
+    <p>Nạp thông tin cho Trợ lý AI trả lời đúng — thông tin chung áp dụng cho mọi người,
+       thông tin chức vụ chỉ dùng riêng cho đúng người thuộc chức vụ đó, không lẫn nhau.</p>
+  </div>
+</div>
+
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
+  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.info_ai') }}">Info AI</a>
+</div>
+
+<div class="the">
+  <h3>Thông tin chung công ty</h3>
+  <p style="color:var(--muc-mo);font-size:.85rem">Chế độ, chính sách, lương chung... áp dụng cho mọi nhân viên khi hỏi Trợ lý AI.</p>
+  <form method="post" action="{{ url_for('admin.luu_thong_tin_chung') }}">
+    <div class="o-nhap">
+      <textarea name="thong_tin_chung" rows="8" placeholder="VD: Công ty làm việc từ 8h05 tới 17h30, nghỉ trưa 12h-13h. Lương thử việc 85% lương chính thức trong 2 tháng đầu. Thưởng Tết theo thâm niên...">{{ thong_tin_chung }}</textarea>
+    </div>
+    <button class="nut nut--rong" type="submit">Lưu thông tin chung</button>
+  </form>
+</div>
+
+<details class="the the--them" open>
+  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm chức vụ</summary>
+  <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data" style="margin-top:14px">
+    <div class="o-nhap"><label>Tên chức vụ</label>
+      <input name="ten" required placeholder="VD: Nhân viên kinh doanh"></div>
+    <div class="o-nhap"><label>Mô tả (công việc, lương, chế độ riêng của chức vụ này)</label>
+      <textarea name="mo_ta" rows="6" placeholder="VD: Lương cứng 6 triệu + hoa hồng 2% doanh số. Nhiệm vụ: tìm khách hàng mới, chăm sóc đại lý..."></textarea></div>
+    <div class="o-nhap"><label>Ảnh minh hoạ (lộ trình thăng tiến, sơ đồ...) — không bắt buộc</label>
+      <input type="file" name="anh" accept="image/*"></div>
+    <button class="nut nut--rong" type="submit">Lưu chức vụ</button>
+  </form>
+</details>
+
+<div class="tieu-khu"><h2>Danh sách chức vụ</h2><span class="dem">{{ ds_chuc_vu|length }}</span></div>
+
+{% for cv in ds_chuc_vu %}
+<details class="the">
+  <summary style="cursor:pointer"><strong>{{ cv.ten }}</strong></summary>
+  <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data" style="margin-top:14px">
+    <input type="hidden" name="id" value="{{ cv.id }}">
+    <div class="o-nhap"><label>Tên chức vụ</label><input name="ten" value="{{ cv.ten }}" required></div>
+    <div class="o-nhap"><label>Mô tả</label><textarea name="mo_ta" rows="6">{{ cv.mo_ta or '' }}</textarea></div>
+    {% if cv.anh %}
+    <div class="o-nhap"><label>Ảnh hiện tại</label>
+      <img src="{{ url_for('media', duong_dan=cv.anh) }}" alt="{{ cv.ten }}" style="max-width:260px;border-radius:var(--bk-n);display:block"></div>
+    {% endif %}
+    <div class="o-nhap"><label>{{ 'Đổi ảnh khác' if cv.anh else 'Ảnh minh hoạ' }} (không bắt buộc)</label>
+      <input type="file" name="anh" accept="image/*"></div>
+    <button class="nut nut--nho" type="submit">Lưu</button>
+  </form>
+  <form method="post" action="{{ url_for('admin.xoa_chuc_vu', cvid=cv.id) }}" style="margin-top:10px"
+        onsubmit="return confirm('Xoá chức vụ {{ cv.ten }}?')">
+    <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá chức vụ</button>
+  </form>
+</details>
+{% else %}
+<div class="trong"><strong>Chưa có chức vụ nào</strong>Thêm chức vụ đầu tiên ở khối bên trên.</div>
+{% endfor %}
+{% endblock %}

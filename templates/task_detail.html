@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}{{ viec.ma }} · {{ viec.tieu_de }}{% endblock %}
+
+{% macro hien_tep(d) %}
+  {% set src = url_for('media', duong_dan=d.duong_dan) %}
+  {% if d.loai == LoaiDinhKem.ANH %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
+      <img src="{{ src }}" alt="{{ d.ten_goc }}" loading="lazy"></a>
+  {% elif d.loai == LoaiDinhKem.VIDEO %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
+      <video src="{{ src }}" preload="metadata" muted playsinline></video></a>
+  {% elif d.loai == LoaiDinhKem.GHI_AM %}
+    <div class="tep tep-am" style="grid-column:1/-1">
+      <audio controls preload="none" src="{{ src }}"></audio></div>
+  {% else %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
+      <span class="tep-khac">📄<span>{{ d.ten_goc|truncate(24) }}</span>
+        <span>{{ d.kich_thuoc_dep }}</span></span></a>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div style="margin-bottom:4px">
+  <a href="{{ url_for('tasks.danh_sach') }}" style="font-size:.85rem">‹ Danh sách công việc</a>
+</div>
+
+<div class="the" style="border-left:5px solid var(--{{ viec.trang_thai|replace('_','-') }})">
+  <div class="viec-dau">
+    <span class="ma-viec">{{ viec.ma }}</span>
+    <span class="nhan" data-tt="{{ viec.trang_thai }}">{{ viec.ten_trang_thai }}</span>
+  </div>
+  <h1 style="font-size:1.2rem">{{ viec.tieu_de }}</h1>
+  {% if viec.mo_ta %}
+  <p style="white-space:pre-wrap;color:var(--muc-mo);font-size:.9rem">{{ viec.mo_ta }}</p>
+  {% endif %}
+
+  <div class="dong-tt"><span>Mức độ</span>
+    <span><span class="uu-tien" data-muc="{{ viec.do_uu_tien }}">{{ viec.ten_uu_tien }}</span></span></div>
+  <div class="dong-tt"><span>Người giao</span><span>{{ viec.nguoi_giao.ho_ten }}</span></div>
+  <div class="dong-tt"><span>Người thực hiện</span><span>{{ viec.nguoi_nhan.ho_ten }}</span></div>
+  <div class="dong-tt"><span>Giao lúc</span><span>{{ viec.tao_luc|gio }}</span></div>
+  <div class="dong-tt"><span>Hạn hoàn thành</span>
+    <span {% if viec.qua_han %}style="color:var(--lam-lai)"{% endif %}>
+      {{ viec.han|gio if viec.han else 'Không đặt hạn' }}
+      {%- if viec.qua_han %} · quá hạn{% endif %}</span></div>
+  {% if viec.hoan_thanh_luc %}
+  <div class="dong-tt"><span>Hoàn thành</span><span>{{ viec.hoan_thanh_luc|gio }}</span></div>
+  {% endif %}
+  {% if viec.so_sao_cuoi is not none %}
+  <div class="dong-tt"><span>Đánh giá</span>
+    {% if viec.so_sao_cuoi == 0 %}
+    <span style="color:var(--lam-lai);font-weight:700">0★ — Hệ thống tự động đóng do quá hạn</span>
+    {% else %}
+    <span class="sao-hien">{{ '★' * viec.so_sao_cuoi }}{{ '☆' * (5 - viec.so_sao_cuoi) }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{# ------------------------------------------------------ dòng thời gian #}
+{% set co_lich_su = viec.dinh_kem or viec.danh_gia %}
+{% if co_lich_su %}
+<div class="tieu-khu"><h2>Đối chứng &amp; đánh giá</h2>
+  {% if viec.lan_gui > 1 %}<span class="dem">{{ viec.lan_gui }} lần nộp</span>{% endif %}
+</div>
+<div class="the">
+  {% for lan in viec.cac_lan %}
+    {% set teps = viec.dinh_kem_theo_lan(lan) %}
+    {% set dg = viec.danh_gia_theo_lan(lan) %}
+    {% if teps or dg or lan == viec.lan_gui %}
+    <div class="vong" data-kq="{{ dg.ket_qua if dg else '' }}">
+      <span class="vong-so"></span>
+      <div class="vong-nhan">Lần nộp {{ lan }}</div>
+
+      {% if teps %}
+        <div class="luoi-tep" style="margin-bottom:10px">
+          {% for d in teps %}{{ hien_tep(d) }}{% endfor %}
+        </div>
+      {% elif lan < viec.lan_gui or viec.trang_thai == TrangThai.CHO_DUYET %}
+        <p style="font-size:.85rem;color:var(--muc-mo)">Không có tệp đính kèm.</p>
+      {% else %}
+        <p style="font-size:.85rem;color:var(--muc-mo)">Chưa gửi đối chứng.</p>
+      {% endif %}
+
+      {% if dg %}
+        <div style="background:var(--nen);border-radius:var(--bk-n);padding:10px">
+          <div style="font-size:.82rem;font-weight:600;margin-bottom:2px">
+            {% if dg.ket_qua == 'dat' %}
+              <span class="sao-hien">{{ '★' * dg.so_sao }}{{ '☆' * (5 - dg.so_sao) }}</span>
+              Đạt — {{ dg.nguoi_danh_gia.ho_ten }}
+            {% else %}
+              <span style="color:var(--lam-lai)">Yêu cầu làm lại</span> — {{ dg.nguoi_danh_gia.ho_ten }}
+            {% endif %}
+          </div>
+          {% if dg.ghi_chu %}
+          <div style="font-size:.88rem;white-space:pre-wrap">{{ dg.ghi_chu }}</div>{% endif %}
+          <div style="font-size:.74rem;color:var(--muc-nhat);margin-top:4px">{{ dg.tao_luc|gio }}</div>
+        </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+{# --------------------------------------------- nhân viên gửi đối chứng #}
+{% if la_nguoi_nhan and viec.trang_thai in TrangThai.CHUA_XONG %}
+<div class="tieu-khu"><h2>Gửi đối chứng</h2></div>
+<form class="the" method="post" enctype="multipart/form-data"
+      action="{{ url_for('tasks.gui_doi_chung', viec_id=viec.id) }}" id="form-doi-chung">
+
+  {% if viec.trang_thai == TrangThai.LAM_LAI %}
+  <div class="canh-bao-nho" style="margin-bottom:12px">
+    Việc này bị trả về. Đọc lý do ở phần đánh giá phía trên rồi nộp lại.
+  </div>
+  {% endif %}
+
+  <div class="o-nhap">
+    <label>Ảnh, video, tệp</label>
+    <input type="file" name="tep" id="chon-tep" multiple
+           accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip">
+    <div class="goi-y">Chọn nhiều tệp cùng lúc. Tối đa
+      {{ config.MAX_UPLOAD_MB }}MB cho cả lần gửi.</div>
+    <div id="xem-truoc" class="luoi-tep" style="margin-top:10px"></div>
+  </div>
+
+  <div class="o-nhap">
+    <label>Ghi âm tại chỗ</label>
+    <div class="hang-nut">
+      <button type="button" class="nut nut--phu nut--nho" id="nut-ghi-am">● Bắt đầu ghi âm</button>
+      <span id="dong-ho-ghi" style="align-self:center;font-size:.85rem;color:var(--muc-mo)"></span>
+    </div>
+    <div id="ds-ghi-am" style="margin-top:8px"></div>
+    <div class="goi-y">Bản ghi được đính kèm cùng lúc khi bấm Gửi.</div>
+  </div>
+
+  <div class="o-nhap">
+    <label for="ghi_chu">Mô tả kết quả</label>
+    <textarea id="ghi_chu" name="ghi_chu" placeholder="Đã làm gì, ở đâu, kết quả ra sao…"></textarea>
+  </div>
+
+  <button class="nut nut--rong" type="submit" id="nut-gui">Gửi đối chứng cho sếp</button>
+  <div class="goi-y" style="text-align:center">Gửi xong không sửa được, nhưng nếu chưa đạt sếp sẽ trả về để làm lại.</div>
+</form>
+{% endif %}
+
+{# ------------------------------------------------------- sếp đánh giá #}
+{% if duoc_duyet and viec.trang_thai == TrangThai.CHO_DUYET %}
+<div class="tieu-khu"><h2>Đánh giá kết quả</h2></div>
+<form class="the" method="post" action="{{ url_for('tasks.danh_gia', viec_id=viec.id) }}">
+  <div class="o-nhap">
+    <label>Chấm sao (chỉ dùng khi Đạt)</label>
+    <div class="chon-sao">
+      {% for i in [5,4,3,2,1] %}
+      <input type="radio" id="sao{{ i }}" name="so_sao" value="{{ i }}">
+      <label for="sao{{ i }}" title="{{ i }} sao">★</label>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="o-nhap">
+    <label for="dg_ghi_chu">Nhận xét / góp ý</label>
+    <textarea id="dg_ghi_chu" name="ghi_chu"
+              placeholder="Nếu yêu cầu làm lại thì bắt buộc nêu rõ cần sửa gì."></textarea>
+  </div>
+  <div class="hang-nut">
+    <button class="nut nut--xanh" type="submit" name="ket_qua" value="dat">Duyệt đạt</button>
+    <button class="nut nut--do" type="submit" name="ket_qua" value="lam_lai">Yêu cầu làm lại</button>
+  </div>
+  <div class="goi-y">Cả hai lựa chọn đều gửi thông báo Zalo ngay cho {{ viec.nguoi_nhan.ho_ten }}.</div>
+</form>
+{% endif %}
+
+{% if duoc_duyet and viec.trang_thai in TrangThai.DANG_MO %}
+<form method="post" action="{{ url_for('tasks.huy_viec', viec_id=viec.id) }}"
+      onsubmit="return confirm('Huỷ công việc {{ viec.ma }}?')">
+  <button class="nut nut--phu nut--nho" type="submit">Huỷ công việc này</button>
+</form>
+{% endif %}
+
+{% if current_user.la_admin_sep %}
+<div class="hang-nut" style="margin-top:8px">
+  {% if viec.trang_thai == TrangThai.HOAN_THANH and viec.so_sao_cuoi == 0 %}
+  <form method="post" action="{{ url_for('tasks.mo_lai_viec', viec_id=viec.id) }}">
+    <button class="nut nut--phu nut--nho" type="submit">Mở lại việc (hệ thống đã tự đóng)</button>
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('tasks.xoa_viec', viec_id=viec.id) }}"
+        onsubmit="return confirm('Xoá vĩnh viễn {{ viec.ma }} — {{ viec.tieu_de }}? Không thể khôi phục, kể cả tệp đính kèm.')">
+    <button class="nut nut--do nut--nho" type="submit">Xoá công việc</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  khoiTaoDoiChung({{ config.MAX_UPLOAD_MB }});
+</script>
+{% endblock %}

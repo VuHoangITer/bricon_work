@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Giao việc mới · BRICON WORK{% endblock %}
+{% block content %}
+<div class="page-head"><div class="page-head-copy"><h1>Giao việc mới</h1><p>Mỗi người được chọn sẽ nhận một công việc riêng và một tin nhắn Zalo kèm đường dẫn.</p></div></div>
+<form class="the" method="post" id="form-giao-viec">
+  <div class="o-nhap"><label for="tieu_de">Tên công việc</label><input id="tieu_de" name="tieu_de" type="text" required maxlength="255" value="{{ tieu_de or '' }}" placeholder="VD: Kiểm kê kho keo dán gạch chi nhánh Bình Tân"></div>
+  <div class="o-nhap"><label for="mo_ta">Yêu cầu chi tiết</label><textarea id="mo_ta" name="mo_ta" placeholder="Làm gì, ở đâu, cần nộp lại đối chứng gì…">{{ mo_ta or '' }}</textarea>
+    <div class="hang-nut" style="margin-top:8px">
+      <button type="button" class="nut nut--phu nut--nho" id="nut-ai-goi-y">✨ Gợi ý bằng AI</button>
+      <button type="button" class="nut nut--phu nut--nho" id="nut-ai-tom-tat">✨ Tóm tắt bằng AI</button>
+      <span id="ai-trang-thai" style="font-size:.78rem;color:var(--muc-mo);align-self:center"></span>
+    </div>
+  </div>
+  <div class="o-nhap"><label>Giao cho</label><div class="chon-nhieu">
+    {% for n in nhan_vien %}
+    <label><input type="checkbox" name="nguoi_nhan_id" value="{{ n.id }}"><span>{{ n.ho_ten }} <span style="color:var(--muc-nhat);font-size:.76rem">· {{ n.ma_dinh_danh }}{% if not n.zalo_group_id %} · chưa có Zalo{% endif %}</span></span></label>
+    {% endfor %}
+  </div></div>
+
+  <div class="o-nhap">
+    <label for="do_uu_tien">Loại công việc</label>
+    <select id="do_uu_tien" name="do_uu_tien">
+      {% for ma, ten in DoUuTien.NHAN.items() %}
+      <option value="{{ ma }}" {{ 'selected' if (uu_tien or 'thuong') == ma }}>{{ ten }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="o-nhap" id="khoi-han-thuong">
+    <label for="han">Hạn hoàn thành</label>
+    <input id="han" name="han" type="datetime-local" value="{{ han or '' }}">
+  </div>
+
+  <div class="o-nhap" id="khoi-han-hang-ngay" style="display:none">
+    <label>Áp dụng cho các ngày</label>
+    <div class="hang" style="margin-bottom:10px">
+      <input type="month" id="thang-hang-ngay" value="{{ thang_hang_ngay }}">
+      <input type="time" id="gio-hang-ngay" name="gio_hang_ngay" value="{{ gio_hang_ngay or '08:00' }}">
+    </div>
+    <div id="luoi-ngay" class="luoi-ngay"></div>
+    <div class="goi-y">Bấm chọn nhiều ngày trong tháng — mỗi ngày được chọn sẽ tạo 1 công việc riêng, dùng chung giờ hạn ở trên. Đổi tháng để chọn thêm ngày ở tháng khác, các ngày đã chọn trước đó vẫn được giữ.</div>
+  </div>
+
+  <div class="hang-nut"><a class="nut nut--phu" href="{{ url_for('tasks.danh_sach') }}">Huỷ</a><button class="nut nut--vang" type="submit">Giao việc &amp; gửi Zalo</button></div>
+</form>
+
+<div id="khoi-viec-them-container"></div>
+<button type="button" class="nut nut--phu" id="nut-them-khoi" style="margin-top:6px" form="form-giao-viec" formnovalidate>+ Thêm việc khác</button>
+<p class="goi-y" style="margin-top:8px">Mỗi khối thêm là 1 công việc riêng (tên/nội dung/người nhận khác nhau), cùng gửi Zalo trong 1 lần bấm. Việc thêm không hỗ trợ lịch nhiều ngày kiểu "Hằng ngày" — cần loại đó thì tạo riêng.</p>
+
+<template id="mau-khoi-viec">
+  <div class="khoi-viec-them the" style="margin-top:16px">
+    <div class="hang-nut" style="justify-content:space-between;margin-bottom:10px">
+      <strong style="color:var(--chinh-dam)" class="nhan-so-thu-tu">Việc thêm</strong>
+      <button type="button" class="nut nut--phu nut--nho nut-bo-khoi" style="color:var(--lam-lai)">🗑 Bỏ việc này</button>
+    </div>
+    <div class="o-nhap"><label>Tên công việc</label>
+      <input class="o-tieu-de" type="text" maxlength="255" placeholder="VD: Kiểm tra kho" form="form-giao-viec"></div>
+    <div class="o-nhap"><label>Yêu cầu chi tiết</label>
+      <textarea class="o-mo-ta" placeholder="Làm gì, ở đâu, cần nộp lại đối chứng gì…" form="form-giao-viec"></textarea>
+      <div class="hang-nut" style="margin-top:8px">
+        <button type="button" class="nut nut--phu nut--nho nut-ai-goi-y">✨ Gợi ý bằng AI</button>
+        <button type="button" class="nut nut--phu nut--nho nut-ai-tom-tat">✨ Tóm tắt bằng AI</button>
+        <span class="ai-trang-thai" style="font-size:.78rem;color:var(--muc-mo);align-self:center"></span>
+      </div>
+    </div>
+    <div class="o-nhap"><label>Giao cho</label><div class="chon-nhieu o-nguoi-nhan">
+      {% for n in nhan_vien %}
+      <label><input type="checkbox" value="{{ n.id }}" form="form-giao-viec"><span>{{ n.ho_ten }} <span style="color:var(--muc-nhat);font-size:.76rem">· {{ n.ma_dinh_danh }}{% if not n.zalo_group_id %} · chưa có Zalo{% endif %}</span></span></label>
+      {% endfor %}
+    </div></div>
+    <div class="o-nhap"><label>Loại công việc</label>
+      <select class="o-uu-tien" form="form-giao-viec">
+        <option value="thuong">Nhiệm vụ chính</option>
+        <option value="cao">Cần gấp</option>
+      </select>
+    </div>
+    <div class="o-nhap"><label>Hạn hoàn thành</label>
+      <input class="o-han" type="datetime-local" form="form-giao-viec"></div>
+  </div>
+</template>
+
+<script id="ngay-da-chon-du-lieu" type="application/json">{{ (ngay_da_chon or [])|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const chonUuTien = document.getElementById('do_uu_tien');
+  const khoiThuong = document.getElementById('khoi-han-thuong');
+  const khoiHangNgay = document.getElementById('khoi-han-hang-ngay');
+  const thangInput = document.getElementById('thang-hang-ngay');
+  const luoiNgay = document.getElementById('luoi-ngay');
+  const duLieuCu = JSON.parse(document.getElementById('ngay-da-chon-du-lieu').textContent || '[]');
+  const ngayDaChon = new Set(duLieuCu);
+
+  function soNgayTrongThang(nam, thang) {
+    return new Date(nam, thang, 0).getDate();
+  }
+
+  function veLuoiNgay() {
+    luoiNgay.innerHTML = '';
+    const [nam, thang] = (thangInput.value || '').split('-').map(Number);
+    if (!nam || !thang) return;
+    const soNgay = soNgayTrongThang(nam, thang);
+    for (let d = 1; d <= soNgay; d++) {
+      const iso = `${nam}-${String(thang).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const nut = document.createElement('button');
+      nut.type = 'button';
+      nut.className = 'ngay-o' + (ngayDaChon.has(iso) ? ' ngay-o--chon' : '');
+      nut.textContent = d;
+      nut.addEventListener('click', () => {
+        nut.classList.toggle('ngay-o--chon');
+        if (nut.classList.contains('ngay-o--chon')) ngayDaChon.add(iso);
+        else ngayDaChon.delete(iso);
+        capNhatInputAn();
+      });
+      luoiNgay.appendChild(nut);
+    }
+  }
+
+  function capNhatInputAn() {
+    khoiHangNgay.querySelectorAll('input[name=ngay_hang_ngay]').forEach((o) => o.remove());
+    ngayDaChon.forEach((iso) => {
+      const o = document.createElement('input');
+      o.type = 'hidden';
+      o.name = 'ngay_hang_ngay';
+      o.value = iso;
+      khoiHangNgay.appendChild(o);
+    });
+  }
+
+  function capNhatHienThi() {
+    const hangNgay = chonUuTien.value === 'thap';
+    khoiThuong.style.display = hangNgay ? 'none' : '';
+    khoiHangNgay.style.display = hangNgay ? '' : 'none';
+  }
+
+  chonUuTien.addEventListener('change', capNhatHienThi);
+  thangInput.addEventListener('change', veLuoiNgay);
+
+  veLuoiNgay();
+  capNhatInputAn();
+  capNhatHienThi();
+
+  /* ---- Gợi ý / tóm tắt bằng AI ---- */
+  const tieuDe = document.getElementById('tieu_de');
+  const moTa = document.getElementById('mo_ta');
+  const aiTrangThai = document.getElementById('ai-trang-thai');
+  const nutAiGoiY = document.getElementById('nut-ai-goi-y');
+  const nutAiTomTat = document.getElementById('nut-ai-tom-tat');
+
+  async function goiAI(url, du_lieu, nut) {
+    nut.disabled = true;
+    aiTrangThai.textContent = 'AI đang xử lý…';
+    try {
+      const fd = new FormData();
+      Object.entries(du_lieu).forEach(([k, v]) => fd.append(k, v));
+      const r = await fetch(url, { method: 'POST', body: fd });
+      const d = await r.json();
+      if (!d.ok) {
+        aiTrangThai.textContent = 'Lỗi: ' + d.loi;
+        return;
+      }
+      moTa.value = d.mo_ta;
+      aiTrangThai.textContent = 'Đã cập nhật.';
+    } catch (e) {
+      aiTrangThai.textContent = 'Không kết nối được máy chủ.';
+    } finally {
+      nut.disabled = false;
+    }
+  }
+
+  nutAiGoiY.addEventListener('click', () => {
+    if (!tieuDe.value.trim()) {
+      aiTrangThai.textContent = 'Nhập tên công việc trước đã.';
+      return;
+    }
+    goiAI('{{ url_for("tasks.ai_goi_y") }}', { tieu_de: tieuDe.value }, nutAiGoiY);
+  });
+
+  nutAiTomTat.addEventListener('click', () => {
+    if (!moTa.value.trim()) {
+      aiTrangThai.textContent = 'Chưa có nội dung để tóm tắt.';
+      return;
+    }
+    goiAI('{{ url_for("tasks.ai_tom_tat") }}', { mo_ta: moTa.value }, nutAiTomTat);
+  });
+
+  /* ---- Thêm nhiều việc khác nhau trong cùng 1 lần giao ---- */
+  const mauKhoiViec = document.getElementById('mau-khoi-viec');
+  const khoiThemContainer = document.getElementById('khoi-viec-them-container');
+  const nutThemKhoi = document.getElementById('nut-them-khoi');
+  let demKhoiThem = 0;
+
+  function ganLaiNhanSoThuTu() {
+    khoiThemContainer.querySelectorAll('.khoi-viec-them').forEach((khoi, i) => {
+      khoi.querySelector('.nhan-so-thu-tu').textContent = `Việc #${i + 2}`;
+    });
+  }
+
+  function noiAiChoKhoi(khoi) {
+    const tieuDeI = khoi.querySelector('.o-tieu-de');
+    const moTaI = khoi.querySelector('.o-mo-ta');
+    const trangThaiI = khoi.querySelector('.ai-trang-thai');
+    const nutGoiYI = khoi.querySelector('.nut-ai-goi-y');
+    const nutTomTatI = khoi.querySelector('.nut-ai-tom-tat');
+
+    async function goi(url, du_lieu, nut) {
+      nut.disabled = true;
+      trangThaiI.textContent = 'AI đang xử lý…';
+      try {
+        const fd = new FormData();
+        Object.entries(du_lieu).forEach(([k, v]) => fd.append(k, v));
+        const r = await fetch(url, { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!d.ok) { trangThaiI.textContent = 'Lỗi: ' + d.loi; return; }
+        moTaI.value = d.mo_ta;
+        trangThaiI.textContent = 'Đã cập nhật.';
+      } catch (e) {
+        trangThaiI.textContent = 'Không kết nối được máy chủ.';
+      } finally {
+        nut.disabled = false;
+      }
+    }
+    nutGoiYI.addEventListener('click', () => {
+      if (!tieuDeI.value.trim()) { trangThaiI.textContent = 'Nhập tên công việc trước đã.'; return; }
+      goi('{{ url_for("tasks.ai_goi_y") }}', { tieu_de: tieuDeI.value }, nutGoiYI);
+    });
+    nutTomTatI.addEventListener('click', () => {
+      if (!moTaI.value.trim()) { trangThaiI.textContent = 'Chưa có nội dung để tóm tắt.'; return; }
+      goi('{{ url_for("tasks.ai_tom_tat") }}', { mo_ta: moTaI.value }, nutTomTatI);
+    });
+  }
+
+  nutThemKhoi.addEventListener('click', () => {
+    demKhoiThem += 1;
+    const idx = demKhoiThem;
+    const mau = mauKhoiViec.content.cloneNode(true);
+    const khoi = mau.querySelector('.khoi-viec-them');
+
+    khoi.querySelector('.o-tieu-de').name = `tieu_de_${idx}`;
+    khoi.querySelector('.o-mo-ta').name = `mo_ta_${idx}`;
+    khoi.querySelector('.o-uu-tien').name = `do_uu_tien_${idx}`;
+    khoi.querySelector('.o-han').name = `han_${idx}`;
+    khoi.querySelectorAll('.o-nguoi-nhan input[type=checkbox]').forEach((cb) => {
+      cb.name = `nguoi_nhan_id_${idx}`;
+    });
+
+    khoi.querySelector('.nut-bo-khoi').addEventListener('click', () => {
+      khoi.remove();
+      ganLaiNhanSoThuTu();
+    });
+    noiAiChoKhoi(khoi);
+
+    khoiThemContainer.appendChild(khoi);
+    ganLaiNhanSoThuTu();
+  });
+})();
+</script>
+{% endblock %}

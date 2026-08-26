@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Thư viện · BRICON WORK{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Thư viện</h1><p>Toàn bộ đối chứng đã nộp cho các công việc trong phạm vi bạn được xem.</p></div>
+</div>
+
+<form class="the" method="get">
+  <div class="hang" style="margin-bottom:10px">
+    {% if nhan_vien %}
+    <select name="nguoi" onchange="this.form.submit()">
+      <option value="">Mọi nhân viên</option>
+      {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f_nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="loai" onchange="this.form.submit()">
+      <option value="">Mọi loại</option>
+      {% for ma, ten in LoaiDinhKem.NHAN.items() %}<option value="{{ ma }}" {{ 'selected' if f_loai == ma }}>{{ ten }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="hang" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px 10px">
+    <label for="tu_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">Nộp từ</label>
+    <input id="tu_ngay" type="date" name="tu_ngay" value="{{ f_tu_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
+    <label for="den_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">đến</label>
+    <input id="den_ngay" type="date" name="den_ngay" value="{{ f_den_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
+  </div>
+  <div class="hang">
+    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm theo mã hoặc tên công việc">
+    <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Tìm kiếm</button>
+  </div>
+</form>
+
+<div class="tieu-khu"><h2>Đối chứng</h2><span class="dem">{{ phan_trang.total }}</span></div>
+
+<div class="luoi-thu-vien">
+{% for d in ds %}
+<div class="the-thu-vien">
+  {% set src = url_for('media', duong_dan=d.duong_dan) %}
+  {% if d.loai == LoaiDinhKem.ANH %}
+    <a href="{{ src }}" target="_blank" rel="noopener"><img src="{{ src }}" alt="{{ d.ten_goc }}" loading="lazy"></a>
+  {% elif d.loai == LoaiDinhKem.VIDEO %}
+    <a href="{{ src }}" target="_blank" rel="noopener"><video src="{{ src }}" preload="metadata" muted playsinline></video></a>
+  {% elif d.loai == LoaiDinhKem.GHI_AM %}
+    <div class="the-thu-vien-am"><audio controls preload="none" src="{{ src }}"></audio></div>
+  {% else %}
+    <a href="{{ src }}" target="_blank" rel="noopener" class="the-thu-vien-file">📄<span>{{ d.ten_goc|truncate(28) }}</span></a>
+  {% endif %}
+  <div class="the-thu-vien-info">
+    <a href="{{ url_for('tasks.chi_tiet', viec_id=d.cong_viec.id) }}" style="font-weight:700;font-size:.83rem">[{{ d.cong_viec.ma }}] {{ d.cong_viec.tieu_de|truncate(30) }}</a>
+    <div style="font-size:.72rem;color:var(--muc-mo);margin-top:3px">{{ d.nguoi_tai_len.ho_ten }} · {{ d.tao_luc|gio }}{% if d.lan_gui > 1 %} · lần {{ d.lan_gui }}{% endif %}</div>
+    {% if current_user.la_admin_sep %}
+    <form method="post" action="{{ url_for('tasks.xoa_dinh_kem', id=d.id) }}" style="margin-top:8px"
+          onsubmit="return confirm('Xoá vĩnh viễn đối chứng này? Không ảnh hưởng tới đánh giá đã chấm cho việc [{{ d.cong_viec.ma }}], chỉ mất file.')">
+      <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai);width:100%">Xoá</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="trong" style="grid-column:1/-1"><strong>Không có đối chứng nào khớp bộ lọc</strong>Thử bỏ bớt điều kiện lọc.</div>
+{% endfor %}
+</div>
+
+{% if phan_trang.pages > 1 %}
+<div class="phan-trang">
+  {% if phan_trang.has_prev %}
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.thu_vien', nguoi=f_nguoi, loai=f_loai, q=f_q, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">‹ Trước</a>
+  {% else %}
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">‹ Trước</span>
+  {% endif %}
+  <span class="phan-trang-so">Trang {{ phan_trang.page }}/{{ phan_trang.pages }}</span>
+  {% if phan_trang.has_next %}
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.thu_vien', nguoi=f_nguoi, loai=f_loai, q=f_q, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau ›</a>
+  {% else %}
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau ›</span>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

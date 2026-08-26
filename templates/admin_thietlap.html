@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Thiết lập · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Thiết lập</h1>
+  <p>Quản lý các bot Zalo dùng để gửi thông báo. Thêm bot ở đây rồi vào trang Nhân viên
+     chọn bot cho từng người thay vì dán token tay mỗi lần.</p></div>
+</div>
+
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
+  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.info_ai') }}">Info AI</a>
+</div>
+
+<div class="the">
+  <h3>Tích hợp AI (ChatGPT)</h3>
+  <p style="color:var(--muc-mo);font-size:.85rem">
+    Dùng để gợi ý và tóm tắt ô "Yêu cầu chi tiết" khi giao việc. Lấy key tại
+    <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>.
+  </p>
+  <form method="post" action="{{ url_for('admin.luu_cai_dat_ai') }}">
+    <div class="o-nhap">
+      <label>OpenAI API key</label>
+      <div class="o-mat-khau-bao">
+        <input type="password" id="o-openai-key" name="openai_api_key" value="{{ openai_api_key or '' }}" placeholder="sk-..." autocomplete="off">
+        <button type="button" class="o-mat-khau-nut" id="nut-hien-key" title="Hiện/ẩn key">👁</button>
+        <button type="button" class="o-mat-khau-nut" id="nut-sao-chep-key" title="Sao chép key">📋</button>
+      </div>
+      <div class="goi-y">Để trống rồi Lưu để xoá key (tắt tính năng AI).</div>
+    </div>
+    <button class="nut nut--rong" type="submit">Lưu API key</button>
+  </form>
+</div>
+
+<div class="the">
+  <h3>Chạy thử báo cáo Zalo theo lịch</h3>
+  <p style="color:var(--muc-mo);font-size:.85rem">
+    Bấm để gửi thử ngay lập tức — dùng kiểm tra trước khi đặt cron thật trên VPS.
+  </p>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='cham-cong-sang') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>⏰ Nhắc chấm công sáng</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 07:45</span>
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='viec-hom-nay') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>📋 Nhắc xem việc hôm nay</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 08:00</span>
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='bao-cao-sang') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>📋 Báo cáo sáng (nhóm QL)</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 08:10</span>
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='bao-cao-chieu') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>📊 Báo cáo chiều (nhóm QL)</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 17:30</span>
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='thieu-sot') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>📝 Báo cáo việc còn thiếu (nhóm QL)</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 18:00</span>
+      </button>
+    </form>
+  </div>
+</div>
+
+<details class="the the--them" open>
+  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm bot Zalo</summary>
+  <form method="post" style="margin-top:14px">
+    <div class="o-nhap"><label>Tên bot</label>
+      <input name="ten" required placeholder="VD: Bot A"></div>
+    <div class="o-nhap"><label>Bot token</label>
+      <input name="token" required placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+      <div class="goi-y">Lấy token từ trang quản trị bot của nhà cung cấp Zalo OA/Zapps.</div></div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
+      <input type="checkbox" name="dang_hoat_dong" checked style="width:18px;height:18px;accent-color:var(--chinh)">
+      Đang hoạt động</label>
+    <button class="nut nut--rong" type="submit">Lưu bot</button>
+  </form>
+</details>
+
+<div class="tieu-khu"><h2>Danh sách bot</h2><span class="dem">{{ ds|length }}</span></div>
+
+{% for b in ds %}
+<details class="the">
+  <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:10px">
+    <span>
+      <strong>{{ b.ten }}</strong>
+      <span style="font-size:.78rem;color:var(--muc-mo);margin-left:8px">
+        🔗 {{ so_dung_theo_bot.get(b.id, 0) }}/3 nhân viên đang dùng</span>
+    </span>
+    <span class="nhan" data-tt="{{ 'hoan_thanh' if b.dang_hoat_dong else 'huy' }}">
+      {{ 'Đang hoạt động' if b.dang_hoat_dong else 'Đã tắt' }}</span>
+  </summary>
+  <form method="post" style="margin-top:14px">
+    <input type="hidden" name="id" value="{{ b.id }}">
+    <div class="o-nhap"><label>Tên bot</label><input name="ten" value="{{ b.ten }}" required></div>
+    <div class="o-nhap"><label>Bot token</label><input name="token" value="{{ b.token }}" required></div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
+      <input type="checkbox" name="dang_hoat_dong" {{ 'checked' if b.dang_hoat_dong }}
+             style="width:18px;height:18px;accent-color:var(--chinh)"> Đang hoạt động</label>
+    <button class="nut nut--nho" type="submit">Lưu</button>
+  </form>
+  <div class="hang-nut" style="margin-top:10px">
+    <a class="nut nut--phu nut--nho" href="{{ url_for('admin.lay_group_id', bot_id=b.id) }}">🔍 Tìm Group ID (polling)</a>
+    <form method="post" action="{{ url_for('admin.dat_webhook', bot_id=b.id) }}">
+      <button class="nut nut--phu nut--nho" type="submit">📡 Đặt webhook</button>
+    </form>
+    <form method="post" action="{{ url_for('admin.xoa_webhook', bot_id=b.id) }}">
+      <button class="nut nut--phu nut--nho" type="submit">Xoá webhook</button>
+    </form>
+    <form method="post" action="{{ url_for('admin.xoa_bot', bot_id=b.id) }}"
+          onsubmit="return confirm('Xoá bot {{ b.ten }}? Nhân viên đang gán bot này sẽ cần đổi bot khác trước.')">
+      <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá bot</button>
+    </form>
+  </div>
+  <p class="goi-y">
+    Đặt webhook xong: vào nhóm đã thêm bot, gõ <code>/id</code> — bot trả lời ngay
+    <code>zalo_group_id</code> và <code>zalo_user_id</code> trong nhóm, không cần n8n nữa.
+    Webhook và nút "Tìm Group ID" (polling) loại trừ nhau — bot nào đã đặt webhook thì
+    nút polling sẽ luôn trống, đó là bình thường.
+  </p>
+</details>
+{% else %}
+<div class="trong"><strong>Chưa có bot Zalo nào</strong>Thêm bot đầu tiên ở khối bên trên.</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const input = document.getElementById('o-openai-key');
+  const nutHien = document.getElementById('nut-hien-key');
+  const nutSaoChep = document.getElementById('nut-sao-chep-key');
+  if (!input) return;
+
+  nutHien.addEventListener('click', () => {
+    const dangAn = input.type === 'password';
+    input.type = dangAn ? 'text' : 'password';
+    nutHien.textContent = dangAn ? '🙈' : '👁';
+  });
+
+  nutSaoChep.addEventListener('click', async () => {
+    if (!input.value) return;
+    try {
+      await navigator.clipboard.writeText(input.value);
+      const cu = nutSaoChep.textContent;
+      nutSaoChep.textContent = '✅';
+      setTimeout(() => { nutSaoChep.textContent = cu; }, 1200);
+    } catch (e) {
+      alert('Không sao chép được — hãy tự bôi đen và Ctrl+C.');
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ tieu_de }} · BRICON{% endblock %}
+{% block content %}
+<div class="the" style="text-align:center;padding:36px 20px">
+  <div style="font-size:2.2rem;font-weight:800;color:var(--muc-nhat)">{{ ma }}</div>
+  <h1>{{ tieu_de }}</h1>
+  <p style="color:var(--muc-mo)">{{ mo_ta }}</p>
+  <a class="nut" href="{{ url_for('tasks.dashboard') if current_user.is_authenticated else url_for('auth.login') }}">Về trang chính</a>
+</div>
+{% endblock %}

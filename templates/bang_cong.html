@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Bảng công · BRICON{% endblock %}
+
+{% block content %}
+<h1>Bảng công</h1>
+
+<form class="the" method="get" style="display:flex;gap:8px">
+  <input type="month" name="thang" value="{{ thang }}">
+  <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Xem</button>
+  <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('attendance.xuat_bang_cong', thang=thang) }}">⬇ Xuất Excel</a>
+</form>
+
+<div class="tieu-khu"><h2>Tổng hợp</h2></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Nhân viên</th><th class="so">Ngày công</th><th class="so">Trễ</th>
+      <th class="so">Về sớm</th><th class="so">Nghỉ phép</th><th class="so">Không phép</th></tr></thead>
+    <tbody>
+    {% for o in tong %}
+      <tr>
+        <td>{{ o.ho_ten }}</td>
+        <td class="so">{{ ('%.1f'|format(o.so_ngay))|replace('.0', '') }}</td>
+        <td class="so">{{ o.tre or '' }}</td>
+        <td class="so">{{ o.som or '' }}</td>
+        <td class="so">{{ o.nghi_phep or '' }}</td>
+        <td class="so">{{ o.khong_phep or '' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" style="color:var(--muc-mo)">Chưa có dữ liệu tháng này.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="tieu-khu"><h2>Chi tiết chấm công từng ngày</h2></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Vào</th><th>Ra</th><th>Điểm</th><th>Ghi nhận</th></tr></thead>
+    <tbody>
+    {% for c in ban_ghi %}
+      <tr>
+        <td>{{ c.ngay.strftime('%d/%m') }}</td>
+        <td>{{ c.nguoi_dung.ho_ten }}</td>
+        <td>{{ c.gio_vao.strftime('%H:%M') if c.gio_vao else '—' }}</td>
+        <td>{{ c.gio_ra.strftime('%H:%M') if c.gio_ra else '—' }}</td>
+        <td>{{ c.diem_vao.ten if c.diem_vao else '—' }}</td>
+        <td>
+          {% if c.nghi_khong_phep %}<span class="nhan" data-tt="lam_lai">Không phép</span>{% endif %}
+          {% if c.di_tre %}<span class="nhan" data-tt="cho_duyet">Trễ {{ c.so_phut_tre }}′</span>{% endif %}
+          {% if c.ve_som %}<span class="nhan" data-tt="cho_duyet">Sớm {{ c.so_phut_som }}′</span>{% endif %}
+          {% if c.nghi_ngo %}<span class="nhan" data-tt="lam_lai">Nghi fake GPS</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" style="color:var(--muc-mo)">Chưa có dữ liệu.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="tieu-khu"><h2>Nghỉ phép trong tháng</h2><span class="dem">{{ don_nghi|length }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Buổi</th><th>Ghi chú</th><th>Minh chứng</th>{% if current_user.la_admin_sep %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for x in don_nghi %}
+      <tr>
+        <td>{{ x.ngay.strftime('%d/%m') }}</td>
+        <td>{{ x.nguoi_dung.ho_ten }}</td>
+        <td>{{ x.ten_buoi }}</td>
+        <td>{{ x.ghi_chu or '—' }}</td>
+        <td><a href="{{ url_for('media', duong_dan=x.anh_minh_chung) }}" target="_blank" rel="noopener">Xem ảnh</a></td>
+        {% if current_user.la_admin_sep %}
+        <td style="text-align:right">
+          <form method="post" action="{{ url_for('attendance.xoa_xin_nghi', id=x.id) }}"
+                onsubmit="return confirm('Xoá nghỉ phép của {{ x.nguoi_dung.ho_ten }} ngày {{ x.ngay.strftime("%d/%m/%Y") }}?')">
+            <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+    {% else %}
+      <tr><td colspan="{{ 6 if current_user.la_admin_sep else 5 }}" style="color:var(--muc-mo)">Chưa có ai xin nghỉ tháng này.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

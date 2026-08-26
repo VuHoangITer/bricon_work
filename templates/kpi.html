@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}KPI · BRICON{% endblock %}
+
+{% block content %}
+<div class="tieu-khu">
+  <h1 style="margin:0">KPI theo khoảng ngày</h1>
+</div>
+
+<form class="the" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+  <div class="o-nhap" style="margin-bottom:0">
+    <label for="tu_ngay">Từ ngày</label>
+    <input id="tu_ngay" type="date" name="tu_ngay" value="{{ tu_ngay.isoformat() }}">
+  </div>
+  <div class="o-nhap" style="margin-bottom:0">
+    <label for="den_ngay">Đến ngày</label>
+    <input id="den_ngay" type="date" name="den_ngay" value="{{ den_ngay.isoformat() }}">
+  </div>
+  <button class="nut nut--phu" type="submit">Xem</button>
+</form>
+<p style="color:var(--muc-mo);font-size:.82rem;margin:-6px 0 14px">
+  Việc đã hoàn thành tính theo <strong>ngày hoàn thành</strong>; việc quá hạn chưa nộp
+  tính theo <strong>hạn</strong> — trong khoảng {{ tu_ngay|ngay }} đến {{ den_ngay|ngay }}.
+</p>
+
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr>
+      <th>#</th><th>Nhân viên</th><th class="so">Sao TB</th><th>Xếp loại</th>
+      <th class="so">Đã đánh giá</th><th class="so">Chờ duyệt</th><th class="so">Đang làm</th>
+    </tr></thead>
+    <tbody>
+    {% for o in bang %}
+      <tr>
+        <td>{{ o.hang }}</td>
+        <td>{{ o.ho_ten }}</td>
+        <td class="so" style="font-weight:700">
+          {{ ('%.1f'|format(o.sao_tb)) ~ ' ★' if o.sao_tb is not none else '—' }}
+        </td>
+        <td>{{ o.xep_loai }}</td>
+        <td class="so">{{ o.da_danh_gia }}/{{ o.tong_viec }}</td>
+        <td class="so">{{ o.cho_duyet }}</td>
+        <td class="so">{{ o.dang_lam }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" style="color:var(--muc-mo)">Chưa có việc nào có hạn trong khoảng ngày này.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="the">
+  <h3>Thang điểm 0–5 sao</h3>
+  <div class="dong-tt"><span>0★</span><span>Không làm</span></div>
+  <div class="dong-tt"><span>1★</span><span>Làm cho có</span></div>
+  <div class="dong-tt"><span>2★</span><span>Có làm nhưng cần nhắc nhở</span></div>
+  <div class="dong-tt"><span>3★</span><span>Làm đầy đủ, có trách nhiệm</span></div>
+  <div class="dong-tt"><span>4★</span><span>Có tâm, nhiệt huyết</span></div>
+  <div class="dong-tt"><span>5★</span><span>Chủ động, sáng tạo, vượt mong đợi</span></div>
+</div>
+{% endblock %}

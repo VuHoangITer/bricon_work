@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Tìm Group ID · {{ bot.ten }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Tìm Group ID — {{ bot.ten }}</h1>
+    <p>Vào nhóm Zalo đã thêm bot này, gửi thử 1 tin nhắn bất kỳ trong nhóm, rồi bấm "Tải lại" bên dưới.</p>
+  </div>
+  <div class="page-actions">
+    <a class="nut nut--phu" href="{{ url_for('admin.thiet_lap') }}">‹ Quay lại Thiết lập</a>
+    <a class="nut nut--vang" href="{{ url_for('admin.lay_group_id', bot_id=bot.id) }}">↻ Tải lại</a>
+  </div>
+</div>
+
+{% if loi %}
+<div class="canh-bao-nho">{{ loi }}</div>
+{% elif not ket_qua %}
+<div class="trong">
+  <strong>Chưa thấy nhóm/chat nào</strong>
+  Hãy chắc chắn bot đã được thêm vào nhóm và có ít nhất 1 tin nhắn vừa gửi trong nhóm đó, rồi bấm "Tải lại".
+</div>
+{% else %}
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Tên</th><th>Loại</th><th>Chat ID</th></tr></thead>
+    <tbody>
+    {% for c in ket_qua %}
+      <tr>
+        <td>{{ c.ten }}</td>
+        <td>{{ c.loai }}</td>
+        <td style="font-family:ui-monospace,monospace">{{ c.chat_id }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="goi-y">
+  Copy đúng Chat ID của nhóm cần dùng, dán vào ô "Zalo chat id" ở trang Nhân viên
+  (hoặc vào biến <code>ZALO_GROUP_QL</code> trong <code>.env</code> nếu đây là nhóm quản lý).
+</p>
+{% endif %}
+
+<details class="the" style="margin-top:18px">
+  <summary style="cursor:pointer;color:var(--muc-mo);font-size:.8rem">Xem phản hồi thô từ Zalo (đối chiếu tay nếu bảng trên thiếu)</summary>
+  <pre style="white-space:pre-wrap;word-break:break-word;font-size:.76rem;color:var(--muc-mo);margin-top:10px">{{ tho }}</pre>
+</details>
+{% endblock %}

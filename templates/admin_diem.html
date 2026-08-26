@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Điểm chấm công · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Điểm chấm công</h1>
+  <p>Nhân viên chỉ được tính "trong phạm vi" khi đứng trong bán kính của một trong các điểm này.
+     Chưa khai điểm nào thì hệ thống không kiểm tra phạm vi.</p></div>
+</div>
+
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
+  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.info_ai') }}">Info AI</a>
+</div>
+
+<details class="the the--them" open>
+  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm điểm</summary>
+  <form method="post" style="margin-top:14px">
+    <div class="o-nhap"><label>Tên điểm</label>
+      <input name="ten" required placeholder="VD: Văn phòng Bình Tân"></div>
+    <div class="o-nhap"><label>Địa chỉ</label><input name="dia_chi"></div>
+    <div class="hang">
+      <div class="o-nhap"><label>Vĩ độ (lat)</label>
+        <input name="lat" required placeholder="10.762622"></div>
+      <div class="o-nhap"><label>Kinh độ (lng)</label>
+        <input name="lng" required placeholder="106.660172"></div>
+    </div>
+    <div class="o-nhap"><label>Bán kính cho phép (mét)</label>
+      <input name="ban_kinh_m" type="number" value="150" min="20" max="5000">
+      <div class="goi-y">Lấy toạ độ: mở Google Maps, giữ lâu vào vị trí, copy cặp số hiện ra.</div></div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
+      <input type="checkbox" name="dang_hoat_dong" checked style="width:18px;height:18px;accent-color:var(--chinh)">
+      Đang áp dụng</label>
+    <button class="nut nut--rong" type="submit">Lưu điểm</button>
+  </form>
+</details>
+
+<div class="tieu-khu"><h2>Danh sách</h2><span class="dem">{{ ds|length }}</span></div>
+
+{% for d in ds %}
+<details class="the">
+  <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:10px">
+    <strong>{{ d.ten }}</strong>
+    <span class="nhan" data-tt="{{ 'hoan_thanh' if d.dang_hoat_dong else 'huy' }}">{{ d.ban_kinh_m }}m</span>
+  </summary>
+  <form method="post" style="margin-top:14px">
+    <input type="hidden" name="id" value="{{ d.id }}">
+    <div class="o-nhap"><label>Tên điểm</label><input name="ten" value="{{ d.ten }}" required></div>
+    <div class="o-nhap"><label>Địa chỉ</label><input name="dia_chi" value="{{ d.dia_chi or '' }}"></div>
+    <div class="hang">
+      <div class="o-nhap"><label>Vĩ độ</label><input name="lat" value="{{ d.lat }}" required></div>
+      <div class="o-nhap"><label>Kinh độ</label><input name="lng" value="{{ d.lng }}" required></div>
+    </div>
+    <div class="o-nhap"><label>Bán kính (m)</label>
+      <input name="ban_kinh_m" type="number" value="{{ d.ban_kinh_m }}"></div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
+      <input type="checkbox" name="dang_hoat_dong" {{ 'checked' if d.dang_hoat_dong }}
+             style="width:18px;height:18px;accent-color:var(--chinh)"> Đang áp dụng</label>
+    <button class="nut nut--nho" type="submit">Lưu</button>
+  </form>
+</details>
+{% else %}
+<div class="trong"><strong>Chưa có điểm chấm công nào</strong>Thêm điểm đầu tiên ở khối bên trên.</div>
+{% endfor %}
+{% endblock %}

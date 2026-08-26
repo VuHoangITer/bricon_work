@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Công việc · BRICON WORK{% endblock %}
+
+{% macro the_viec_luoi(v, keo_tha=false) %}
+<a class="viec-the" data-tt="{{ v.trang_thai }}" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}"
+   {% if keo_tha %}draggable="true" data-viec-id="{{ v.id }}"{% endif %}>
+  <div class="viec-the-dau">
+    <span class="ma-viec">{{ v.ma }}</span>
+    <span class="nhan" data-tt="{{ v.trang_thai }}">{{ v.ten_trang_thai }}</span>
+  </div>
+  <div class="viec-the-ten">{{ v.tieu_de }}</div>
+  <div class="viec-the-giua">
+    <span class="uu-tien" data-muc="{{ v.do_uu_tien }}">{{ v.ten_uu_tien }}</span>
+    {% if v.so_sao_cuoi is not none %}
+      {% if v.so_sao_cuoi == 0 %}
+        <span style="color:var(--lam-lai);font-weight:700;font-size:.72rem">0★ Tự động đóng</span>
+      {% else %}
+        <span class="sao-hien">{{ '★' * v.so_sao_cuoi }}</span>
+      {% endif %}
+    {% endif %}
+    {% if v.lan_gui > 1 %}<span style="font-size:.72rem;color:var(--muc-nhat)">Nộp lần {{ v.lan_gui }}</span>{% endif %}
+  </div>
+  <div class="viec-the-cuoi">
+    <span>{{ v.nguoi_nhan.ho_ten }}</span>
+    {% if v.han %}
+      <span class="{{ 'qua-han' if v.qua_han }}">{{ 'Quá hạn' if v.qua_han else 'Hạn' }} {{ v.han|gio }}</span>
+    {% else %}<span>Không đặt hạn</span>{% endif %}
+  </div>
+</a>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Công việc</h1><p>Theo dõi, lọc và xử lý toàn bộ công việc được giao.</p></div>
+  {% if current_user.la_quan_ly %}<div class="page-actions"><a class="nut nut--vang" href="{{ url_for('tasks.giao_viec') }}">+ Giao việc</a></div>{% endif %}
+</div>
+
+<form class="the" method="get">
+  <div class="hang" style="margin-bottom:10px">
+    <select name="trang_thai" onchange="this.form.submit()">
+      <option value="" {{ 'selected' if not f_trang_thai }}>Chưa hoàn thành</option>
+      {% for ma, ten in TrangThai.NHAN.items() %}<option value="{{ ma }}" {{ 'selected' if f_trang_thai == ma }}>{{ ten }}</option>{% endfor %}
+    </select>
+    {% if nhan_vien %}
+    <select name="nguoi" onchange="this.form.submit()">
+      <option value="">Mọi nhân viên</option>
+      {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f_nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="sao" onchange="this.form.submit()">
+      <option value="">Mọi mức sao</option>
+      {% for i in range(0, 6) %}
+      <option value="{{ i }}" {{ 'selected' if f_sao == i }}>{{ i }}★</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="hang" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px 10px">
+    <label for="tu_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">Hạn từ</label>
+    <input id="tu_ngay" type="date" name="tu_ngay" value="{{ f_tu_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
+    <label for="den_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">đến</label>
+    <input id="den_ngay" type="date" name="den_ngay" value="{{ f_den_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
+  </div>
+  <div class="hang">
+    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm theo mã hoặc tên công việc">
+    <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Tìm kiếm</button>
+  </div>
+</form>
+
+{% if che_do_3_cot %}
+<div class="tieu-khu"><h2>Chưa hoàn thành</h2><span class="dem">{{ tong_so }}</span></div>
+{% if current_user.la_admin_sep %}
+<p class="goi-y" style="margin:-6px 0 12px">Kéo thẻ sang cột khác để đổi mức độ — nhân viên sẽ được báo Zalo ngay sau khi đổi.</p>
+{% endif %}
+<div class="luoi-uu-tien">
+  {% for ma, ten, ds in theo_cot %}
+  <div class="cot-uu-tien" data-muc="{{ ma }}">
+    <div class="cot-uu-tien-dau">
+      <span class="uu-tien" data-muc="{{ ma }}">{{ ten }}</span>
+      <span class="dem">{{ ds|length }}</span>
+    </div>
+    {% for v in ds %}{{ the_viec_luoi(v, keo_tha=current_user.la_admin_sep) }}{% endfor %}
+    {% if not ds %}<div class="trong" style="padding:18px;font-size:.82rem">Không có việc</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% if tong_so == 0 %}
+<div class="trong"><strong>Không có công việc nào khớp bộ lọc</strong>Thử bỏ bớt điều kiện lọc.</div>
+{% endif %}
+
+{% else %}
+<div class="tieu-khu"><h2>Danh sách</h2><span class="dem">{{ phan_trang.total }}</span></div>
+<div class="luoi-viec">
+{% for v in viecs %}
+  {{ the_viec_luoi(v) }}
+{% else %}
+<div class="trong" style="grid-column:1/-1"><strong>Không có công việc nào khớp bộ lọc</strong>Thử bỏ bớt điều kiện lọc.</div>
+{% endfor %}
+</div>
+
+{% if phan_trang.pages > 1 %}
+<div class="phan-trang">
+  {% if phan_trang.has_prev %}
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">‹ Trước</a>
+  {% else %}
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">‹ Trước</span>
+  {% endif %}
+  <span class="phan-trang-so">Trang {{ phan_trang.page }}/{{ phan_trang.pages }}</span>
+  {% if phan_trang.has_next %}
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau ›</a>
+  {% else %}
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau ›</span>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if che_do_3_cot and current_user.la_admin_sep %}
+<script>
+(function () {
+  let dangKeo = null;
+
+  document.querySelectorAll('.viec-the[draggable="true"]').forEach((the) => {
+    the.addEventListener('dragstart', (e) => {
+      dangKeo = the;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', the.dataset.viecId);
+      setTimeout(() => { the.style.opacity = '0.4'; }, 0);
+    });
+    the.addEventListener('dragend', () => {
+      the.style.opacity = '';
+      dangKeo = null;
+    });
+  });
+
+  document.querySelectorAll('.cot-uu-tien').forEach((cot) => {
+    cot.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      cot.classList.add('cot-uu-tien--dang-keo-vao');
+    });
+    cot.addEventListener('dragleave', () => {
+      cot.classList.remove('cot-uu-tien--dang-keo-vao');
+    });
+    cot.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      cot.classList.remove('cot-uu-tien--dang-keo-vao');
+      if (!dangKeo) return;
+
+      const cotCu = dangKeo.closest('.cot-uu-tien');
+      const mucMoi = cot.dataset.muc;
+      if (cotCu === cot) return; // thả lại đúng cột cũ, khỏi gọi API
+
+      const viecId = dangKeo.dataset.viecId;
+      try {
+        const fd = new FormData();
+        fd.append('do_uu_tien', mucMoi);
+        const r = await fetch(`/viec/${viecId}/doi-uu-tien`, { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!d.ok) {
+          alert('Không đổi được: ' + (d.loi || 'lỗi không rõ'));
+          return;
+        }
+        window.location.reload();
+      } catch (err) {
+        alert('Không kết nối được máy chủ.');
+      }
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Xin nghỉ phép · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px">
+  <a href="{{ url_for('attendance.trang_cham_cong') }}" style="font-size:.85rem">‹ Chấm công</a>
+</div>
+<h1>Xin nghỉ phép</h1>
+
+<form class="the" method="post" enctype="multipart/form-data">
+  <div class="hang">
+    <div class="o-nhap"><label for="ngay_dau">Từ ngày</label>
+      <input id="ngay_dau" type="date" name="ngay_dau" required></div>
+    <div class="o-nhap"><label for="ngay_cuoi">Đến ngày</label>
+      <input id="ngay_cuoi" type="date" name="ngay_cuoi" required></div>
+  </div>
+
+  <div class="o-nhap" id="khoi-buoi">
+    <label for="chon-buoi">Buổi nghỉ</label>
+    <select id="chon-buoi" name="buoi">
+      <option value="ca_ngay">Cả ngày</option>
+      <option value="sang">Buổi sáng</option>
+      <option value="chieu">Buổi chiều</option>
+    </select>
+    <div class="goi-y">Chỉ áp dụng khi nghỉ đúng 1 ngày. Nghỉ từ 2 ngày trở lên sẽ luôn tính cả ngày cho mỗi ngày trong khoảng đã chọn.</div>
+  </div>
+
+  <div class="o-nhap">
+    <label>Ảnh giấy phép đã được duyệt (bắt buộc)</label>
+    <input type="file" name="anh" accept="image/*" required>
+    <div class="goi-y">Có ảnh là hệ thống tự ghi nhận và tính vào ngày công luôn, không cần chờ ai duyệt thêm.</div>
+  </div>
+
+  <div class="o-nhap">
+    <label for="ghi_chu">Ghi chú (không bắt buộc)</label>
+    <input id="ghi_chu" type="text" name="ghi_chu" placeholder="VD: đi khám bệnh">
+  </div>
+
+  <button class="nut nut--rong" type="submit">Gửi xin nghỉ</button>
+</form>
+
+<div class="tieu-khu"><h2>Lịch sử xin nghỉ của bạn</h2><span class="dem">{{ lich_su|length }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Ngày</th><th>Buổi</th><th>Ghi chú</th><th>Minh chứng</th></tr></thead>
+    <tbody>
+    {% for x in lich_su %}
+      <tr>
+        <td>{{ x.ngay.strftime('%d/%m/%Y') }}</td>
+        <td>{{ x.ten_buoi }}</td>
+        <td>{{ x.ghi_chu or '—' }}</td>
+        <td><a href="{{ url_for('media', duong_dan=x.anh_minh_chung) }}" target="_blank" rel="noopener">Xem ảnh</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có lần nghỉ nào.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const dau = document.getElementById('ngay_dau');
+  const cuoi = document.getElementById('ngay_cuoi');
+  const khoiBuoi = document.getElementById('khoi-buoi');
+  function capNhat() {
+    const nhieuNgay = dau.value && cuoi.value && dau.value !== cuoi.value;
+    khoiBuoi.style.display = nhieuNgay ? 'none' : '';
+  }
+  dau.addEventListener('change', capNhat);
+  cuoi.addEventListener('change', capNhat);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Bộ phận · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Bộ phận</h1><p>Danh sách bộ phận dùng để phân nhóm nhân viên.</p></div>
+</div>
+
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
+  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.info_ai') }}">Info AI</a>
+</div>
+
+<form class="the" method="post" style="display:flex;gap:8px">
+  <input name="ten" placeholder="Tên bộ phận mới" required>
+  <button class="nut" type="submit" style="flex:0 0 auto">Thêm</button>
+</form>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Bộ phận</th><th class="so">Số nhân viên</th><th></th></tr></thead>
+    <tbody>
+    {% for b in ds %}
+      <tr>
+        <td>{{ b.ten }}</td>
+        <td class="so">{{ b.nhan_vien|length }}</td>
+        <td style="text-align:right">
+          <form method="post" action="{{ url_for('admin.xoa_bo_phan', bo_phan_id=b.id) }}"
+                onsubmit="return confirm('Xoá bộ phận {{ b.ten }}?')">
+            <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="3" style="color:var(--muc-mo)">Chưa có bộ phận nào.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
