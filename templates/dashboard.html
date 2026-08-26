@@ -85,8 +85,10 @@
       <div style="font-size:1.05rem;font-weight:700;margin-top:4px">
         {% if cc_hom_nay and cc_hom_nay.gio_ra %}
           Đã hoàn tất ngày làm việc
-        {% elif cc_hom_nay %}
+        {% elif cc_hom_nay and cc_hom_nay.gio_vao %}
           Đã chấm vào lúc {{ cc_hom_nay.gio_vao.strftime('%H:%M') }}
+        {% elif cc_hom_nay and cc_hom_nay.nghi_khong_phep %}
+          Nghỉ không phép hôm nay
         {% else %}
           Chưa chấm công vào
         {% endif %}
@@ -96,6 +98,8 @@
           Vào {{ cc_hom_nay.gio_vao.strftime('%H:%M') }} · Ra {{ cc_hom_nay.gio_ra.strftime('%H:%M') }}
         {% elif cc_hom_nay and cc_hom_nay.di_tre %}
           Đi trễ {{ cc_hom_nay.so_phut_tre }} phút
+        {% elif cc_hom_nay and cc_hom_nay.nghi_khong_phep %}
+          Đã bị ghi nhận nghỉ không phép cho hôm nay.
         {% else %}
           Hệ thống sẽ ghi nhận vị trí và thời gian thực tế.
         {% endif %}
