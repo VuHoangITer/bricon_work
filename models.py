@@ -361,7 +361,7 @@ class ChamCong(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
-    ngay = db.Column(db.Date, nullable=False, default=date.today, index=True)
+    ngay = db.Column(db.Date, nullable=False, default=ngay_vn_hien_tai, index=True)
 
     gio_vao = db.Column(db.DateTime)
     lat_vao = db.Column(db.Float)

@@ -1,4 +1,5 @@
 import secrets
+from datetime import date
 from functools import wraps
 
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
@@ -305,6 +306,42 @@ def luu_cai_dat_ai():
     services.dat_cai_dat("openai_api_key", key)
     db.session.commit()
     flash("Đã lưu API key AI." if key else "Đã xoá API key AI.", "success")
+    return redirect(url_for("admin.thiet_lap"))
+
+
+@bp.route("/thiet-lap/xoa-cham-cong", methods=["POST"])
+@chi_admin_thuan
+def xoa_du_lieu_cham_cong():
+    """Chỉ đúng role Admin (không phải Sếp) — xoá hàng loạt bản ghi chấm
+    công theo khoảng ngày, để trống cả 2 ô ngày thì xoá SẠCH TOÀN BỘ.
+    Không thể khôi phục. Dùng khi mới triển khai hệ thống, dữ liệu chấm
+    công cũ (VD: bị đánh dấu "Không phép" hàng loạt trước khi nhân viên
+    kịp dùng) không còn ý nghĩa."""
+    from models import ChamCong
+
+    tu_ngay_raw = (request.form.get("tu_ngay") or "").strip()
+    den_ngay_raw = (request.form.get("den_ngay") or "").strip()
+
+    q = ChamCong.query
+    pham_vi = "toàn bộ"
+    if tu_ngay_raw:
+        try:
+            q = q.filter(ChamCong.ngay >= date.fromisoformat(tu_ngay_raw))
+        except ValueError:
+            flash("Ngày bắt đầu không hợp lệ.", "error")
+            return redirect(url_for("admin.thiet_lap"))
+    if den_ngay_raw:
+        try:
+            q = q.filter(ChamCong.ngay <= date.fromisoformat(den_ngay_raw))
+        except ValueError:
+            flash("Ngày kết thúc không hợp lệ.", "error")
+            return redirect(url_for("admin.thiet_lap"))
+    if tu_ngay_raw or den_ngay_raw:
+        pham_vi = f"từ {tu_ngay_raw or '...'} đến {den_ngay_raw or '...'}"
+
+    so_xoa = q.delete(synchronize_session=False)
+    db.session.commit()
+    flash(f"Đã xoá {so_xoa} bản ghi chấm công ({pham_vi}).", "success")
     return redirect(url_for("admin.thiet_lap"))
 
 
