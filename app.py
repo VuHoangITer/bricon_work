@@ -8,7 +8,8 @@ from flask_login import current_user, login_required
 from config import Config
 from extensions import db, login_manager, migrate
 from models import (BotZalo, BuoiNghi, ChamCong, ChucVu, CongViec, DinhKem,
-                    DoUuTien, LoaiDinhKem, NguoiDung, TrangThai, VaiTro, XinNghi)
+                    DoUuTien, LoaiDinhKem, NguoiDung, TrangThai, VaiTro, XinNghi,
+                    gio_vn_hien_tai, ngay_vn_hien_tai)
 
 
 def create_app(config_class=Config):
@@ -108,8 +109,8 @@ def create_app(config_class=Config):
             "LoaiDinhKem": LoaiDinhKem,
             "DoUuTien": DoUuTien,
             "BuoiNghi": BuoiNghi,
-            "bay_gio": datetime.now(),
-            "hom_nay": date.today(),
+            "bay_gio": gio_vn_hien_tai(),
+            "hom_nay": ngay_vn_hien_tai(),
         }
 
     @app.template_filter("gio")
@@ -146,7 +147,7 @@ def create_app(config_class=Config):
         """Chạy bằng cron: nhắc Zalo các việc quá hạn chưa xong."""
         import services
         viecs = CongViec.query.filter(
-            CongViec.han < datetime.now(),
+            CongViec.han < gio_vn_hien_tai(),
             CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
         ).all()
         for v in viecs:
@@ -180,7 +181,7 @@ def create_app(config_class=Config):
     def check_nghi_khong_phep():
         """Chạy bằng cron lúc 17h30 T2-T7: đánh dấu nghỉ không phép."""
         import services
-        hom_nay = date.today()
+        hom_nay = ngay_vn_hien_tai()
         if hom_nay.weekday() == 6:      # Chủ nhật
             click.echo("Chủ nhật, bỏ qua.")
             return
@@ -219,7 +220,7 @@ def create_app(config_class=Config):
         Zalo cũ hơn hôm nay, chỉ giữ log của đúng ngày hôm đó — tránh bảng
         log phình to theo thời gian."""
         from models import LogZalo
-        dau_hom_nay = datetime.combine(date.today(), datetime.min.time())
+        dau_hom_nay = datetime.combine(ngay_vn_hien_tai(), datetime.min.time())
         so_xoa = LogZalo.query.filter(LogZalo.tao_luc < dau_hom_nay).delete()
         db.session.commit()
         click.echo(f"Đã xoá {so_xoa} log Zalo cũ hơn hôm nay.")

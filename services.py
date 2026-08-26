@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 
 from extensions import db
 from models import (BuoiNghi, ChamCong, CongViec, DanhGia, DiemChamCong, LogZalo,
-                    LoaiDinhKem, NguoiDung, TrangThai, VaiTro)
+                    LoaiDinhKem, NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 # ---------------------------------------------------------------------------
 # GỬI ZALO
@@ -291,7 +291,7 @@ def nhac_viec_sap_qua_han(phut_truoc: int = 30) -> int:
     lại liên tục trong suốt khung 30 phút đó. Chỉ nhắc việc CHƯA nộp gì
     (mới/đang làm/phải làm lại) — việc đang chờ duyệt thì đã ngoài tầm tay
     nhân viên, không cần nhắc."""
-    bay_gio = datetime.now()
+    bay_gio = gio_vn_hien_tai()
     moc_xa = bay_gio + timedelta(minutes=phut_truoc)
     viecs = CongViec.query.filter(
         CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
@@ -328,7 +328,7 @@ def nhac_cham_cong_chieu() -> int:
     nay nhưng CHƯA chấm ra (không làm phiền người đã ra rồi hoặc chưa từng
     chấm vào). Trả về số người đã gửi."""
     base = current_app.config["BASE_URL"]
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     ds = (ChamCong.query.filter_by(ngay=hom_nay)
           .filter(ChamCong.gio_vao.isnot(None), ChamCong.gio_ra.is_(None))
           .all())
@@ -357,7 +357,7 @@ def nhac_viec_hom_nay() -> int:
 def bao_cao_sang_cho_sep():
     """8h10: báo cáo nhanh đầu ngày cho Sếp/Quản lý — gửi vào nhóm QL."""
     from models import XinNghi
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
     cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
 
@@ -366,7 +366,7 @@ def bao_cao_sang_cho_sep():
     xin_nghi_hom_nay = XinNghi.query.filter_by(ngay=hom_nay).count()
     viec_hom_nay = CongViec.query.filter(CongViec.han >= dau_ngay, CongViec.han <= cuoi_ngay).count()
     qua_han = CongViec.query.filter(
-        CongViec.han < datetime.now(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
+        CongViec.han < gio_vn_hien_tai(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
     cho_duyet = CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET).count()
 
     nd = (
@@ -385,7 +385,7 @@ def bao_cao_sang_cho_sep():
 def bao_cao_chieu_cho_sep():
     """17h30: báo cáo tóm tắt cuối ngày cho Sếp/Quản lý — gửi vào nhóm QL."""
     from models import XinNghi
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
     cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
 
@@ -399,7 +399,7 @@ def bao_cao_chieu_cho_sep():
         CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
     ).count()
     qua_han = CongViec.query.filter(
-        CongViec.han < datetime.now(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
+        CongViec.han < gio_vn_hien_tai(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
     cho_duyet = CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET).count()
 
     nd = (
@@ -418,7 +418,7 @@ def bao_cao_chieu_cho_sep():
 def bao_cao_thieu_sot():
     """18h00: báo cáo nhân viên nào còn việc chưa nộp/còn thiếu trong ngày
     — gửi vào nhóm QL, liệt kê theo từng người."""
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
     cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
 
@@ -508,7 +508,7 @@ def phan_loai(ten_file: str, mime: str = "") -> str | None:
 
 def _duong_dan_moi(ten_goc: str, thu_muc: str = "doi-chung") -> tuple[str, str]:
     """Trả về (đường dẫn tương đối — luôn dùng '/', đường dẫn tuyệt đối)."""
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     duoi = os.path.splitext(secure_filename(ten_goc))[1].lower() or ".bin"
     tuong_doi = f"{thu_muc}/{hom_nay:%Y/%m}/{uuid.uuid4().hex}{duoi}"
     tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *tuong_doi.split("/"))
@@ -559,7 +559,7 @@ def trung_toa_do_dang_ngo(nguoi_dung_id: int, lat: float, lng: float, so_ngay: i
         ChamCong.query.filter(
             ChamCong.nguoi_dung_id == nguoi_dung_id,
             ChamCong.lat_vao.isnot(None),
-            ChamCong.ngay >= date.today() - timedelta(days=so_ngay * 2),
+            ChamCong.ngay >= ngay_vn_hien_tai() - timedelta(days=so_ngay * 2),
         )
         .order_by(ChamCong.ngay.desc())
         .limit(so_ngay)
@@ -705,7 +705,7 @@ def tinh_kpi(tu_ngay: date, den_ngay: date, nguoi_dung_id: int | None = None) ->
     """
     dau = datetime.combine(tu_ngay, datetime.min.time())
     cuoi = datetime.combine(den_ngay, datetime.max.time())
-    bay_gio = datetime.now()
+    bay_gio = gio_vn_hien_tai()
 
     q_xong = CongViec.query.join(
         NguoiDung, CongViec.nguoi_nhan_id == NguoiDung.id
@@ -806,7 +806,7 @@ def dong_cac_viec_qua_han() -> list[CongViec]:
     để sếp tự chấm). Gọi hàm này ở nhiều điểm (mỗi lần tải trang liên quan
     tới công việc, và cả qua cron) để việc được đóng gần như ngay khi quá hạn.
     """
-    bay_gio = datetime.now()
+    bay_gio = gio_vn_hien_tai()
     ung_vien = CongViec.query.filter(
         CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
         CongViec.han.isnot(None),
@@ -1163,7 +1163,7 @@ def _ngu_canh_toan_doi(nd: NguoiDung) -> str:
     if not nhan_su:
         return ""
 
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     ngay_mai = hom_nay + timedelta(days=1)
     dong = []
     for nv in nhan_su:
@@ -1239,7 +1239,7 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
     """
     from models import BoPhan, ChamCong, CongViec, TrangThai, XinNghi
 
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     ngay_mai = hom_nay + timedelta(days=1)
     dong = [f"Hôm nay là {hom_nay:%d/%m/%Y}. Người đang hỏi: {nd.ho_ten} ({nd.ten_vai_tro})."]
 
@@ -1339,7 +1339,7 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
     else:
         cho_duyet = CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET).count()
         qua_han = CongViec.query.filter(
-            CongViec.han < datetime.now(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
+            CongViec.han < gio_vn_hien_tai(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
         tong_nhan_vien = NguoiDung.query.filter_by(dang_hoat_dong=True).count()
         theo_bo_phan = (
             db.session.query(BoPhan.ten, db.func.count(NguoiDung.id))
@@ -1388,7 +1388,7 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
 def _bang_kpi_thang_nay_cho_ngu_canh(bo_phan_id: int | None = None) -> str:
     """Tóm tắt KPI từ đầu tháng tới hôm nay, dạng text gọn để nhét vào ngữ
     cảnh trợ lý AI — lọc theo bộ phận nếu có (dùng cho quản lý)."""
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     bang = tinh_kpi(hom_nay.replace(day=1), hom_nay)
     if bo_phan_id:
         ids = {n.id for n in NguoiDung.query.filter_by(

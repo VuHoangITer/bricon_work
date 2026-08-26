@@ -10,7 +10,7 @@ from sqlalchemy import case
 import services
 from extensions import db
 from models import (CongViec, DanhGia, DinhKem, DoUuTien, LoaiDinhKem, NguoiDung,
-                    TrangThai, VaiTro)
+                    TrangThai, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 bp = Blueprint("tasks", __name__)
 
@@ -21,7 +21,7 @@ _THU_TRONG_TUAN = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ S�
 
 def _loi_chao_theo_gio() -> tuple[str, str, str]:
     """Trả về (lời chào, câu phụ, mã icon trang trí — mat_troi/hoang_hon/mat_trang)."""
-    gio = datetime.now().hour
+    gio = gio_vn_hien_tai().hour
     if gio < 11:
         return ("Chào buổi sáng", "Chúc bạn một ngày mới tràn đầy năng lượng và nhiều việc suôn sẻ.",
                 "mat_troi")
@@ -80,7 +80,7 @@ def _viec_lien_quan():
 @bp.route("/")
 @login_required
 def dashboard():
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
     cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
 
@@ -111,7 +111,7 @@ def dashboard():
 
     from models import ChamCong
     cc_hom_nay = ChamCong.query.filter_by(
-        nguoi_dung_id=current_user.id, ngay=date.today()
+        nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai()
     ).first()
 
     viec_hom_nay_cong_ty = 0
@@ -243,7 +243,7 @@ def giao_viec():
     if not current_user.la_quan_ly:
         abort(403)
     nhan_vien = _nhan_vien_duoc_giao()
-    thang_hien_tai = date.today().strftime("%Y-%m")
+    thang_hien_tai = ngay_vn_hien_tai().strftime("%Y-%m")
 
     if request.method == "POST":
         nguoi_nhan_ids = request.form.getlist("nguoi_nhan_id")
@@ -405,7 +405,7 @@ def chi_tiet(viec_id):
     if (viec.nguoi_nhan_id == current_user.id
             and viec.trang_thai == TrangThai.MOI):
         viec.trang_thai = TrangThai.DANG_LAM
-        viec.mo_lan_dau_luc = datetime.utcnow()
+        viec.mo_lan_dau_luc = gio_vn_hien_tai()
         db.session.commit()
 
     return render_template(
@@ -448,7 +448,7 @@ def gui_doi_chung(viec_id):
         so_luu += 1
 
     viec.trang_thai = TrangThai.CHO_DUYET
-    viec.gui_doi_chung_luc = datetime.utcnow()
+    viec.gui_doi_chung_luc = gio_vn_hien_tai()
     if ghi_chu:
         viec.mo_ta = (viec.mo_ta or "") + f"\n\n--- Kết quả lần {viec.lan_gui} ---\n{ghi_chu}"
     db.session.commit()
@@ -482,7 +482,7 @@ def danh_gia(viec_id):
                      lan_gui=viec.lan_gui, ket_qua="dat", so_sao=so_sao,
                      ghi_chu=ghi_chu)
         viec.trang_thai = TrangThai.HOAN_THANH
-        viec.hoan_thanh_luc = datetime.utcnow()
+        viec.hoan_thanh_luc = gio_vn_hien_tai()
         viec.so_sao_cuoi = so_sao
         db.session.add(dg)
         db.session.commit()
@@ -579,7 +579,7 @@ def xoa_viec(viec_id):
 @bp.route("/kpi")
 @login_required
 def kpi():
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     dau_tuan = hom_nay - timedelta(days=hom_nay.weekday())  # Thứ 2 tuần này
 
     try:

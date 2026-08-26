@@ -1,9 +1,28 @@
 from datetime import datetime, date
 
+import pytz
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db, login_manager
+
+_MUI_GIO_VN = pytz.timezone("Asia/Ho_Chi_Minh")
+
+
+def gio_vn_hien_tai() -> datetime:
+    """Giờ Việt Nam hiện tại, dạng naive datetime (không kèm tzinfo) — dùng
+    THỐNG NHẤT thay cho datetime.now()/datetime.utcnow() ở MỌI nơi trong hệ
+    thống, để không phụ thuộc vào múi giờ hệ điều hành của server (VPS có
+    thể set UTC mặc định trong khi máy dev local set giờ Việt Nam, gây lệch
+    giờ giữa 2 môi trường nếu gọi trực tiếp datetime.now()/utcnow())."""
+    return datetime.now(_MUI_GIO_VN).replace(tzinfo=None)
+
+
+def ngay_vn_hien_tai() -> date:
+    """Ngày hôm nay theo giờ Việt Nam — dùng thay cho date.today() để
+    tránh lệch ngày khi server đặt múi giờ UTC (dễ sai nhất vào khung nửa
+    đêm tới 6h59 sáng giờ Việt Nam, lúc UTC vẫn còn là ngày hôm trước)."""
+    return gio_vn_hien_tai().date()
 
 
 # --------------------------------------------------------------------------
@@ -92,7 +111,7 @@ class BotZalo(db.Model):
     token = db.Column(db.String(255), nullable=False)
     webhook_secret = db.Column(db.String(64))  # Zalo gửi kèm header để xác thực webhook
     dang_hoat_dong = db.Column(db.Boolean, default=True, nullable=False)
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     def __repr__(self):
         return f"<BotZalo {self.ten}>"
@@ -121,7 +140,7 @@ class ChucVu(db.Model):
     ten = db.Column(db.String(100), nullable=False, unique=True)
     mo_ta = db.Column(db.Text)  # mô tả công việc, lương, chế độ riêng của chức vụ này
     anh = db.Column(db.String(300))  # ảnh minh hoạ (lộ trình, sơ đồ...), không bắt buộc
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     def __repr__(self):
         return f"<ChucVu {self.ten}>"
@@ -145,7 +164,7 @@ class NguoiDung(UserMixin, db.Model):
 
     dang_hoat_dong = db.Column(db.Boolean, default=True, nullable=False)
     doi_mat_khau = db.Column(db.Boolean, default=True, nullable=False)
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     bo_phan = db.relationship("BoPhan", back_populates="nhan_vien")
     chuc_vu = db.relationship("ChucVu")
@@ -225,7 +244,7 @@ class CongViec(db.Model):
     trang_thai = db.Column(db.String(20), default=TrangThai.MOI, nullable=False, index=True)
     lan_gui = db.Column(db.Integer, default=1, nullable=False)
 
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai, index=True)
     mo_lan_dau_luc = db.Column(db.DateTime)
     gui_doi_chung_luc = db.Column(db.DateTime)
     hoan_thanh_luc = db.Column(db.DateTime, index=True)
@@ -257,7 +276,7 @@ class CongViec(db.Model):
     def qua_han(self) -> bool:
         if not self.han or self.trang_thai in (TrangThai.HOAN_THANH, TrangThai.HUY):
             return False
-        return datetime.now() > self.han
+        return gio_vn_hien_tai() > self.han
 
     @property
     def link(self) -> str:
@@ -292,7 +311,7 @@ class DinhKem(db.Model):
     ten_goc = db.Column(db.String(255))
     kich_thuoc = db.Column(db.Integer)
     mime = db.Column(db.String(100))
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     cong_viec = db.relationship("CongViec", back_populates="dinh_kem")
     nguoi_tai_len = db.relationship("NguoiDung")
@@ -318,7 +337,7 @@ class DanhGia(db.Model):
     ket_qua = db.Column(db.String(20), nullable=False)  # dat / lam_lai
     so_sao = db.Column(db.Integer)  # chỉ có khi ket_qua = dat
     ghi_chu = db.Column(db.Text)
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     cong_viec = db.relationship("CongViec", back_populates="danh_gia")
     nguoi_danh_gia = db.relationship("NguoiDung")
@@ -384,7 +403,7 @@ class LogZalo(db.Model):
     noi_dung = db.Column(db.Text)
     thanh_cong = db.Column(db.Boolean, default=False)
     phan_hoi = db.Column(db.Text)
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai, index=True)
 
 
 class BuoiNghi:
@@ -415,7 +434,7 @@ class XinNghi(db.Model):
     buoi = db.Column(db.String(10), nullable=False, default=BuoiNghi.CA_NGAY)
     anh_minh_chung = db.Column(db.String(300), nullable=False)
     ghi_chu = db.Column(db.String(255))
-    tao_luc = db.Column(db.DateTime, default=datetime.utcnow)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     nguoi_dung = db.relationship("NguoiDung")
 

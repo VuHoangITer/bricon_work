@@ -9,7 +9,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 import services
 from extensions import db
-from models import ChamCong, CongViec, NguoiDung, TrangThai, VaiTro
+from models import ChamCong, CongViec, NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai
 
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -79,7 +79,7 @@ def api_cong_viec():
     elif tt:
         q = q.filter(CongViec.trang_thai == tt)
     if request.args.get("qua_han") == "1":
-        q = q.filter(CongViec.han < datetime.now(),
+        q = q.filter(CongViec.han < gio_vn_hien_tai(),
                      CongViec.trang_thai.in_(TrangThai.CHUA_XONG))
     if han_tu := request.args.get("han_tu"):
         q = q.filter(CongViec.han >= datetime.fromisoformat(han_tu))
@@ -151,7 +151,7 @@ def api_tao_cong_viec():
 @bp.get("/cham-cong")
 @can_api_key
 def api_cham_cong():
-    thang = request.args.get("thang") or date.today().strftime("%Y-%m")
+    thang = request.args.get("thang") or ngay_vn_hien_tai().strftime("%Y-%m")
     nam, thg = (int(x) for x in thang.split("-"))
     dau = date(nam, thg, 1)
     cuoi = date(nam + (thg == 12), (thg % 12) + 1, 1)
@@ -182,7 +182,7 @@ def api_cham_cong():
 @bp.get("/kpi")
 @can_api_key
 def api_kpi():
-    hom_nay = date.today()
+    hom_nay = ngay_vn_hien_tai()
     dau_tuan = hom_nay - timedelta(days=hom_nay.weekday())
 
     try:
@@ -209,8 +209,8 @@ def api_tom_tat():
         "cho_duyet": CongViec.query.filter_by(
             trang_thai=TrangThai.CHO_DUYET).count(),
         "qua_han": CongViec.query.filter(
-            CongViec.han < datetime.now(),
+            CongViec.han < gio_vn_hien_tai(),
             CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count(),
-        "cham_cong_hom_nay": ChamCong.query.filter_by(ngay=date.today()).count(),
+        "cham_cong_hom_nay": ChamCong.query.filter_by(ngay=ngay_vn_hien_tai()).count(),
         "nhan_vien_hoat_dong": NguoiDung.query.filter_by(dang_hoat_dong=True).count(),
     }})

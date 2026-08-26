@@ -6,7 +6,7 @@ from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import BuoiNghi, ChamCong, DiemChamCong, NguoiDung, VaiTro, XinNghi
+from models import BuoiNghi, ChamCong, DiemChamCong, NguoiDung, VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai
 
 bp = Blueprint("attendance", __name__, url_prefix="/cham-cong")
 
@@ -35,12 +35,12 @@ def trang_cham_cong():
         return redirect(url_for("attendance.bang_cong"))
 
     hom_nay = ChamCong.query.filter_by(
-        nguoi_dung_id=current_user.id, ngay=date.today()
+        nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai()
     ).first()
     lich_su = (
         ChamCong.query.filter(
             ChamCong.nguoi_dung_id == current_user.id,
-            ChamCong.ngay >= date.today() - timedelta(days=30),
+            ChamCong.ngay >= ngay_vn_hien_tai() - timedelta(days=30),
         )
         .order_by(ChamCong.ngay.desc())
         .all()
@@ -48,7 +48,7 @@ def trang_cham_cong():
     nghi_gan_day = (
         XinNghi.query.filter(
             XinNghi.nguoi_dung_id == current_user.id,
-            XinNghi.ngay >= date.today() - timedelta(days=30),
+            XinNghi.ngay >= ngay_vn_hien_tai() - timedelta(days=30),
         )
         .order_by(XinNghi.ngay.desc())
         .all()
@@ -78,7 +78,7 @@ def cham_cong_vao():
         flash(f"Sai số GPS quá lớn ({do_chinh_xac:.0f}m). Ra chỗ thoáng rồi thử lại.", "error")
         return redirect(url_for("attendance.trang_cham_cong"))
 
-    if ChamCong.query.filter_by(nguoi_dung_id=current_user.id, ngay=date.today()).first():
+    if ChamCong.query.filter_by(nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai()).first():
         flash("Hôm nay bạn đã chấm công vào rồi.", "info")
         return redirect(url_for("attendance.trang_cham_cong"))
 
@@ -87,17 +87,17 @@ def cham_cong_vao():
         flash(_thong_bao_ngoai_pham_vi(diem, kc), "error")
         return redirect(url_for("attendance.trang_cham_cong"))
 
-    bay_gio = datetime.now()
+    bay_gio = gio_vn_hien_tai()
     # Có nghỉ phép buổi sáng (hoặc cả ngày) hôm nay -> so trễ với giờ bắt
     # đầu buổi chiều, dùng mức trễ cho phép riêng của nửa ngày (5 phút).
     # Có nghỉ phép buổi chiều -> vẫn so với giờ vào chuẩn buổi sáng như
     # thường, nhưng cũng chỉ được trễ 5 phút thay vì 10 phút ngày thường.
-    if services.co_nghi_phep_buoi(current_user.id, date.today(), BuoiNghi.SANG):
+    if services.co_nghi_phep_buoi(current_user.id, ngay_vn_hien_tai(), BuoiNghi.SANG):
         tre, phut_tre = services.tinh_di_tre(
             bay_gio, current_app.config["GIO_BAT_DAU_CHIEU"],
             current_app.config["PHUT_TRE_CHO_PHEP_NUA_NGAY"],
         )
-    elif services.co_nghi_phep_buoi(current_user.id, date.today(), BuoiNghi.CHIEU):
+    elif services.co_nghi_phep_buoi(current_user.id, ngay_vn_hien_tai(), BuoiNghi.CHIEU):
         tre, phut_tre = services.tinh_di_tre(
             bay_gio, current_app.config["GIO_VAO"],
             current_app.config["PHUT_TRE_CHO_PHEP_NUA_NGAY"],
@@ -106,7 +106,7 @@ def cham_cong_vao():
         tre, phut_tre = services.tinh_di_tre(bay_gio)
 
     cc = ChamCong(
-        nguoi_dung_id=current_user.id, ngay=date.today(), gio_vao=bay_gio,
+        nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai(), gio_vao=bay_gio,
         lat_vao=lat, lng_vao=lng, do_chinh_xac_vao=do_chinh_xac,
         diem_vao_id=diem.id if diem else None,
         khoang_cach_vao=int(kc) if kc is not None else None,
@@ -141,7 +141,7 @@ def cham_cong_ra():
         flash("Sếp/Quản trị không cần chấm công.", "info")
         return redirect(url_for("attendance.bang_cong"))
 
-    cc = ChamCong.query.filter_by(nguoi_dung_id=current_user.id, ngay=date.today()).first()
+    cc = ChamCong.query.filter_by(nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai()).first()
     if not cc or not cc.gio_vao:
         flash("Chưa có chấm công vào cho hôm nay.", "error")
         return redirect(url_for("attendance.trang_cham_cong"))
@@ -159,11 +159,11 @@ def cham_cong_ra():
         flash(_thong_bao_ngoai_pham_vi(diem, kc), "error")
         return redirect(url_for("attendance.trang_cham_cong"))
 
-    bay_gio = datetime.now()
+    bay_gio = gio_vn_hien_tai()
     # Có nghỉ phép buổi chiều (hoặc cả ngày) hôm nay -> so về sớm với giờ
     # kết thúc buổi sáng (11h30 mặc định) thay vì giờ ra chuẩn cả ngày, vì
     # buổi chiều đã được duyệt nghỉ, chỉ cần làm đủ buổi sáng thôi.
-    if services.co_nghi_phep_buoi(current_user.id, date.today(), BuoiNghi.CHIEU):
+    if services.co_nghi_phep_buoi(current_user.id, ngay_vn_hien_tai(), BuoiNghi.CHIEU):
         som, phut_som = services.tinh_ve_som(bay_gio, current_app.config["GIO_KET_THUC_SANG"])
     else:
         som, phut_som = services.tinh_ve_som(bay_gio)
@@ -316,7 +316,7 @@ def _du_lieu_bang_cong(thang: str):
 def bang_cong():
     if not current_user.la_quan_ly:
         abort(403)
-    thang = request.args.get("thang") or date.today().strftime("%Y-%m")
+    thang = request.args.get("thang") or ngay_vn_hien_tai().strftime("%Y-%m")
     ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang)
     return render_template("bang_cong.html", ban_ghi=ban_ghi, don_nghi=don_nghi,
                            tong=tong, thang=thang)
@@ -327,7 +327,7 @@ def bang_cong():
 def xuat_bang_cong():
     if not current_user.la_quan_ly:
         abort(403)
-    thang = request.args.get("thang") or date.today().strftime("%Y-%m")
+    thang = request.args.get("thang") or ngay_vn_hien_tai().strftime("%Y-%m")
     ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang)
     tep = services.xuat_excel_bang_cong(thang, ban_ghi, don_nghi, tong)
     return send_file(
