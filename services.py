@@ -836,6 +836,14 @@ def dong_cac_viec_qua_han() -> list[CongViec]:
     return da_dong
 
 
+def go_lien_ket_log_zalo_cho_viec(viec: CongViec):
+    """Gỡ liên kết log Zalo khỏi 1 công việc trước khi xoá vĩnh viễn công
+    việc đó — Postgres chặn xoá nếu còn log tham chiếu qua khoá ngoại
+    cong_viec_id. Giữ nguyên log để tra cứu, chỉ gỡ liên kết."""
+    for lz in LogZalo.query.filter_by(cong_viec_id=viec.id).all():
+        lz.cong_viec_id = None
+
+
 def xoa_file_dinh_kem(viec: CongViec):
     """Xoá vật lý các tệp đối chứng của 1 công việc trên ổ đĩa, gọi trước khi
     xoá bản ghi CongViec để không để lại file mồ côi."""
@@ -866,6 +874,7 @@ def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
 
     for v in CongViec.query.filter_by(nguoi_nhan_id=nd.id).all():
         xoa_file_dinh_kem(v)
+        go_lien_ket_log_zalo_cho_viec(v)
         db.session.delete(v)
 
     for v in CongViec.query.filter_by(nguoi_giao_id=nd.id).all():

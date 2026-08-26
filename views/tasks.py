@@ -570,6 +570,7 @@ def xoa_viec(viec_id):
     viec = db.session.get(CongViec, viec_id) or abort(404)
     ma, ten = viec.ma, viec.tieu_de
     services.xoa_file_dinh_kem(viec)
+    services.go_lien_ket_log_zalo_cho_viec(viec)
     db.session.delete(viec)
     db.session.commit()
     flash(f"Đã xoá vĩnh viễn công việc {ma} — {ten}.", "success")
