@@ -42,6 +42,12 @@
     Bấm để gửi thử ngay lập tức — dùng kiểm tra trước khi đặt cron thật trên VPS.
   </p>
   <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='sap-qua-han') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>⏳ Nhắc việc sắp tới hạn (30 phút)</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật mỗi 5 phút</span>
+      </button>
+    </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='cham-cong-sang') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
         <span>⏰ Nhắc chấm công sáng</span>

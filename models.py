@@ -231,6 +231,7 @@ class CongViec(db.Model):
     hoan_thanh_luc = db.Column(db.DateTime, index=True)
 
     so_sao_cuoi = db.Column(db.Integer)  # sao của lần duyệt cuối, để xếp KPI nhanh
+    da_nhac_sap_qua_han = db.Column(db.Boolean, default=False, nullable=False)  # tránh nhắc lặp lại
 
     nguoi_giao = db.relationship("NguoiDung", foreign_keys=[nguoi_giao_id])
     nguoi_nhan = db.relationship("NguoiDung", foreign_keys=[nguoi_nhan_id])

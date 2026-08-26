@@ -224,6 +224,16 @@ def create_app(config_class=Config):
         db.session.commit()
         click.echo(f"Đã xoá {so_xoa} log Zalo cũ hơn hôm nay.")
 
+    @app.cli.command("nhac-sap-qua-han")
+    def nhac_sap_qua_han():
+        """Chạy bằng cron mỗi 5 phút: nhắc việc sắp tới hạn trong 30 phút
+        tới, chỉ gửi riêng cho nhân viên đang nhận việc đó (không báo nhóm
+        QL). Mỗi việc chỉ nhắc đúng 1 lần."""
+        import services
+        so_luong = services.nhac_viec_sap_qua_han(30)
+        db.session.commit()
+        click.echo(f"Đã nhắc {so_luong} việc sắp tới hạn.")
+
     @app.cli.command("nhac-cham-cong-sang")
     def nhac_cham_cong_sang():
         """Chạy bằng cron lúc 07:45: gửi link chấm công cho từng nhân viên/

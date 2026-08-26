@@ -283,6 +283,35 @@ def _nhan_vien_khong_phai_admin_sep() -> list[NguoiDung]:
     ).all()
 
 
+def nhac_viec_sap_qua_han(phut_truoc: int = 30) -> int:
+    """Nhắc việc sắp tới hạn (mặc định trong vòng 30 phút tới), CHỈ gửi cho
+    đúng nhân viên đang nhận việc đó — không báo nhóm QL. Nên chạy bằng
+    cron thường xuyên (VD mỗi 5 phút) để bắt kịp mốc giờ; dùng cột
+    da_nhac_sap_qua_han để mỗi việc chỉ nhắc đúng 1 lần, không bị nhắc lặp
+    lại liên tục trong suốt khung 30 phút đó. Chỉ nhắc việc CHƯA nộp gì
+    (mới/đang làm/phải làm lại) — việc đang chờ duyệt thì đã ngoài tầm tay
+    nhân viên, không cần nhắc."""
+    bay_gio = datetime.now()
+    moc_xa = bay_gio + timedelta(minutes=phut_truoc)
+    viecs = CongViec.query.filter(
+        CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
+        CongViec.han.isnot(None),
+        CongViec.han > bay_gio,
+        CongViec.han <= moc_xa,
+        CongViec.da_nhac_sap_qua_han.is_(False),
+    ).all()
+    for v in viecs:
+        nd = (
+            f"⏳ Việc sắp tới hạn (còn dưới {phut_truoc} phút)\n\n"
+            f"[{v.ma}] {v.tieu_de}\n"
+            f"Hạn: {v.han:%H:%M %d/%m/%Y}\n\n"
+            f"Xem chi tiết và gửi đối chứng ngay:\n{v.link}"
+        )
+        gui_cho_nhan_vien(v.nguoi_nhan, nd, v)
+        v.da_nhac_sap_qua_han = True
+    return len(viecs)
+
+
 def nhac_cham_cong_sang() -> int:
     """7h45: gửi link chấm công cho từng nhân viên/quản lý (trừ Sếp/Admin —
     2 role này không tự chấm công). Trả về số người đã gửi."""
