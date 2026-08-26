@@ -87,26 +87,6 @@
   </div>
 </div>
 
-<div class="the">
-  <h3>Xoá dữ liệu chấm công</h3>
-  <p style="color:var(--muc-mo);font-size:.85rem">
-    Chỉ Admin dùng được. Để trống cả 2 ô ngày = xoá SẠCH TOÀN BỘ chấm công.
-    Không thể khôi phục. Dùng khi mới triển khai, dữ liệu chấm công cũ
-    (VD: bị đánh dấu "Không phép" hàng loạt trước khi nhân viên kịp dùng
-    hệ thống) không còn ý nghĩa.
-  </p>
-  <form method="post" action="{{ url_for('admin.xoa_du_lieu_cham_cong') }}"
-        onsubmit="return confirm('XOÁ DỮ LIỆU CHẤM CÔNG theo khoảng ngày đã chọn (để trống = xoá TOÀN BỘ)?\n\nKhông thể khôi phục.') && prompt('Gõ chữ XOA để xác nhận:') === 'XOA'">
-    <div class="hang" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px 10px">
-      <label style="margin:0;white-space:nowrap;flex:0 0 auto">Từ ngày</label>
-      <input type="date" name="tu_ngay" class="o-ngay-loc">
-      <label style="margin:0;white-space:nowrap;flex:0 0 auto">đến</label>
-      <input type="date" name="den_ngay" class="o-ngay-loc">
-    </div>
-    <button class="nut nut--do" type="submit">🗑 Xoá dữ liệu chấm công</button>
-  </form>
-</div>
-
 <details class="the the--them" open>
   <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm bot Zalo</summary>
   <form method="post" style="margin-top:14px">
