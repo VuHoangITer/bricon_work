@@ -127,6 +127,11 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tin_nhan: tin, lich_su: lichSu }),
       });
+      if (!r.ok) {
+        dangGo.remove();
+        themTin('ai', `Máy chủ báo lỗi (mã ${r.status}) — báo quản trị viên kiểm tra log.`);
+        return;
+      }
       const d = await r.json();
       dangGo.remove();
       if (!d.ok) {
@@ -137,7 +142,7 @@
       lichSu.push({ vai_tro: 'assistant', noi_dung: d.tra_loi });
     } catch (err) {
       dangGo.remove();
-      themTin('ai', 'Không kết nối được máy chủ.');
+      themTin('ai', 'Không kết nối được máy chủ (mất mạng hoặc server đang tắt).');
     } finally {
       nutGui.disabled = false;
       input.focus();

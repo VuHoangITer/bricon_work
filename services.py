@@ -1168,13 +1168,15 @@ def _ngu_canh_toan_doi(nd: NguoiDung) -> str:
     dong = []
     for nv in nhan_su:
         cc = ChamCong.query.filter_by(nguoi_dung_id=nv.id, ngay=hom_nay).first()
-        if cc:
+        if cc and cc.gio_vao:
             tt = f"đã chấm vào {cc.gio_vao:%H:%M}"
             tt += f", ra {cc.gio_ra:%H:%M}" if cc.gio_ra else ", chưa chấm ra"
             if cc.di_tre:
                 tt += f" (trễ {cc.so_phut_tre}p)"
             if cc.ve_som:
                 tt += f" (sớm {cc.so_phut_som}p)"
+        elif cc and cc.nghi_khong_phep:
+            tt = "nghỉ không phép hôm nay"
         else:
             tt = "chưa chấm công"
 
@@ -1297,13 +1299,15 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
             dong.append("Ngày mai chưa có việc nào tới hạn (theo dữ liệu hiện có).")
 
         cc = ChamCong.query.filter_by(nguoi_dung_id=nd.id, ngay=hom_nay).first()
-        if cc:
+        if cc and cc.gio_vao:
             trang_thai_cc = f"đã chấm vào lúc {cc.gio_vao:%H:%M}"
             trang_thai_cc += f", đã chấm ra lúc {cc.gio_ra:%H:%M}" if cc.gio_ra else ", chưa chấm ra"
             if cc.di_tre:
                 trang_thai_cc += f" (đi trễ {cc.so_phut_tre} phút)"
             if cc.ve_som:
                 trang_thai_cc += f" (về sớm {cc.so_phut_som} phút)"
+        elif cc and cc.nghi_khong_phep:
+            trang_thai_cc = "nghỉ không phép hôm nay"
         else:
             trang_thai_cc = "chưa chấm công vào hôm nay"
         dong.append(f"Chấm công hôm nay (của chính người đang hỏi): {trang_thai_cc}.")
