@@ -421,7 +421,16 @@ def bao_cao_sang_cho_sep():
 
 
 def bao_cao_chieu_cho_sep():
-    """17h30: báo cáo tóm tắt cuối ngày cho Sếp/Quản lý — gửi vào nhóm QL."""
+    """17h30: báo cáo tóm tắt cuối ngày cho Sếp/Quản lý — gửi vào nhóm QL.
+
+    Không còn đếm "việc quá hạn" nữa — hệ thống đã tự động đóng + chấm 0★
+    MỌI việc quá hạn ngay khi phát hiện (before_request mỗi lần mở trang +
+    cron mỗi 5 phút), nên tới giờ báo cáo (17h30) gần như không bao giờ
+    còn việc nào thực sự ở trạng thái "quá hạn chưa xử lý" — con số đó chỉ
+    gây hiểu lầm. Thay bằng liệt kê từng việc đã bị 0★ hôm nay (tức đã bị
+    hệ thống tự đóng do không nộp đúng hạn) kèm link, và liệt kê luôn từng
+    việc đang chờ duyệt kèm link để sếp bấm vào duyệt ngay từ Zalo.
+    """
     from models import XinNghi
     hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
@@ -436,20 +445,41 @@ def bao_cao_chieu_cho_sep():
         CongViec.trang_thai == TrangThai.HOAN_THANH,
         CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
     ).count()
-    qua_han = CongViec.query.filter(
-        CongViec.han < gio_vn_hien_tai(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
-    cho_duyet = CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET).count()
+
+    khong_dung_han = CongViec.query.filter(
+        CongViec.so_sao_cuoi == 0,
+        CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
+    ).order_by(CongViec.hoan_thanh_luc).all()
+    cho_duyet_ds = CongViec.query.filter_by(
+        trang_thai=TrangThai.CHO_DUYET
+    ).order_by(CongViec.gui_doi_chung_luc).all()
 
     nd = (
         f"📊 Tóm tắt cuối ngày – BRICON {hom_nay:%d/%m/%Y}\n\n"
         f"🧑‍💼 {co_mat} nhân viên có mặt hôm nay\n"
         f"🕐 {di_tre} người đi trễ · 🏃 {ve_som} người về sớm\n"
         f"📝 {xin_nghi_hom_nay} đơn xin nghỉ hôm nay\n"
-        f"📅 {viec_hom_nay} công việc hôm nay · ✅ {hoan_thanh_hom_nay} đã hoàn thành\n"
-        f"🔴 {qua_han} việc quá hạn\n"
-        f"🟡 {cho_duyet} việc chờ đánh giá\n\n"
-        f"Một ngày làm việc nữa đã hoàn tất!"
+        f"📅 {viec_hom_nay} công việc hôm nay · ✅ {hoan_thanh_hom_nay} đã hoàn thành\n\n"
     )
+
+    if khong_dung_han:
+        nd += f"🔴 {len(khong_dung_han)} việc không hoàn thành đúng hạn — 0★:\n" + "\n".join(
+            f"• [{v.ma}] {v.tieu_de} — {v.nguoi_nhan.ho_ten}\n  {v.link}"
+            for v in khong_dung_han
+        )
+    else:
+        nd += "🔴 Không có việc nào bị 0★ hôm nay."
+    nd += "\n\n"
+
+    if cho_duyet_ds:
+        nd += f"🟡 {len(cho_duyet_ds)} việc đang chờ duyệt:\n" + "\n".join(
+            f"• [{v.ma}] {v.tieu_de} — {v.nguoi_nhan.ho_ten}\n  {v.link}"
+            for v in cho_duyet_ds
+        )
+    else:
+        nd += "🟡 Không có việc nào đang chờ duyệt."
+
+    nd += "\n\nMột ngày làm việc nữa đã hoàn tất!"
     gui_nhom_ql(nd)
 
 
