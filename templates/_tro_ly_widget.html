@@ -83,9 +83,17 @@
       const duoi = media.split('?')[0].split('.').pop().toLowerCase();
       let phanTu = null;
       if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(duoi)) {
-        phanTu = document.createElement('img');
-        phanTu.src = media;
-        phanTu.style.cssText = 'max-width:240px;border-radius:10px;display:block';
+        const lienKet = document.createElement('a');
+        lienKet.href = media;
+        lienKet.target = '_blank';
+        lienKet.rel = 'noopener';
+        lienKet.title = 'Bấm để xem ảnh cỡ đầy đủ / tải về';
+        lienKet.style.cssText = 'display:block';
+        const img = document.createElement('img');
+        img.src = media;
+        img.style.cssText = 'max-width:240px;border-radius:10px;display:block;cursor:zoom-in';
+        lienKet.appendChild(img);
+        phanTu = lienKet;
       } else if (['mp4', 'webm', 'mov'].includes(duoi)) {
         phanTu = document.createElement('video');
         phanTu.src = media;
