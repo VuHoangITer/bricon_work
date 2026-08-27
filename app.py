@@ -262,6 +262,25 @@ def create_app(config_class=Config):
         db.session.commit()
         click.echo(f"Đã nhắc xem việc {so_luong} người.")
 
+    @app.cli.command("ban-tin-sang")
+    def ban_tin_sang():
+        """Chạy bằng cron lúc 08:00: gửi bản tin cá nhân buổi sáng (kết quả
+        hôm qua + việc quan trọng hôm nay + cần xử lý ngay) cho từng nhân
+        viên/quản lý (trừ Sếp/Admin)."""
+        import services
+        so_luong = services.gui_ban_tin_sang()
+        db.session.commit()
+        click.echo(f"Đã gửi bản tin sáng cho {so_luong} người.")
+
+    @app.cli.command("ban-tin-chieu")
+    def ban_tin_chieu():
+        """Chạy bằng cron lúc 17:30: gửi bản tin cá nhân buổi chiều (kết quả
+        hôm nay + cần xử lý ngay) cho từng nhân viên/quản lý (trừ Sếp/Admin)."""
+        import services
+        so_luong = services.gui_ban_tin_chieu()
+        db.session.commit()
+        click.echo(f"Đã gửi bản tin chiều cho {so_luong} người.")
+
     @app.cli.command("bao-cao-sang")
     def bao_cao_sang():
         """Chạy bằng cron lúc 08:10: báo cáo nhanh đầu ngày vào nhóm QL."""

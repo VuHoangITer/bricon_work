@@ -325,6 +325,12 @@ def chay_thu_bao_cao(ten_lenh):
     elif ten_lenh == "viec-hom-nay":
         so = services.nhac_viec_hom_nay()
         thong_bao = f"Đã gửi nhắc xem việc hôm nay cho {so} người."
+    elif ten_lenh == "ban-tin-sang":
+        so = services.gui_ban_tin_sang()
+        thong_bao = f"Đã gửi bản tin sáng cho {so} người."
+    elif ten_lenh == "ban-tin-chieu":
+        so = services.gui_ban_tin_chieu()
+        thong_bao = f"Đã gửi bản tin chiều cho {so} người."
     elif ten_lenh == "bao-cao-sang":
         services.bao_cao_sang_cho_sep()
         thong_bao = "Đã gửi báo cáo sáng vào nhóm QL."

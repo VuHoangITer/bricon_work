@@ -60,10 +60,16 @@
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 17:32</span>
       </button>
     </form>
-    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='viec-hom-nay') }}">
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='ban-tin-sang') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>📋 Nhắc xem việc hôm nay</span>
+        <span>🗞️ Bản tin sáng (từng nhân viên)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 08:00</span>
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='ban-tin-chieu') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>🗞️ Bản tin chiều (từng nhân viên)</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 17:30</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='bao-cao-sang') }}">
