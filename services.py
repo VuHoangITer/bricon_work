@@ -273,6 +273,21 @@ def bao_doi_uu_tien(viec: CongViec, uu_tien_cu_ten: str, nguoi_doi: NguoiDung):
     gui_cho_nhan_vien(viec.nguoi_nhan, nd, viec)
 
 
+def bao_dat_lai_han(viec: CongViec, han_cu, nguoi_doi: NguoiDung):
+    """Báo cho nhân viên khi Sếp/Admin đặt lại (hoặc đặt lần đầu) hạn hoàn
+    thành cho 1 công việc."""
+    han_cu_hien = han_cu.strftime("%H:%M %d/%m/%Y") if han_cu else "(chưa đặt hạn)"
+    han_moi_hien = viec.han.strftime("%H:%M %d/%m/%Y") if viec.han else "(đã bỏ hạn)"
+    nd = (
+        f"📅 Hạn hoàn thành đã được cập nhật\n\n"
+        f"[{viec.ma}] {viec.tieu_de}\n"
+        f"Từ: {han_cu_hien} → Sang: {han_moi_hien}\n"
+        f"Người đổi: {nguoi_doi.ho_ten}\n\n"
+        f"Xem chi tiết:\n{viec.link}"
+    )
+    gui_cho_nhan_vien(viec.nguoi_nhan, nd, viec)
+
+
 # ---------------------------------------------------------------------------
 # BÁO CÁO ZALO THEO LỊCH TRONG NGÀY (chạy bằng cron, xem app.py)
 # ---------------------------------------------------------------------------

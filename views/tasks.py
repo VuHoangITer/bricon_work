@@ -668,6 +668,41 @@ def xoa_dinh_kem(id):
     return redirect(request.referrer or url_for("tasks.thu_vien"))
 
 
+@bp.route("/viec/<int:viec_id>/dat-lai-han", methods=["POST"])
+@login_required
+def dat_lai_han(viec_id):
+    """Chỉ Admin/Sếp — đặt lại (hoặc đặt lần đầu) hạn hoàn thành cho 1
+    công việc, kể cả khi giao việc trước đó lỡ quên đặt hạn. Báo Zalo cho
+    nhân viên ngay sau khi đổi."""
+    if not current_user.la_admin_sep:
+        abort(403)
+    viec = db.session.get(CongViec, viec_id) or abort(404)
+
+    han_raw = (request.form.get("han") or "").strip()
+    han_moi = None
+    if han_raw:
+        try:
+            han_moi = datetime.strptime(han_raw, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            flash("Hạn hoàn thành không đúng định dạng.", "error")
+            return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+    han_cu = viec.han
+    if han_cu == han_moi:
+        flash("Hạn hoàn thành không đổi gì.", "info")
+        return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+    viec.han = han_moi
+    viec.da_nhac_sap_qua_han = False  # đặt hạn mới -> cho nhắc lại từ đầu
+    db.session.commit()
+
+    services.bao_dat_lai_han(viec, han_cu, current_user)
+    db.session.commit()
+
+    flash("Đã cập nhật hạn hoàn thành, đã báo Zalo cho nhân viên.", "success")
+    return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+
 @bp.route("/viec/<int:viec_id>/doi-uu-tien", methods=["POST"])
 @login_required
 def doi_uu_tien(viec_id):

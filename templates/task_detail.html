@@ -43,6 +43,15 @@
     <span {% if viec.qua_han %}style="color:var(--lam-lai)"{% endif %}>
       {{ viec.han|gio if viec.han else 'Không đặt hạn' }}
       {%- if viec.qua_han %} · quá hạn{% endif %}</span></div>
+  {% if current_user.la_admin_sep %}
+  <div class="dong-tt" style="align-items:center">
+    <form method="post" action="{{ url_for('tasks.dat_lai_han', viec_id=viec.id) }}"
+          style="display:flex;gap:8px;align-items:center;width:100%">
+      <input type="datetime-local" name="han" value="{{ viec.han|input_dt }}" style="flex:1">
+      <button class="nut nut--phu nut--nho" type="submit" style="flex:0 0 auto">Đặt lại hạn</button>
+    </form>
+  </div>
+  {% endif %}
   {% if viec.hoan_thanh_luc %}
   <div class="dong-tt"><span>Hoàn thành</span><span>{{ viec.hoan_thanh_luc|gio }}</span></div>
   {% endif %}
