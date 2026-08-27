@@ -1211,6 +1211,8 @@ def _ngu_canh_toan_doi(nd: NguoiDung) -> str:
 
     hom_nay = ngay_vn_hien_tai()
     ngay_mai = hom_nay + timedelta(days=1)
+    dau_ngay = datetime.combine(hom_nay, datetime.min.time())
+    cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
     dong = []
     for nv in nhan_su:
         cc = ChamCong.query.filter_by(nguoi_dung_id=nv.id, ngay=hom_nay).first()
@@ -1234,6 +1236,10 @@ def _ngu_canh_toan_doi(nd: NguoiDung) -> str:
             CongViec.nguoi_nhan_id == nv.id, CongViec.trang_thai.in_(TrangThai.DANG_MO),
             dieu_kien_viec_trong_ngay(ngay_mai),
         ).all()
+        viec_da_xong_hn = CongViec.query.filter(
+            CongViec.nguoi_nhan_id == nv.id, CongViec.trang_thai == TrangThai.HOAN_THANH,
+            CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
+        ).order_by(CongViec.hoan_thanh_luc).all()
 
         dong.append(f"* {nv.ho_ten} ({nv.ma_dinh_danh}) — chấm công hôm nay: {tt}.")
         if viec_hn:
@@ -1244,6 +1250,13 @@ def _ngu_canh_toan_doi(nd: NguoiDung) -> str:
             dong.append("  Việc hạn ngày mai: " + "; ".join(
                 f"[{v.ma}] {v.tieu_de} ({v.ten_trang_thai}){_dong_media_cho_viec(v)}"
                 for v in viec_nm))
+        if viec_da_xong_hn:
+            dong.append("  Việc ĐÃ HOÀN THÀNH hôm nay: " + "; ".join(
+                f"[{v.ma}] {v.tieu_de} (xong lúc {v.hoan_thanh_luc:%H:%M}"
+                f"{f', {v.so_sao_cuoi}★' if v.so_sao_cuoi is not None else ''})"
+                f"{_dong_media_cho_viec(v)}" for v in viec_da_xong_hn))
+        else:
+            dong.append("  Việc đã hoàn thành hôm nay: chưa có việc nào.")
 
     return "\n".join(dong)
 
@@ -1340,6 +1353,28 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
         else:
             dong.append("Ngày mai chưa có việc nào tới hạn (theo dữ liệu hiện có).")
 
+        viec_da_xong = (
+            CongViec.query.filter(
+                CongViec.nguoi_nhan_id == nd.id,
+                CongViec.trang_thai == TrangThai.HOAN_THANH,
+                CongViec.hoan_thanh_luc >= gio_vn_hien_tai() - timedelta(days=7),
+            )
+            .order_by(CongViec.hoan_thanh_luc.desc())
+            .limit(10)
+            .all()
+        )
+        if viec_da_xong:
+            dong.append(
+                "Việc ĐÃ HOÀN THÀNH gần đây, 7 ngày qua, mới nhất trước "
+                "(của chính người đang hỏi): " + "; ".join(
+                    f"[{v.ma}] {v.tieu_de} (xong lúc {v.hoan_thanh_luc:%H:%M %d/%m}"
+                    f"{f', {v.so_sao_cuoi}★' if v.so_sao_cuoi is not None else ''})"
+                    f"{_dong_media_cho_viec(v)}" for v in viec_da_xong))
+        else:
+            dong.append(
+                "Chưa có việc nào đã hoàn thành trong 7 ngày qua (của chính "
+                "người đang hỏi).")
+
         cc = ChamCong.query.filter_by(nguoi_dung_id=nd.id, ngay=hom_nay).first()
         if cc and cc.gio_vao:
             trang_thai_cc = f"đã chấm vào lúc {cc.gio_vao:%H:%M}"
@@ -1379,9 +1414,15 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
                             "được hỏi về 1 người cụ thể theo tên, không chỉ về chính "
                             "người đang hỏi) ---\n" + ngu_canh_doi)
     else:
+        dau_ngay = datetime.combine(hom_nay, datetime.min.time())
+        cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
         cho_duyet = CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET).count()
         qua_han = CongViec.query.filter(
             CongViec.han < gio_vn_hien_tai(), CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
+        hoan_thanh_hom_nay = CongViec.query.filter(
+            CongViec.trang_thai == TrangThai.HOAN_THANH,
+            CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
+        ).count()
         tong_nhan_vien = NguoiDung.query.filter_by(dang_hoat_dong=True).count()
         theo_bo_phan = (
             db.session.query(BoPhan.ten, db.func.count(NguoiDung.id))
@@ -1392,7 +1433,9 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
         dong.append(
             f"Số liệu công ty hiện tại: {tong_nhan_vien} nhân viên đang hoạt động "
             f"(gồm mọi vai trò), {cho_duyet} việc đang chờ duyệt đối chứng, "
-            f"{qua_han} việc đang quá hạn chưa nộp."
+            f"{qua_han} việc đang quá hạn chưa nộp, {hoan_thanh_hom_nay} việc đã "
+            f"hoàn thành hôm nay (danh sách cụ thể từng việc/từng người xem ở "
+            f"phần dữ liệu từng nhân viên bên dưới)."
             + (" Theo bộ phận: " + "; ".join(f"{ten}: {sl}" for ten, sl in theo_bo_phan)
                if theo_bo_phan else "")
         )
