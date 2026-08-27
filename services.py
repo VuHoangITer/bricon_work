@@ -14,7 +14,8 @@ from werkzeug.utils import secure_filename
 
 from extensions import db
 from models import (BuoiNghi, ChamCong, CongViec, DanhGia, DiemChamCong, LogZalo,
-                    LoaiDinhKem, NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
+                    LoaiDinhKem, MucSao, NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai,
+                    ngay_vn_hien_tai)
 
 # ---------------------------------------------------------------------------
 # GỬI ZALO
@@ -498,10 +499,14 @@ def bao_gui_doi_chung(viec: CongViec, so_file: int):
 
 def bao_da_duyet(viec: CongViec, dg: DanhGia):
     sao = "⭐" * (dg.so_sao or 0)
+    nhan_sao = MucSao.nhan(dg.so_sao)
+    dong_danh_gia = f"Đánh giá: {sao} ({dg.so_sao}/5)"
+    if nhan_sao:
+        dong_danh_gia += f" - {nhan_sao}"
     nd = (
         f"🎉 Sếp đã xem và đánh giá công việc của bạn\n\n"
         f"[{viec.ma}] {viec.tieu_de}\n"
-        f"Đánh giá: {sao} ({dg.so_sao}/5)\n"
+        f"{dong_danh_gia}\n"
     )
     if dg.ghi_chu:
         nd += f"Nhận xét: {dg.ghi_chu}\n"

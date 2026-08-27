@@ -89,6 +89,28 @@ class LoaiDinhKem:
     NHAN = {ANH: "Ảnh", VIDEO: "Video", GHI_AM: "Ghi âm", FILE: "Tệp"}
 
 
+class MucSao:
+    """Nhãn diễn giải cho từng mức sao đánh giá (0-5) — dùng chung khi
+    hiện đánh giá cho nhân viên xem (form chấm điểm, chi tiết việc, tin
+    Zalo báo đã duyệt...), để cùng 1 mức sao luôn hiểu theo đúng 1 nghĩa
+    thống nhất toàn hệ thống, không mỗi chỗ diễn giải 1 kiểu."""
+
+    NHAN = {
+        0: "Không làm",
+        1: "Làm cho có",
+        2: "Có làm nhưng cần nhắc nhở",
+        3: "Làm đầy đủ, có trách nhiệm",
+        4: "Có tâm, nhiệt huyết",
+        5: "Chủ động, sáng tạo, vượt mong đợi",
+    }
+
+    @staticmethod
+    def nhan(so_sao: int | None) -> str:
+        if so_sao is None:
+            return ""
+        return MucSao.NHAN.get(so_sao, "")
+
+
 # --------------------------------------------------------------------------
 # Bảng
 # --------------------------------------------------------------------------
