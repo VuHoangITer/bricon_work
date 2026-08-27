@@ -81,15 +81,17 @@ def _viec_lien_quan():
 @login_required
 def dashboard():
     hom_nay = ngay_vn_hien_tai()
-    dau_ngay = datetime.combine(hom_nay, datetime.min.time())
-    cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
+
+    # "Hôm nay có việc gì": việc không đặt ngày bắt đầu thì chỉ hiện đúng
+    # ngày hạn (như cũ). Việc CÓ đặt ngày bắt đầu thì hiện xuyên suốt từ
+    # ngày bắt đầu tới ngày của hạn, không chỉ đúng ngày hạn.
+    dieu_kien_hom_nay = services.dieu_kien_viec_trong_ngay(hom_nay)
 
     cua_toi = (
         CongViec.query.filter(
             CongViec.nguoi_nhan_id == current_user.id,
             CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            CongViec.han >= dau_ngay,
-            CongViec.han <= cuoi_ngay,
+            dieu_kien_hom_nay,
         )
         .order_by(CongViec.han)
         .all()
@@ -118,8 +120,7 @@ def dashboard():
     if current_user.la_admin_sep:
         viec_hom_nay_cong_ty = CongViec.query.filter(
             CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            CongViec.han >= dau_ngay,
-            CongViec.han <= cuoi_ngay,
+            dieu_kien_hom_nay,
         ).count()
 
     loi_chao, loi_chao_phu, chao_mung_icon = _loi_chao_theo_gio()
@@ -251,6 +252,7 @@ def giao_viec():
         mo_ta = (request.form.get("mo_ta") or "").strip()
         uu_tien = request.form.get("do_uu_tien") or DoUuTien.THUONG
         han_raw = request.form.get("han") or ""
+        ngay_bat_dau_raw = (request.form.get("ngay_bat_dau") or "").strip()
         cac_ngay_raw = request.form.getlist("ngay_hang_ngay")
         gio_hang_ngay = request.form.get("gio_hang_ngay") or "08:00"
         thang_hang_ngay = request.form.get("thang_hang_ngay") or thang_hien_tai
@@ -260,14 +262,19 @@ def giao_viec():
             return render_template(
                 "task_form.html", nhan_vien=nhan_vien, tieu_de=tieu_de, mo_ta=mo_ta,
                 han=han_raw, uu_tien=uu_tien, ngay_da_chon=cac_ngay_raw,
+                ngay_bat_dau=ngay_bat_dau_raw,
                 gio_hang_ngay=gio_hang_ngay, thang_hang_ngay=thang_hang_ngay,
             )
 
         if not tieu_de or not nguoi_nhan_ids:
             return loi("Cần nhập tên công việc và chọn ít nhất 1 người nhận.")
 
-        # Hằng ngày: nhiều ngày rời rạc, dùng chung 1 giờ hạn mỗi ngày.
-        # Còn lại: 1 hạn duy nhất (datetime-local) như cũ.
+        # Hằng ngày: nhiều ngày rời rạc, dùng chung 1 giờ hạn mỗi ngày, không
+        # áp dụng "Ngày bắt đầu" (mỗi ngày đã là 1 việc riêng biệt rồi).
+        # Còn lại: 1 hạn duy nhất (datetime-local) như cũ, có thể kèm ngày
+        # bắt đầu để việc hiện xuyên suốt trong "Việc hằng ngày" từ ngày đó
+        # tới ngày hạn, không chỉ đúng ngày hạn.
+        ngay_bat_dau = None
         if uu_tien == DoUuTien.THAP:
             if not cac_ngay_raw:
                 return loi("Chọn ít nhất 1 ngày cho công việc hằng ngày.")
@@ -289,6 +296,13 @@ def giao_viec():
                     han = datetime.strptime(han_raw, "%Y-%m-%dT%H:%M")
                 except ValueError:
                     return loi("Hạn hoàn thành không đúng định dạng.")
+            if ngay_bat_dau_raw:
+                try:
+                    ngay_bat_dau = date.fromisoformat(ngay_bat_dau_raw)
+                except ValueError:
+                    return loi("Ngày bắt đầu không đúng định dạng.")
+                if han and ngay_bat_dau > han.date():
+                    return loi("Ngày bắt đầu phải trước hoặc bằng ngày của hạn hoàn thành.")
             danh_sach_han = [han]
 
         tao = []
@@ -298,7 +312,8 @@ def giao_viec():
                 continue
             for h in danh_sach_han:
                 v = CongViec(
-                    tieu_de=tieu_de, mo_ta=mo_ta, han=h, do_uu_tien=uu_tien,
+                    tieu_de=tieu_de, mo_ta=mo_ta, han=h, ngay_bat_dau=ngay_bat_dau,
+                    do_uu_tien=uu_tien,
                     nguoi_giao_id=current_user.id, nguoi_nhan_id=nv.id,
                     trang_thai=TrangThai.MOI,
                 )
@@ -306,10 +321,11 @@ def giao_viec():
                 tao.append(v)
 
         # Việc THÊM (khác tên/nội dung với việc chính ở trên) trong cùng 1
-        # lần giao — mỗi khối 1 hạn đơn, không hỗ trợ lịch nhiều ngày kiểu
-        # Hằng ngày (giữ đơn giản). Khối nào để trống tên/chưa chọn người
-        # nhận thì bỏ qua, không chặn cả form. Dò theo tên field tieu_de_N
-        # thay vì đếm số khối, nên xoá khối giữa chừng ở form vẫn an toàn.
+        # lần giao — mỗi khối 1 hạn đơn, có thể kèm ngày bắt đầu riêng,
+        # không hỗ trợ lịch nhiều ngày kiểu Hằng ngày (giữ đơn giản). Khối
+        # nào để trống tên/chưa chọn người nhận thì bỏ qua, không chặn cả
+        # form. Dò theo tên field tieu_de_N thay vì đếm số khối, nên xoá
+        # khối giữa chừng ở form vẫn an toàn.
         chi_so_them = sorted({
             int(m.group(1)) for k in request.form
             if (m := re.fullmatch(r"tieu_de_(\d+)", k))
@@ -331,6 +347,15 @@ def giao_viec():
                     han_i = datetime.strptime(han_i_raw, "%Y-%m-%dT%H:%M")
                 except ValueError:
                     han_i = None
+            ngay_bat_dau_i = None
+            ngay_bat_dau_i_raw = (request.form.get(f"ngay_bat_dau_{idx}") or "").strip()
+            if ngay_bat_dau_i_raw:
+                try:
+                    ngay_bat_dau_i = date.fromisoformat(ngay_bat_dau_i_raw)
+                except ValueError:
+                    ngay_bat_dau_i = None
+                if ngay_bat_dau_i and han_i and ngay_bat_dau_i > han_i.date():
+                    ngay_bat_dau_i = None  # bỏ qua giá trị vô lý, không chặn cả form
 
             tao_i = []
             for nid in nguoi_nhan_ids_i:
@@ -338,7 +363,8 @@ def giao_viec():
                 if not nv or not nv.dang_hoat_dong or nv.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
                     continue
                 v = CongViec(
-                    tieu_de=tieu_de_i, mo_ta=mo_ta_i, han=han_i, do_uu_tien=uu_tien_i,
+                    tieu_de=tieu_de_i, mo_ta=mo_ta_i, han=han_i,
+                    ngay_bat_dau=ngay_bat_dau_i, do_uu_tien=uu_tien_i,
                     nguoi_giao_id=current_user.id, nguoi_nhan_id=nv.id,
                     trang_thai=TrangThai.MOI,
                 )
@@ -671,9 +697,9 @@ def xoa_dinh_kem(id):
 @bp.route("/viec/<int:viec_id>/dat-lai-han", methods=["POST"])
 @login_required
 def dat_lai_han(viec_id):
-    """Chỉ Admin/Sếp — đặt lại (hoặc đặt lần đầu) hạn hoàn thành cho 1
-    công việc, kể cả khi giao việc trước đó lỡ quên đặt hạn. Báo Zalo cho
-    nhân viên ngay sau khi đổi."""
+    """Chỉ Admin/Sếp — đặt lại (hoặc đặt lần đầu) hạn hoàn thành + ngày bắt
+    đầu cho 1 công việc, kể cả khi giao việc trước đó lỡ quên đặt. Báo
+    Zalo cho nhân viên ngay sau khi đổi."""
     if not current_user.la_admin_sep:
         abort(403)
     viec = db.session.get(CongViec, viec_id) or abort(404)
@@ -687,12 +713,25 @@ def dat_lai_han(viec_id):
             flash("Hạn hoàn thành không đúng định dạng.", "error")
             return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
 
+    ngay_bat_dau_raw = (request.form.get("ngay_bat_dau") or "").strip()
+    ngay_bat_dau_moi = None
+    if ngay_bat_dau_raw:
+        try:
+            ngay_bat_dau_moi = date.fromisoformat(ngay_bat_dau_raw)
+        except ValueError:
+            flash("Ngày bắt đầu không đúng định dạng.", "error")
+            return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+        if han_moi and ngay_bat_dau_moi > han_moi.date():
+            flash("Ngày bắt đầu phải trước hoặc bằng ngày của hạn hoàn thành.", "error")
+            return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
     han_cu = viec.han
-    if han_cu == han_moi:
-        flash("Hạn hoàn thành không đổi gì.", "info")
+    if han_cu == han_moi and viec.ngay_bat_dau == ngay_bat_dau_moi:
+        flash("Không có gì thay đổi.", "info")
         return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
 
     viec.han = han_moi
+    viec.ngay_bat_dau = ngay_bat_dau_moi
     viec.da_nhac_sap_qua_han = False  # đặt hạn mới -> cho nhắc lại từ đầu
     db.session.commit()
 

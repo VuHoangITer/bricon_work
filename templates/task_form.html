@@ -29,6 +29,9 @@
   <div class="o-nhap" id="khoi-han-thuong">
     <label for="han">Hạn hoàn thành</label>
     <input id="han" name="han" type="datetime-local" value="{{ han or '' }}">
+    <div class="goi-y">Không bắt buộc: đặt thêm "Ngày bắt đầu" bên dưới nếu muốn việc này hiện trong "Việc hằng ngày" suốt từ ngày đó tới ngày hạn, không chỉ đúng ngày hạn (VD: việc chờ duyệt/chờ phản hồi kéo dài nhiều ngày).</div>
+    <label for="ngay_bat_dau" style="margin-top:10px">Ngày bắt đầu (không bắt buộc)</label>
+    <input id="ngay_bat_dau" name="ngay_bat_dau" type="date" value="{{ ngay_bat_dau or '' }}">
   </div>
 
   <div class="o-nhap" id="khoi-han-hang-ngay" style="display:none">
@@ -77,6 +80,9 @@
     </div>
     <div class="o-nhap"><label>Hạn hoàn thành</label>
       <input class="o-han" type="datetime-local" form="form-giao-viec"></div>
+    <div class="o-nhap"><label>Ngày bắt đầu (không bắt buộc)</label>
+      <input class="o-ngay-bat-dau" type="date" form="form-giao-viec">
+      <div class="goi-y">Đặt thêm nếu muốn việc hiện trong "Việc hằng ngày" suốt từ ngày này tới ngày hạn.</div></div>
   </div>
 </template>
 
@@ -243,6 +249,7 @@
     khoi.querySelector('.o-mo-ta').name = `mo_ta_${idx}`;
     khoi.querySelector('.o-uu-tien').name = `do_uu_tien_${idx}`;
     khoi.querySelector('.o-han').name = `han_${idx}`;
+    khoi.querySelector('.o-ngay-bat-dau').name = `ngay_bat_dau_${idx}`;
     khoi.querySelectorAll('.o-nguoi-nhan input[type=checkbox]').forEach((cb) => {
       cb.name = `nguoi_nhan_id_${idx}`;
     });

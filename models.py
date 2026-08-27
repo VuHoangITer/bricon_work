@@ -240,6 +240,10 @@ class CongViec(db.Model):
     nguoi_nhan_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
 
     han = db.Column(db.DateTime, index=True)
+    ngay_bat_dau = db.Column(db.Date)  # không bắt buộc; có set thì việc hiện
+                                       # trong "Việc hằng ngày" suốt từ ngày
+                                       # này tới ngày của han, không chỉ đúng
+                                       # ngày han như mặc định
     do_uu_tien = db.Column(db.String(10), default="thuong")  # thap / thuong / cao
     trang_thai = db.Column(db.String(20), default=TrangThai.MOI, nullable=False, index=True)
     lan_gui = db.Column(db.Integer, default=1, nullable=False)

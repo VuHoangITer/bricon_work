@@ -292,6 +292,28 @@ def bao_dat_lai_han(viec: CongViec, han_cu, nguoi_doi: NguoiDung):
 # BÁO CÁO ZALO THEO LỊCH TRONG NGÀY (chạy bằng cron, xem app.py)
 # ---------------------------------------------------------------------------
 
+def dieu_kien_viec_trong_ngay(ngay: date):
+    """Điều kiện lọc SQLAlchemy dùng chung cho Dashboard + Trợ lý AI: việc
+    có hạn rơi đúng 'ngay' (như trước giờ), HOẶC có đặt "ngày bắt đầu" và
+    'ngay' nằm trong khoảng [ngay_bat_dau, ngày của han] — để việc có
+    khoảng thời gian dài (VD chờ duyệt nhiều ngày) hiện xuyên suốt trong
+    "Việc hằng ngày", không chỉ đúng ngày hạn cuối cùng."""
+    dau_ngay = datetime.combine(ngay, datetime.min.time())
+    cuoi_ngay = datetime.combine(ngay, datetime.max.time())
+    return db.or_(
+        db.and_(
+            CongViec.ngay_bat_dau.is_(None),
+            CongViec.han >= dau_ngay,
+            CongViec.han <= cuoi_ngay,
+        ),
+        db.and_(
+            CongViec.ngay_bat_dau.isnot(None),
+            CongViec.ngay_bat_dau <= ngay,
+            CongViec.han >= dau_ngay,
+        ),
+    )
+
+
 def _nhan_vien_khong_phai_admin_sep() -> list[NguoiDung]:
     return NguoiDung.query.filter_by(dang_hoat_dong=True).filter(
         NguoiDung.vai_tro.notin_((VaiTro.ADMIN, VaiTro.SEP))
@@ -1206,13 +1228,11 @@ def _ngu_canh_toan_doi(nd: NguoiDung) -> str:
 
         viec_hn = CongViec.query.filter(
             CongViec.nguoi_nhan_id == nv.id, CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            CongViec.han >= datetime.combine(hom_nay, datetime.min.time()),
-            CongViec.han <= datetime.combine(hom_nay, datetime.max.time()),
+            dieu_kien_viec_trong_ngay(hom_nay),
         ).all()
         viec_nm = CongViec.query.filter(
             CongViec.nguoi_nhan_id == nv.id, CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            CongViec.han >= datetime.combine(ngay_mai, datetime.min.time()),
-            CongViec.han <= datetime.combine(ngay_mai, datetime.max.time()),
+            dieu_kien_viec_trong_ngay(ngay_mai),
         ).all()
 
         dong.append(f"* {nv.ho_ten} ({nv.ma_dinh_danh}) — chấm công hôm nay: {tt}.")
@@ -1298,14 +1318,12 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
         viec_hom_nay = CongViec.query.filter(
             CongViec.nguoi_nhan_id == nd.id,
             CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            CongViec.han >= datetime.combine(hom_nay, datetime.min.time()),
-            CongViec.han <= datetime.combine(hom_nay, datetime.max.time()),
+            dieu_kien_viec_trong_ngay(hom_nay),
         ).all()
         viec_ngay_mai = CongViec.query.filter(
             CongViec.nguoi_nhan_id == nd.id,
             CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            CongViec.han >= datetime.combine(ngay_mai, datetime.min.time()),
-            CongViec.han <= datetime.combine(ngay_mai, datetime.max.time()),
+            dieu_kien_viec_trong_ngay(ngay_mai),
         ).all()
 
         if viec_hom_nay:
