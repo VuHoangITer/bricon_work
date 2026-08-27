@@ -117,11 +117,21 @@ def dashboard():
     ).first()
 
     viec_hom_nay_cong_ty = 0
+    viec_hom_nay_cong_ty_theo_cot = []
     if current_user.la_admin_sep:
-        viec_hom_nay_cong_ty = CongViec.query.filter(
-            CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            dieu_kien_hom_nay,
-        ).count()
+        viec_hom_nay_cong_ty_ds = (
+            CongViec.query.filter(
+                CongViec.trang_thai.in_(TrangThai.DANG_MO),
+                dieu_kien_hom_nay,
+            )
+            .order_by(CongViec.han.is_(None), CongViec.han)
+            .all()
+        )
+        viec_hom_nay_cong_ty = len(viec_hom_nay_cong_ty_ds)
+        viec_hom_nay_cong_ty_theo_cot = [
+            (ma, DoUuTien.NHAN[ma], [v for v in viec_hom_nay_cong_ty_ds if v.do_uu_tien == ma])
+            for ma in (DoUuTien.CAO, DoUuTien.THUONG, DoUuTien.THAP)
+        ]
 
     loi_chao, loi_chao_phu, chao_mung_icon = _loi_chao_theo_gio()
     return render_template(
@@ -131,6 +141,7 @@ def dashboard():
         cho_toi_duyet=cho_toi_duyet,
         cc_hom_nay=cc_hom_nay,
         viec_hom_nay_cong_ty=viec_hom_nay_cong_ty,
+        viec_hom_nay_cong_ty_theo_cot=viec_hom_nay_cong_ty_theo_cot,
         loi_chao=loi_chao,
         loi_chao_phu=loi_chao_phu,
         chao_mung_icon=chao_mung_icon,

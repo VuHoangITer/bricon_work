@@ -113,15 +113,27 @@
 {% endif %}
 
 <div class="dashboard-grid">
+  {% if current_user.la_admin_sep %}
+  <button type="button" class="stat-card stat-card--lienket" id="nut-mo-viec-hang-ngay">
+    <span class="stat-card-icon stat-card-icon--xanh">📅</span>
+    <div class="stat-card-noi-dung">
+      <div class="stat-card-label">Việc hằng ngày</div>
+      <div class="stat-card-value">{{ viec_hom_nay_cong_ty }}</div>
+      <div class="stat-card-note">hạn hôm nay · toàn công ty</div>
+    </div>
+    <span class="stat-card-mui-ten">›</span>
+  </button>
+  {% else %}
   <a href="{{ url_for('tasks.danh_sach') }}" class="stat-card stat-card--lienket">
     <span class="stat-card-icon stat-card-icon--xanh">📅</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Việc hằng ngày</div>
-      <div class="stat-card-value">{{ viec_hom_nay_cong_ty if current_user.la_admin_sep else cua_toi|length }}</div>
-      <div class="stat-card-note">{{ 'hạn hôm nay · toàn công ty' if current_user.la_admin_sep else 'hạn hôm nay' }}</div>
+      <div class="stat-card-value">{{ cua_toi|length }}</div>
+      <div class="stat-card-note">hạn hôm nay</div>
     </div>
     <span class="stat-card-mui-ten">›</span>
   </a>
+  {% endif %}
   {% if current_user.la_quan_ly %}
   <a href="{{ url_for('tasks.danh_sach', trang_thai='cho_duyet') }}" class="stat-card stat-card--lienket">
     <span class="stat-card-icon stat-card-icon--luc">✓</span>
@@ -190,5 +202,64 @@
 {% else %}
   <div class="trong"><strong>Hôm nay chưa có việc nào tới hạn</strong>Việc có hạn hôm nay sẽ hiện ở đây.</div>
 {% endif %}
+{% endif %}
+
+{% if current_user.la_admin_sep %}
+<div class="modal-nen" id="modal-viec-hang-ngay" hidden>
+  <div class="modal-hop" role="dialog" aria-modal="true" aria-labelledby="modal-viec-hang-ngay-tieu-de">
+    <div class="modal-dau">
+      <div>
+        <h2 id="modal-viec-hang-ngay-tieu-de">Việc hằng ngày — toàn công ty</h2>
+        <p class="subtle" style="margin:2px 0 0">Việc chưa hoàn thành, có hạn hôm nay hoặc bắt đầu từ hôm nay.</p>
+      </div>
+      <button type="button" class="modal-dong" id="nut-dong-viec-hang-ngay" aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-than">
+      {% if viec_hom_nay_cong_ty %}
+      <div class="luoi-uu-tien">
+        {% for ma, ten, ds in viec_hom_nay_cong_ty_theo_cot %}
+        <div class="cot-uu-tien">
+          <div class="cot-uu-tien-dau">
+            <span class="uu-tien" data-muc="{{ ma }}">{{ ten }}</span>
+            <span class="dem">{{ ds|length }}</span>
+          </div>
+          {% for v in ds %}{{ the_viec(v, true) }}{% endfor %}
+          {% if not ds %}<div class="trong" style="padding:18px;font-size:.82rem">Không có việc</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+        <div class="trong"><strong>Hôm nay chưa có việc nào tới hạn hoặc bắt đầu</strong>Việc thoả điều kiện sẽ hiện ở đây.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.la_admin_sep %}
+<script>
+(function () {
+  const modal = document.getElementById('modal-viec-hang-ngay');
+  const nutMo = document.getElementById('nut-mo-viec-hang-ngay');
+  const nutDong = document.getElementById('nut-dong-viec-hang-ngay');
+  if (!modal || !nutMo) return;
+
+  function mo() {
+    modal.hidden = false;
+    document.body.classList.add('modal-dang-mo');
+  }
+  function dong() {
+    modal.hidden = true;
+    document.body.classList.remove('modal-dang-mo');
+  }
+
+  nutMo.addEventListener('click', mo);
+  nutDong.addEventListener('click', dong);
+  modal.addEventListener('click', (e) => { if (e.target === modal) dong(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) dong(); });
+})();
+</script>
 {% endif %}
 {% endblock %}
