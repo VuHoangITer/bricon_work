@@ -2,6 +2,7 @@
 import json
 import math
 import os
+import unicodedata
 import uuid
 from datetime import datetime, date, timedelta
 from io import BytesIO
@@ -622,7 +623,7 @@ def _noi_dung_ban_tin_ca_nhan(nv: NguoiDung, buoi: str) -> str:
             dong.append(f"⭐ MỨC ĐỘ HIỆN TẠI (tháng này): {o['sao_tb']:.1f}/5 sao — {o['xep_loai']}")
             dong.append("")
 
-    dong.append("💪 Mục tiêu: Hoàn thành 100%, không phát sinh việc bị quá hạn - 0★.")
+    dong.append("💪 Mục tiêu: Hoàn thành 100%, không phát sinh việc bị 0★.")
     dong.append("")
     dong.append(f"👉 Xem việc của bạn: {base}/viec")
     dong.append(f"👉 Xem KPI: {base}/kpi")
@@ -1344,7 +1345,15 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "đúng 1 đoạn [media:...] liên quan trong dữ liệu, hãy COPY Y NGUYÊN "
     "chuỗi đường dẫn đó (không kèm chữ \"media:\" hay dấu ngoặc) vào trường "
     "media. TUYỆT ĐỐI không tự bịa đường dẫn media — nếu không có đoạn "
-    "[media:...] nào phù hợp, để media là null."
+    "[media:...] nào phù hợp, để media là null.\n"
+    "QUAN TRỌNG: điền trường media KHÔNG phải là bạn tự tạo, tải lên, hay "
+    "đính kèm 1 file thật — bạn chỉ đang chọn đúng 1 chuỗi đường dẫn CÓ SẴN "
+    "trong dữ liệu được cung cấp, ứng dụng web sẽ tự lấy đúng ảnh đó hiển "
+    "thị cho người dùng. Đây luôn là hành động AN TOÀN, được phép, và đúng "
+    "chức năng của bạn trong hệ thống này khi có [media:...] khớp — TUYỆT "
+    "ĐỐI không được trả lời kiểu \"xin lỗi, tôi không thể cung cấp ảnh\" chỉ "
+    "vì nghĩ rằng mình phải gửi file thật; nếu có [media:...] phù hợp, luôn "
+    "điền nó vào, đừng từ chối."
 )
 
 
@@ -1659,6 +1668,65 @@ def _bang_kpi_thang_nay_cho_ngu_canh(bo_phan_id: int | None = None) -> str:
     return "\n".join(dong)
 
 
+def _chuan_hoa_khong_dau(s: str) -> str:
+    """Bỏ dấu tiếng Việt + hạ chữ thường, dùng để so khớp gần đúng (người
+    hỏi có thể gõ có dấu, không dấu, hoặc gõ tắt tên chức vụ)."""
+    s = unicodedata.normalize("NFKD", s or "")
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s.replace("đ", "d").replace("Đ", "D").lower().strip()
+
+
+def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
+    """Khớp trực tiếp (KHÔNG qua AI) khi người hỏi xin xem ảnh minh hoạ 1
+    chức vụ cụ thể — tách riêng khỏi luồng AI vì mô hình chat đôi khi tự ý
+    từ chối "gửi ảnh" (hiểu nhầm là phải tự tạo/đính kèm file thật) dù chỉ
+    cần trả về đúng 1 đường dẫn đã có sẵn. Khớp tên cứng ở đây đảm bảo luôn
+    trả được ảnh khi tên chức vụ đủ rõ, không phụ thuộc AI có làm đúng
+    hướng dẫn hay không.
+
+    Chỉ trả kết quả khi khớp ĐÚNG 1 chức vụ và người hỏi có quyền xem
+    (Admin/Sếp xem được mọi chức vụ; nhân viên thường chỉ chức vụ của
+    chính mình) — nếu mơ hồ (0 hoặc >1 khớp cùng điểm), trả None để câu
+    hỏi rơi xuống luồng AI bình thường xử lý tiếp."""
+    from models import ChucVu
+
+    tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
+    tin_tu = set(tin_chuan.split())
+    if not tin_tu & {"anh", "hinh", "photo", "image"}:
+        return None
+
+    if nd.la_admin_sep:
+        ung_vien = ChucVu.query.filter(ChucVu.anh.isnot(None)).all()
+    elif nd.chuc_vu and nd.chuc_vu.anh:
+        ung_vien = [nd.chuc_vu]
+    else:
+        ung_vien = []
+    if not ung_vien:
+        return None
+
+    xep_hang = []
+    for cv in ung_vien:
+        tu_ten = [t for t in _chuan_hoa_khong_dau(cv.ten).split() if t not in ("va",)]
+        so_khop = sum(1 for t in tu_ten if t in tin_tu)
+        toi_thieu = 1 if len(tu_ten) <= 1 else 2
+        if so_khop >= toi_thieu:
+            xep_hang.append((so_khop, cv))
+
+    if not xep_hang:
+        return None
+    xep_hang.sort(key=lambda x: x[0], reverse=True)
+    if len(xep_hang) > 1 and xep_hang[0][0] == xep_hang[1][0]:
+        return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
+
+    cv = xep_hang[0][1]
+    return {
+        "tra_loi": f"Đây là ảnh minh hoạ cho chức vụ \"{cv.ten}\":",
+        "duong_dan": None,
+        "nhan_nut": None,
+        "media": url_for("media", duong_dan=cv.anh),
+    }
+
+
 def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[dict | None, str | None]:
     """Trợ lý AI hỏi-đáp — trả lời dựa trên dữ liệu thật của đúng người
     đang hỏi (lấy theo nd, không lấy theo dữ liệu client gửi lên) + hướng
@@ -1668,6 +1736,10 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
     Trả về (dict {tra_loi, duong_dan, nhan_nut, media}, lỗi) — các trường
     phụ có thể None nếu câu hỏi không cần gợi ý đi đâu / không có media.
     """
+    ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan)
+    if ket_qua_anh:
+        return ket_qua_anh, None
+
     boi_canh = _boi_canh_tro_ly(nd)
     messages = [{"role": "system",
                 "content": _HUONG_DAN_HE_THONG_TRO_LY + "\n\nDữ liệu hiện tại:\n" + boi_canh}]
