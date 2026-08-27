@@ -1692,7 +1692,7 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
 
     tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
     tin_tu = set(tin_chuan.split())
-    if not tin_tu & {"anh", "hinh", "photo", "image"}:
+    if not tin_tu & {"anh", "hinh", "photo", "image", "phieu"}:
         return None
 
     if nd.la_admin_sep:
@@ -1720,7 +1720,7 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
 
     cv = xep_hang[0][1]
     return {
-        "tra_loi": f"Đây là ảnh minh hoạ cho chức vụ \"{cv.ten}\":",
+        "tra_loi": f"Đây là ảnh đã lưu cho chức vụ \"{cv.ten}\":",
         "duong_dan": None,
         "nhan_nut": None,
         "media": url_for("media", duong_dan=cv.anh),
