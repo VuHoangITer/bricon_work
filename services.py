@@ -622,7 +622,7 @@ def _noi_dung_ban_tin_ca_nhan(nv: NguoiDung, buoi: str) -> str:
             dong.append(f"⭐ MỨC ĐỘ HIỆN TẠI (tháng này): {o['sao_tb']:.1f}/5 sao — {o['xep_loai']}")
             dong.append("")
 
-    dong.append("💪 Mục tiêu: Hoàn thành 100%, không phát sinh việc bị 0★.")
+    dong.append("💪 Mục tiêu: Hoàn thành 100%, không phát sinh việc bị quá hạn - 0★.")
     dong.append("")
     dong.append(f"👉 Xem việc của bạn: {base}/viec")
     dong.append(f"👉 Xem KPI: {base}/kpi")
