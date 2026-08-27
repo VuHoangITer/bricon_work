@@ -646,6 +646,10 @@ def gui_ban_tin_chieu() -> int:
     for nv in ds:
         gui_cho_nhan_vien(nv, _noi_dung_ban_tin_ca_nhan(nv, "chieu"))
     return len(ds)
+
+
+def bao_gui_doi_chung(viec: CongViec, so_file: int):
+    """Báo cho người giao việc khi nhân viên vừa nộp đối chứng."""
     lan = f" (lần {viec.lan_gui})" if viec.lan_gui > 1 else ""
     nd = (
         f"✅ {viec.nguoi_nhan.ho_ten} đã gửi đối chứng{lan}\n\n"
