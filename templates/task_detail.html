@@ -46,6 +46,10 @@
   {% if viec.ngay_bat_dau %}
   <div class="dong-tt"><span>Ngày bắt đầu</span><span>{{ viec.ngay_bat_dau|ngay }}</span></div>
   {% endif %}
+  {% if viec.gui_doi_chung_luc %}
+  <div class="dong-tt"><span>Nộp đối chứng lúc</span>
+    <span style="color:var(--hoan-thanh)">{{ viec.gui_doi_chung_luc|gio }}</span></div>
+  {% endif %}
   {% if current_user.la_admin_sep %}
   <div class="dong-tt" style="align-items:center">
     <form method="post" action="{{ url_for('tasks.dat_lai_han', viec_id=viec.id) }}"

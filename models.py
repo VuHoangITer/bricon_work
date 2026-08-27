@@ -300,7 +300,12 @@ class CongViec(db.Model):
 
     @property
     def qua_han(self) -> bool:
-        if not self.han or self.trang_thai in (TrangThai.HOAN_THANH, TrangThai.HUY):
+        # Đã nộp đối chứng (đang chờ duyệt) thì không còn tính là "quá hạn"
+        # nữa — nhân viên đã nộp đúng lúc, sếp duyệt trễ không phải lỗi của
+        # họ. Chỉ coi là quá hạn khi vẫn còn ở trạng thái CHƯA nộp gì.
+        if not self.han or self.trang_thai in (
+            TrangThai.HOAN_THANH, TrangThai.HUY, TrangThai.CHO_DUYET
+        ):
             return False
         return gio_vn_hien_tai() > self.han
 
