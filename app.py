@@ -214,6 +214,16 @@ def create_app(config_class=Config):
         da_dong = services.dong_cac_viec_qua_han()
         click.echo(f"Đã tự động đóng {len(da_dong)} việc quá hạn.")
 
+    @app.cli.command("tach-ghi-chu-nop-cu")
+    def tach_ghi_chu_nop_cu():
+        """Chạy 1 LẦN (thủ công, không phải cron) sau khi deploy bản sửa lỗi
+        ghi chú "--- Kết quả lần N ---" bị nối vào mô tả: tách các đoạn đó ra
+        bảng ghi_chu_nop riêng, trả lại mô tả gốc cho các việc cũ. Chạy lại
+        nhiều lần vẫn an toàn, không tạo trùng dữ liệu."""
+        import services
+        so_viec, so_ghi_chu = services.tach_ghi_chu_nop_cu()
+        click.echo(f"Đã xử lý {so_viec} công việc, tách {so_ghi_chu} ghi chú.")
+
     @app.cli.command("don-dep-log-zalo")
     def don_dep_log_zalo():
         """Chạy bằng cron lúc 00:05 mỗi ngày trên Ubuntu VPS: xoá sạch log

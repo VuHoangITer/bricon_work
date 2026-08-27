@@ -288,6 +288,10 @@ class CongViec(db.Model):
         "DanhGia", back_populates="cong_viec", cascade="all, delete-orphan",
         order_by="DanhGia.id"
     )
+    ghi_chu_nop = db.relationship(
+        "GhiChuNop", back_populates="cong_viec", cascade="all, delete-orphan",
+        order_by="GhiChuNop.id"
+    )
 
     # ---- tiện ích ----
     @property
@@ -319,6 +323,9 @@ class CongViec(db.Model):
 
     def danh_gia_theo_lan(self, lan: int):
         return next((d for d in self.danh_gia if d.lan_gui == lan), None)
+
+    def ghi_chu_theo_lan(self, lan: int):
+        return next((g for g in self.ghi_chu_nop if g.lan_gui == lan), None)
 
     @property
     def cac_lan(self):
@@ -372,6 +379,28 @@ class DanhGia(db.Model):
 
     cong_viec = db.relationship("CongViec", back_populates="danh_gia")
     nguoi_danh_gia = db.relationship("NguoiDung")
+
+
+class GhiChuNop(db.Model):
+    """Ghi chú kết quả mà nhân viên gõ khi gửi đối chứng, tách riêng theo
+    từng lần nộp (lan_gui) — KHÔNG còn nối vào CongViec.mo_ta như trước
+    (nối vào mô tả làm mất luôn mô tả gốc + ghi chú lần nộp bị tách rời
+    khỏi đúng lần nộp của nó trong khung "Đối chứng & đánh giá")."""
+    __tablename__ = "ghi_chu_nop"
+    __table_args__ = (
+        db.UniqueConstraint("cong_viec_id", "lan_gui", name="uq_ghichunop_lan"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cong_viec_id = db.Column(db.Integer, db.ForeignKey("cong_viec.id"), nullable=False, index=True)
+    lan_gui = db.Column(db.Integer, nullable=False)
+    noi_dung = db.Column(db.Text, nullable=False)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    cong_viec = db.relationship("CongViec", back_populates="ghi_chu_nop")
+
+    def __repr__(self):
+        return f"<GhiChuNop viec={self.cong_viec_id} lan={self.lan_gui}>"
 
 
 class DiemChamCong(db.Model):

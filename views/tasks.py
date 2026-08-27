@@ -9,8 +9,8 @@ from sqlalchemy import case
 
 import services
 from extensions import db
-from models import (CongViec, DanhGia, DinhKem, DoUuTien, LoaiDinhKem, NguoiDung,
-                    TrangThai, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
+from models import (CongViec, DanhGia, DinhKem, DoUuTien, GhiChuNop, LoaiDinhKem,
+                    NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 bp = Blueprint("tasks", __name__)
 
@@ -487,7 +487,9 @@ def gui_doi_chung(viec_id):
     viec.trang_thai = TrangThai.CHO_DUYET
     viec.gui_doi_chung_luc = gio_vn_hien_tai()
     if ghi_chu:
-        viec.mo_ta = (viec.mo_ta or "") + f"\n\n--- Kết quả lần {viec.lan_gui} ---\n{ghi_chu}"
+        db.session.add(GhiChuNop(
+            cong_viec_id=viec.id, lan_gui=viec.lan_gui, noi_dung=ghi_chu,
+        ))
     db.session.commit()
 
     services.bao_gui_doi_chung(viec, so_luu)

@@ -2,6 +2,7 @@
 import json
 import math
 import os
+import re
 import unicodedata
 import uuid
 from datetime import datetime, date, timedelta
@@ -15,8 +16,8 @@ from werkzeug.utils import secure_filename
 
 from extensions import db
 from models import (BuoiNghi, ChamCong, CongViec, DanhGia, DiemChamCong, DoUuTien,
-                    LogZalo, LoaiDinhKem, MucSao, NguoiDung, TrangThai, VaiTro,
-                    gio_vn_hien_tai, ngay_vn_hien_tai)
+                    GhiChuNop, LogZalo, LoaiDinhKem, MucSao, NguoiDung, TrangThai,
+                    VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 # ---------------------------------------------------------------------------
 # GỬI ZALO
@@ -1780,3 +1781,68 @@ def _duong_dan_media_da_xac_minh(nd: NguoiDung, duong_dan: str | None) -> str | 
     if not hop_le:
         return None
     return url_for("media", duong_dan=hop_le)
+
+
+# ---------------------------------------------------------------------------
+# DỌN DẸP DỮ LIỆU CŨ — tách "--- Kết quả lần N ---" khỏi mô tả
+# ---------------------------------------------------------------------------
+_MAU_GHI_CHU_CU = re.compile(r"\n\n--- Kết quả lần (\d+) ---\n")
+
+
+def tach_ghi_chu_nop_cu() -> tuple[int, int]:
+    """Dọn dữ liệu cũ: trước đây khi nhân viên gửi đối chứng kèm ghi chú,
+    hệ thống nối thẳng ghi chú đó vào CongViec.mo_ta (đánh dấu bằng
+    "--- Kết quả lần N ---"), khiến mô tả gốc bị lẫn với ghi chú của từng
+    lần nộp và ghi chú không hiện đúng chỗ "Lần nộp N" nữa.
+
+    Hàm này quét mọi CongViec còn dính mẫu trên, tách từng đoạn ghi chú
+    ra thành 1 dòng GhiChuNop riêng (đúng lan_gui), rồi cắt mô tả về lại
+    đúng phần gốc (trước đoạn "--- Kết quả lần" đầu tiên).
+
+    Chạy lại nhiều lần vẫn an toàn: đã tách rồi (đã có GhiChuNop cho đúng
+    cong_viec_id + lan_gui) thì bỏ qua, không tạo trùng.
+
+    Trả về (số CongViec đã xử lý, số GhiChuNop mới tạo).
+    """
+    so_viec_xu_ly = 0
+    so_ghi_chu_tao = 0
+
+    viecs = CongViec.query.filter(
+        CongViec.mo_ta.ilike("%--- Kết quả lần%")
+    ).all()
+
+    for v in viecs:
+        cac_phan = _MAU_GHI_CHU_CU.split(v.mo_ta or "")
+        if len(cac_phan) < 3:
+            continue  # có chữ "--- Kết quả lần" nhưng không đúng mẫu -> bỏ qua, an toàn
+
+        mo_ta_goc = cac_phan[0].rstrip()
+        da_dong_nao = False
+
+        i = 1
+        while i < len(cac_phan) - 1:
+            lan = int(cac_phan[i])
+            noi_dung = cac_phan[i + 1].rstrip("\n")
+            i += 2
+
+            if not noi_dung:
+                continue
+            da_ton_tai = GhiChuNop.query.filter_by(
+                cong_viec_id=v.id, lan_gui=lan
+            ).first()
+            if da_ton_tai:
+                continue
+
+            db.session.add(GhiChuNop(
+                cong_viec_id=v.id, lan_gui=lan, noi_dung=noi_dung,
+                tao_luc=v.gui_doi_chung_luc or v.tao_luc,
+            ))
+            so_ghi_chu_tao += 1
+            da_dong_nao = True
+
+        if da_dong_nao:
+            v.mo_ta = mo_ta_goc or None
+            so_viec_xu_ly += 1
+
+    db.session.commit()
+    return so_viec_xu_ly, so_ghi_chu_tao
