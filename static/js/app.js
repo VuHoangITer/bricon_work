@@ -66,14 +66,17 @@ function khoiTaoDoiChung(gioiHanMB) {
   const form = document.getElementById('form-doi-chung');
   if (!form) return;
 
-  const oTep = document.getElementById('chon-tep');
+  const oTep = document.getElementById('chon-tep');           // input ẩn, thực sự gửi lên server
+  const oTepAnhVideo = document.getElementById('chon-anh-video');
+  const oTepKhac = document.getElementById('chon-tep-khac');
   const xemTruoc = document.getElementById('xem-truoc');
   const nutGui = document.getElementById('nut-gui');
   const banGhi = [];               // các File ghi âm tạo trong trình duyệt
+  let daChon = [];                 // TOÀN BỘ ảnh/video/tệp đã chọn, gộp qua nhiều lần bấm
 
   function tongDungLuong() {
     let n = 0;
-    if (oTep) for (const f of oTep.files) n += f.size;
+    for (const f of daChon) n += f.size;
     for (const f of banGhi) n += f.size;
     return n;
   }
@@ -87,24 +90,63 @@ function khoiTaoDoiChung(gioiHanMB) {
       : 'Gửi đối chứng cho sếp';
   }
 
-  if (oTep) {
-    oTep.addEventListener('change', () => {
-      xemTruoc.innerHTML = '';
-      for (const f of oTep.files) {
-        const o = document.createElement('div');
-        o.className = 'tep';
-        if (f.type.startsWith('image/')) {
-          o.innerHTML = `<img src="${URL.createObjectURL(f)}" alt="">`;
-        } else if (f.type.startsWith('video/')) {
-          o.innerHTML = `<video src="${URL.createObjectURL(f)}" preload="metadata" muted playsinline></video>`;
-        } else {
-          o.innerHTML = `<span class="tep-khac">📄<span>${f.name.slice(0, 22)}</span></span>`;
-        }
-        xemTruoc.appendChild(o);
+  // Đồng bộ lại oTep.files từ mảng daChon — trình duyệt luôn GHI ĐÈ
+  // oTep.files mỗi lần người dùng mở hộp thoại chọn tệp, nên phải tự gộp
+  // trong JS rồi gán lại bằng DataTransfer, không thì mỗi lần bấm "Chọn
+  // tệp" thêm sẽ mất hết những tệp đã chọn trước đó (đây là nguyên nhân
+  // chính khiến không "chọn nhiều được" khi phải mở lại hộp thoại — VD
+  // chọn ảnh trước, mở lại để chọn thêm video).
+  function dongBoOTep() {
+    const dt = new DataTransfer();
+    for (const f of daChon) dt.items.add(f);
+    oTep.files = dt.files;
+  }
+
+  function veLaiXemTruoc() {
+    xemTruoc.innerHTML = '';
+    daChon.forEach((f, idx) => {
+      const o = document.createElement('div');
+      o.className = 'tep';
+      if (f.type.startsWith('image/')) {
+        o.innerHTML = `<img src="${URL.createObjectURL(f)}" alt="">`;
+      } else if (f.type.startsWith('video/')) {
+        o.innerHTML = `<video src="${URL.createObjectURL(f)}" preload="metadata" muted playsinline></video>`;
+      } else {
+        o.innerHTML = `<span class="tep-khac">📄<span>${f.name.slice(0, 22)}</span></span>`;
       }
+      const xoa = document.createElement('button');
+      xoa.type = 'button';
+      xoa.className = 'tep-xoa';
+      xoa.textContent = '✕';
+      xoa.title = 'Bỏ tệp này';
+      xoa.addEventListener('click', () => {
+        daChon.splice(idx, 1);
+        dongBoOTep();
+        veLaiXemTruoc();
+        kiemTraDungLuong();
+      });
+      o.appendChild(xoa);
+      xemTruoc.appendChild(o);
+    });
+  }
+
+  function gomTuInput(input) {
+    if (!input) return;
+    input.addEventListener('change', () => {
+      for (const f of input.files) {
+        const daCo = daChon.some(
+          (x) => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified
+        );
+        if (!daCo) daChon.push(f);
+      }
+      input.value = '';   // reset để lần sau lỡ chọn lại đúng tệp cũ vẫn bắn 'change'
+      dongBoOTep();
+      veLaiXemTruoc();
       kiemTraDungLuong();
     });
   }
+  gomTuInput(oTepAnhVideo);
+  gomTuInput(oTepKhac);
 
   /* ---- ghi âm ---- */
   const nutGhi = document.getElementById('nut-ghi-am');

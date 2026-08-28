@@ -340,6 +340,13 @@ td.so,th.so { text-align:right; font-variant-numeric:tabular-nums; }
 .tep-khac { height:104px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:8px; color:var(--muc-mo); font-size:.7rem; text-align:center; }
 .tep-am { padding:8px; }
 .tep-am audio { width:100%; }
+.tep-xoa {
+  position:absolute; top:4px; right:4px; width:22px; height:22px;
+  border-radius:50%; border:none; background:rgba(28,28,26,.72); color:#fff;
+  font-size:.8rem; line-height:1; cursor:pointer; z-index:1;
+  display:flex; align-items:center; justify-content:center; padding:0;
+}
+.tep-xoa:hover { background:var(--lam-lai); }
 .chon-sao { display:flex; gap:3px; direction:rtl; justify-content:flex-end; }
 .chon-sao input{display:none}.chon-sao label{margin:0;padding:0 2px;font-size:1.8rem;line-height:1;color:var(--vien-dam);cursor:pointer}
 .chon-sao input:checked~label,.chon-sao label:hover,.chon-sao label:hover~label{color:var(--chinh)}.sao-hien{color:var(--chinh);letter-spacing:1px}

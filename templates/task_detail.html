@@ -155,12 +155,24 @@
   {% endif %}
 
   <div class="o-nhap">
-    <label>Ảnh, video, tệp</label>
-    <input type="file" name="tep" id="chon-tep" multiple
-           accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip">
-    <div class="goi-y">Chọn nhiều tệp cùng lúc. Tối đa
-      {{ config.MAX_UPLOAD_MB }}MB cho cả lần gửi.</div>
-    <div id="xem-truoc" class="luoi-tep" style="margin-top:10px"></div>
+    <label>Ảnh, video</label>
+    <input type="file" id="chon-anh-video" multiple accept="image/*,video/*">
+    <div class="goi-y">Bấm chọn nhiều ảnh/video cùng lúc, hoặc bấm lại
+      nhiều lần để gộp thêm — không mất ảnh đã chọn trước đó.</div>
+  </div>
+
+  <div class="o-nhap">
+    <label>Tệp khác</label>
+    <input type="file" id="chon-tep-khac" multiple
+           accept="audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip">
+    <div class="goi-y">PDF, Word, Excel, ZIP, hoặc ghi âm có sẵn trong máy.</div>
+  </div>
+
+  <input type="file" name="tep" id="chon-tep" multiple style="display:none">
+  <div class="o-nhap">
+    <div id="xem-truoc" class="luoi-tep"></div>
+    <div class="goi-y" style="margin-top:8px">Bấm ✕ trên tệp để bỏ bớt.
+      Tối đa {{ config.MAX_UPLOAD_MB }}MB cho cả lần gửi.</div>
   </div>
 
   <div class="o-nhap">
