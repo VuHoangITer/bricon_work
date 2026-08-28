@@ -23,21 +23,25 @@ from services import dieu_kien_viec_trong_ngay, lay_cai_dat, tinh_kpi
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
-def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False,
-                          model: str | None = None, _da_thu_lai: bool = False) -> tuple[str | None, str | None]:
+def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: str | None = None,
+                          _da_thu_lai: bool = False, _bo_nhiet_do: bool = False) -> tuple[str | None, str | None]:
     """Gọi OpenAI với danh sách messages đầy đủ — hỗ trợ nhiều lượt hội
     thoại (dùng cho trợ lý AI), không chỉ 1 cặp system/user đơn.
     dang_json=True bắt OpenAI trả về đúng 1 object JSON hợp lệ.
     model=None -> dùng OPENAI_MODEL mặc định (việc đơn giản như gợi ý/tóm
     tắt mô tả); truyền model cụ thể để override, VD trợ lý chat cần model
     mạnh hơn để đọc hiểu ngữ cảnh dài mà không bị rối.
-    _da_thu_lai: dùng nội bộ, không truyền tay — đánh dấu đã tự thử lại 1
-    lần khi bị rate limit, tránh lặp vô hạn."""
+    _da_thu_lai, _bo_nhiet_do: dùng nội bộ, không truyền tay — đánh dấu đã
+    tự thử lại 1 lần khi bị rate limit / đã tự bỏ tham số temperature vì
+    model không cho tuỳ chỉnh (VD dòng gpt-5.6 chỉ nhận đúng mặc định),
+    tránh lặp vô hạn."""
     key = lay_cai_dat("openai_api_key")
     if not key:
         return None, "Chưa cấu hình OpenAI API key ở trang Thiết lập."
     model = model or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini")
-    goi_tin = {"model": model, "messages": messages, "temperature": 0.4}
+    goi_tin = {"model": model, "messages": messages}
+    if not _bo_nhiet_do:
+        goi_tin["temperature"] = 0.4
     if dang_json:
         goi_tin["response_format"] = {"type": "json_object"}
     try:
@@ -52,7 +56,8 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False,
         return None, f"Không gọi được OpenAI: {type(e).__name__}: {e}"
 
     if "error" in du_lieu:
-        thong_diep = du_lieu["error"].get("message", "OpenAI báo lỗi không rõ nguyên nhân.")
+        loi = du_lieu["error"]
+        thong_diep = loi.get("message", "OpenAI báo lỗi không rõ nguyên nhân.")
         # Rate limit (429) thường chỉ tạm thời trong vài giây -> tự chờ
         # đúng khoảng OpenAI báo rồi thử lại 1 lần, thay vì bắt người dùng
         # thấy nguyên lỗi kỹ thuật mỗi khi nghẽn thoáng qua.
@@ -60,9 +65,20 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False,
             khop = re.search(r"try again in ([\d.]+)s", thong_diep)
             cho_giay = min(float(khop.group(1)), 25) + 0.5 if khop else 5
             time.sleep(cho_giay)
-            return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model, _da_thu_lai=True)
+            return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model,
+                                         _da_thu_lai=True, _bo_nhiet_do=_bo_nhiet_do)
         if r.status_code == 429:
             return None, "Trợ lý đang có nhiều người hỏi cùng lúc, bạn thử lại sau vài giây nhé."
+
+        # Vài model mới (VD dòng gpt-5.6) không cho tuỳ chỉnh temperature,
+        # chỉ nhận đúng giá trị mặc định -> tự bỏ tham số này rồi gọi lại
+        # 1 lần, không bắt người dùng thấy lỗi kỹ thuật của OpenAI mỗi khi
+        # đổi sang model mới loại này.
+        if not _bo_nhiet_do and (loi.get("param") == "temperature"
+                                 or "temperature" in thong_diep.lower()):
+            return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model,
+                                         _da_thu_lai=_da_thu_lai, _bo_nhiet_do=True)
+
         return None, thong_diep
     try:
         return du_lieu["choices"][0]["message"]["content"].strip(), None
