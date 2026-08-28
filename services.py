@@ -1177,6 +1177,37 @@ def xuat_excel_bang_cong(thang: str, ban_ghi: list, don_nghi: list, tong: list) 
     return dem
 
 
+def xuat_excel_tro_ly_su_dung(thang: str, chi_tiet: list, tong: list) -> BytesIO:
+    """Xuất thống kê sử dụng Trợ lý AI ra file Excel — 2 sheet: Tổng hợp
+    theo người (cả tháng) và Chi tiết theo từng ngày."""
+    wb = Workbook()
+
+    ws1 = wb.active
+    ws1.title = "Tổng hợp"
+    ws1.append(["Mã NV", "Họ tên", "Vai trò", "Tổng số câu hỏi", "Tổng số token"])
+    for o in tong:
+        ws1.append([o["ma"], o["ho_ten"], o["vai_tro"], o["so_cau_hoi"], o["so_token"]])
+    _ke_tieu_de(ws1, [10, 26, 18, 16, 16])
+
+    ws2 = wb.create_sheet("Chi tiết theo ngày")
+    ws2.append(["Ngày", "Mã NV", "Họ tên", "Vai trò", "Số câu hỏi", "Số token"])
+    for su_dung in chi_tiet:
+        ws2.append([
+            su_dung.ngay.strftime("%d/%m/%Y"),
+            su_dung.nguoi_dung.ma_dinh_danh,
+            su_dung.nguoi_dung.ho_ten,
+            su_dung.nguoi_dung.ten_vai_tro,
+            su_dung.so_cau_hoi,
+            su_dung.so_token,
+        ])
+    _ke_tieu_de(ws2, [12, 10, 26, 18, 12, 12])
+
+    dem = BytesIO()
+    wb.save(dem)
+    dem.seek(0)
+    return dem
+
+
 # ---------------------------------------------------------------------------
 # CẤU HÌNH HỆ THỐNG (key-value đơn giản)
 # ---------------------------------------------------------------------------

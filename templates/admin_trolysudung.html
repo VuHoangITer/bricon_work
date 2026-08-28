@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Trợ lý AI · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Sử dụng Trợ lý AI</h1>
+    <p>Theo dõi mỗi nhân viên đã hỏi bao nhiêu câu, tốn bao nhiêu token — để biết ai đang dùng nhiều/sắp chạm hạn mức.</p>
+  </div>
+</div>
+
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.info_ai') }}">Info AI</a>
+  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.tro_ly_su_dung') }}">Trợ lý AI</a>
+</div>
+
+<form class="the" method="get" style="display:flex;gap:8px">
+  <input type="month" name="thang" value="{{ thang }}">
+  <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Xem</button>
+  <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('admin.xuat_tro_ly_su_dung', thang=thang) }}">⬇ Xuất Excel</a>
+</form>
+
+<div class="tieu-khu"><h2>Hôm nay</h2></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Nhân viên</th><th>Vai trò</th><th class="so">Câu hỏi hôm nay</th><th class="so">Token hôm nay</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+    {% for s in su_dung_hom_nay %}
+      {% set bi_gioi_han = s.nguoi_dung.vai_tro in (VaiTro.NHAN_VIEN, VaiTro.QUAN_LY) %}
+      {% set het_cau_hoi = bi_gioi_han and gh_cau_hoi > 0 and s.so_cau_hoi >= gh_cau_hoi %}
+      {% set het_token = bi_gioi_han and gh_token > 0 and s.so_token >= gh_token %}
+      <tr>
+        <td>{{ s.nguoi_dung.ho_ten }} <span style="color:var(--muc-mo);font-size:.8rem">({{ s.nguoi_dung.ma_dinh_danh }})</span></td>
+        <td>{{ s.nguoi_dung.ten_vai_tro }}</td>
+        <td class="so">{{ s.so_cau_hoi }}{% if bi_gioi_han and gh_cau_hoi > 0 %} / {{ gh_cau_hoi }}{% endif %}</td>
+        <td class="so">{{ s.so_token }}{% if bi_gioi_han and gh_token > 0 %} / {{ gh_token }}{% endif %}</td>
+        <td>
+          {% if not bi_gioi_han %}<span style="color:var(--muc-mo)">Không giới hạn</span>
+          {% elif het_cau_hoi or het_token %}<span class="nhan" data-tt="lam_lai">Đã hết hạn mức</span>
+          {% else %}<span class="nhan" data-tt="hoan_thanh">Còn hạn mức</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" style="color:var(--muc-mo)">Hôm nay chưa ai hỏi Trợ lý AI.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="tieu-khu"><h2>Tổng hợp tháng {{ thang }}</h2></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Nhân viên</th><th>Vai trò</th><th class="so">Tổng câu hỏi</th><th class="so">Tổng token</th></tr></thead>
+    <tbody>
+    {% for o in tong %}
+      <tr>
+        <td>{{ o.ho_ten }} <span style="color:var(--muc-mo);font-size:.8rem">({{ o.ma }})</span></td>
+        <td>{{ o.vai_tro }}</td>
+        <td class="so">{{ o.so_cau_hoi }}</td>
+        <td class="so">{{ o.so_token }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có dữ liệu tháng này.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="tieu-khu"><h2>Chi tiết theo ngày</h2></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Ngày</th><th>Nhân viên</th><th class="so">Câu hỏi</th><th class="so">Token</th></tr></thead>
+    <tbody>
+    {% for s in chi_tiet %}
+      <tr>
+        <td>{{ s.ngay.strftime('%d/%m/%Y') }}</td>
+        <td>{{ s.nguoi_dung.ho_ten }}</td>
+        <td class="so">{{ s.so_cau_hoi }}</td>
+        <td class="so">{{ s.so_token }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có dữ liệu.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

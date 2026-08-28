@@ -1,9 +1,10 @@
 import os
 import secrets
+from datetime import date
 from functools import wraps
 
 from flask import (Blueprint, abort, current_app, flash, redirect, render_template,
-                   request, url_for)
+                   request, send_file, url_for)
 from flask_login import current_user, login_required
 
 import dich_vu_ai
@@ -11,7 +12,7 @@ import services
 from extensions import db
 from models import (AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
                     DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI,
-                    VaiTro)
+                    TroLySuDung, VaiTro, ngay_vn_hien_tai)
 
 bp = Blueprint("admin", __name__, url_prefix="/quan-tri")
 
@@ -332,6 +333,78 @@ def luu_gioi_han_tro_ly():
     db.session.commit()
     flash("Đã lưu hạn mức Trợ lý AI.", "success")
     return redirect(url_for("admin.thiet_lap"))
+
+
+# ---------------------------------------------------------------------------
+# THỐNG KÊ SỬ DỤNG TRỢ LÝ AI — sếp/admin xem ai hỏi bao nhiêu câu, tốn bao
+# nhiêu token, theo từng tháng + hôm nay (để biết ai sắp/đã chạm hạn mức).
+# ---------------------------------------------------------------------------
+def _du_lieu_tro_ly_su_dung(thang: str):
+    """Trả về (chi_tiet theo ngày, tổng hợp theo người) trong khoảng thang
+    (chuỗi 'YYYY-MM'). Dùng chung cho trang xem và trang xuất Excel."""
+    nam, thg = (int(x) for x in thang.split("-"))
+    dau = date(nam, thg, 1)
+    cuoi = date(nam + (thg == 12), (thg % 12) + 1, 1)
+
+    chi_tiet = (
+        TroLySuDung.query
+        .join(NguoiDung, TroLySuDung.nguoi_dung_id == NguoiDung.id)
+        .filter(TroLySuDung.ngay >= dau, TroLySuDung.ngay < cuoi)
+        .order_by(TroLySuDung.ngay.desc(), NguoiDung.ho_ten)
+        .all()
+    )
+
+    tong: dict[int, dict] = {}
+    for su_dung in chi_tiet:
+        nd = su_dung.nguoi_dung
+        o = tong.setdefault(nd.id, {
+            "ho_ten": nd.ho_ten, "ma": nd.ma_dinh_danh,
+            "vai_tro": nd.ten_vai_tro, "so_cau_hoi": 0, "so_token": 0,
+        })
+        o["so_cau_hoi"] += su_dung.so_cau_hoi
+        o["so_token"] += su_dung.so_token
+
+    tong_sap_xep = sorted(tong.values(), key=lambda x: x["so_cau_hoi"], reverse=True)
+    return chi_tiet, tong_sap_xep
+
+
+@bp.route("/tro-ly-su-dung")
+@chi_admin
+def tro_ly_su_dung():
+    thang = request.args.get("thang") or ngay_vn_hien_tai().strftime("%Y-%m")
+    chi_tiet, tong = _du_lieu_tro_ly_su_dung(thang)
+
+    hom_nay = ngay_vn_hien_tai()
+    su_dung_hom_nay = (
+        TroLySuDung.query
+        .join(NguoiDung, TroLySuDung.nguoi_dung_id == NguoiDung.id)
+        .filter(TroLySuDung.ngay == hom_nay)
+        .order_by(TroLySuDung.so_cau_hoi.desc())
+        .all()
+    )
+    gh_cau_hoi = int(services.lay_cai_dat(
+        "tro_ly_gioi_han_cau_hoi_ngay", str(dich_vu_ai._GIOI_HAN_MAC_DINH_CAU_HOI_NGAY)))
+    gh_token = int(services.lay_cai_dat(
+        "tro_ly_gioi_han_token_ngay", str(dich_vu_ai._GIOI_HAN_MAC_DINH_TOKEN_NGAY)))
+
+    return render_template(
+        "admin_trolysudung.html", thang=thang, chi_tiet=chi_tiet, tong=tong,
+        su_dung_hom_nay=su_dung_hom_nay, gh_cau_hoi=gh_cau_hoi, gh_token=gh_token,
+        VaiTro=VaiTro)
+
+
+@bp.route("/tro-ly-su-dung/xuat")
+@chi_admin
+def xuat_tro_ly_su_dung():
+    thang = request.args.get("thang") or ngay_vn_hien_tai().strftime("%Y-%m")
+    chi_tiet, tong = _du_lieu_tro_ly_su_dung(thang)
+    tep = services.xuat_excel_tro_ly_su_dung(thang, chi_tiet, tong)
+    return send_file(
+        tep,
+        as_attachment=True,
+        download_name=f"tro-ly-ai-su-dung-{thang}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @bp.route("/thiet-lap/chay-thu/<ten_lenh>", methods=["POST"])
