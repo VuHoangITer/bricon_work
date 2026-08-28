@@ -7,9 +7,9 @@ from flask_login import current_user, login_required
 
 from config import Config
 from extensions import db, login_manager, migrate
-from models import (BotZalo, BuoiNghi, ChamCong, ChucVu, CongViec, DinhKem,
-                    DoUuTien, LoaiDinhKem, NguoiDung, TrangThai, VaiTro, XinNghi,
-                    gio_vn_hien_tai, ngay_vn_hien_tai)
+from models import (AnhSanPhamAI, BotZalo, BuoiNghi, ChamCong, ChucVu, CongViec,
+                    DinhKem, DoUuTien, LoaiDinhKem, NguoiDung, TrangThai, VaiTro,
+                    XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 
 def create_app(config_class=Config):
@@ -55,6 +55,12 @@ def create_app(config_class=Config):
         # Ảnh minh hoạ chức vụ — thông tin tổ chức chung, ai đăng nhập cũng xem được
         cv = ChucVu.query.filter_by(anh=duong_dan).first()
         if cv:
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        # Ảnh sản phẩm (TDS, bảng định mức...) — thông tin công khai của
+        # công ty, ai đăng nhập cũng xem được, giống ảnh chức vụ
+        asp = AnhSanPhamAI.query.filter_by(duong_dan=duong_dan).first()
+        if asp:
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
         abort(404)
