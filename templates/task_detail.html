@@ -133,6 +133,14 @@
           </div>
           {% if dg.ghi_chu %}
           <div style="font-size:.88rem;white-space:pre-wrap">{{ dg.ghi_chu }}</div>{% endif %}
+          {% if dg.anh %}
+          <div class="luoi-tep" style="margin-top:8px">
+            {% for a in dg.anh %}
+            <a class="tep" href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener">
+              <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.ten_goc }}" loading="lazy"></a>
+            {% endfor %}
+          </div>
+          {% endif %}
           <div style="font-size:.74rem;color:var(--muc-nhat);margin-top:4px">{{ dg.tao_luc|gio }}</div>
         </div>
       {% endif %}
@@ -206,7 +214,8 @@
 {# ------------------------------------------------------- sếp đánh giá #}
 {% if duoc_duyet and viec.trang_thai == TrangThai.CHO_DUYET %}
 <div class="tieu-khu"><h2>Đánh giá kết quả</h2></div>
-<form class="the" method="post" action="{{ url_for('tasks.danh_gia', viec_id=viec.id) }}">
+<form class="the" method="post" enctype="multipart/form-data"
+      action="{{ url_for('tasks.danh_gia', viec_id=viec.id) }}">
   <div class="o-nhap">
     <label>Chấm sao (chỉ dùng khi Đạt)</label>
     <div class="chon-sao">
@@ -220,6 +229,11 @@
     <label for="dg_ghi_chu">Nhận xét / góp ý</label>
     <textarea id="dg_ghi_chu" name="ghi_chu"
               placeholder="Nếu yêu cầu làm lại thì bắt buộc nêu rõ cần sửa gì."></textarea>
+  </div>
+  <div class="o-nhap">
+    <label>Ảnh minh hoạ (không bắt buộc)</label>
+    <input type="file" name="anh_danh_gia" multiple accept="image/*">
+    <div class="goi-y">Có thể chọn nhiều ảnh cùng lúc — VD chụp chỗ cần sửa, ảnh mẫu tham khảo.</div>
   </div>
   <div class="hang-nut">
     <button class="nut nut--xanh" type="submit" name="ket_qua" value="dat">Duyệt đạt</button>

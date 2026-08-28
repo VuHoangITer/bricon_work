@@ -417,6 +417,23 @@ class DanhGia(db.Model):
 
     cong_viec = db.relationship("CongViec", back_populates="danh_gia")
     nguoi_danh_gia = db.relationship("NguoiDung")
+    anh = db.relationship("AnhDanhGia", back_populates="danh_gia",
+                          cascade="all, delete-orphan", order_by="AnhDanhGia.id")
+
+
+class AnhDanhGia(db.Model):
+    """Ảnh sếp đính kèm khi đánh giá (VD: chụp minh hoạ chỗ cần sửa, ảnh
+    mẫu tham khảo...) — có thể đính kèm nhiều ảnh cùng lúc, gắn với đúng
+    lần đánh giá đó, hiện lại trong khung "Đối chứng & đánh giá"."""
+    __tablename__ = "anh_danh_gia"
+
+    id = db.Column(db.Integer, primary_key=True)
+    danh_gia_id = db.Column(db.Integer, db.ForeignKey("danh_gia.id"), nullable=False, index=True)
+    duong_dan = db.Column(db.String(300), nullable=False)  # tương đối so với UPLOAD_ROOT
+    ten_goc = db.Column(db.String(255))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    danh_gia = db.relationship("DanhGia", back_populates="anh")
 
 
 class GhiChuNop(db.Model):

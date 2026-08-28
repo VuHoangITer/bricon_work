@@ -10,8 +10,9 @@ from sqlalchemy import case
 import dich_vu_ai
 import services
 from extensions import db
-from models import (CongViec, DanhGia, DinhKem, DoUuTien, GhiChuNop, LoaiDinhKem,
-                    NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
+from models import (AnhDanhGia, CongViec, DanhGia, DinhKem, DoUuTien, GhiChuNop,
+                    LoaiDinhKem, NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai,
+                    ngay_vn_hien_tai)
 
 bp = Blueprint("tasks", __name__)
 
@@ -526,6 +527,19 @@ def danh_gia(viec_id):
 
     ket_qua = request.form.get("ket_qua")
     ghi_chu = (request.form.get("ghi_chu") or "").strip()
+    anh_files = [f for f in request.files.getlist("anh_danh_gia") if f and f.filename]
+
+    def _luu_anh_danh_gia(dg):
+        """Lưu các ảnh sếp đính kèm khi đánh giá (nếu có), gắn vào đúng
+        đánh giá dg vừa tạo. Bỏ qua và báo lỗi cho tệp không phải ảnh."""
+        for f in anh_files:
+            if services.phan_loai(f.filename, f.mimetype) != LoaiDinhKem.ANH:
+                flash(f"Bỏ qua tệp không phải ảnh: {f.filename}", "error")
+                continue
+            duong_dan, _ = services.luu_file(f, "danh-gia")
+            db.session.add(AnhDanhGia(
+                danh_gia_id=dg.id, duong_dan=duong_dan, ten_goc=f.filename[:255],
+            ))
 
     if ket_qua == "dat":
         so_sao = request.form.get("so_sao", type=int)
@@ -535,10 +549,12 @@ def danh_gia(viec_id):
         dg = DanhGia(cong_viec_id=viec.id, nguoi_danh_gia_id=current_user.id,
                      lan_gui=viec.lan_gui, ket_qua="dat", so_sao=so_sao,
                      ghi_chu=ghi_chu)
+        db.session.add(dg)
+        db.session.flush()  # lấy dg.id để gắn ảnh đánh giá
+        _luu_anh_danh_gia(dg)
         viec.trang_thai = TrangThai.HOAN_THANH
         viec.hoan_thanh_luc = gio_vn_hien_tai()
         viec.so_sao_cuoi = so_sao
-        db.session.add(dg)
         db.session.commit()
         services.bao_da_duyet(viec, dg)
         flash("Đã duyệt và gửi kết quả về Zalo cho nhân viên.", "success")
@@ -550,6 +566,8 @@ def danh_gia(viec_id):
         dg = DanhGia(cong_viec_id=viec.id, nguoi_danh_gia_id=current_user.id,
                      lan_gui=viec.lan_gui, ket_qua="lam_lai", ghi_chu=ghi_chu)
         db.session.add(dg)
+        db.session.flush()  # lấy dg.id để gắn ảnh đánh giá
+        _luu_anh_danh_gia(dg)
         viec.trang_thai = TrangThai.LAM_LAI
         viec.lan_gui += 1
         viec.gui_doi_chung_luc = None

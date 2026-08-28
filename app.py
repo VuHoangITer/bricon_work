@@ -7,9 +7,9 @@ from flask_login import current_user, login_required
 
 from config import Config
 from extensions import db, login_manager, migrate
-from models import (AnhSanPhamAI, BotZalo, BuoiNghi, ChamCong, ChucVu, CongViec,
-                    DinhKem, DoUuTien, LoaiDinhKem, NguoiDung, TrangThai, VaiTro,
-                    XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
+from models import (AnhDanhGia, AnhSanPhamAI, BotZalo, BuoiNghi, ChamCong, ChucVu,
+                    CongViec, DinhKem, DoUuTien, LoaiDinhKem, NguoiDung, TrangThai,
+                    VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 
 def create_app(config_class=Config):
@@ -43,6 +43,12 @@ def create_app(config_class=Config):
         dk = DinhKem.query.filter_by(duong_dan=duong_dan).first()
         if dk:
             if not current_user.duoc_xem_viec(dk.cong_viec):
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        adg = AnhDanhGia.query.filter_by(duong_dan=duong_dan).first()
+        if adg:
+            if not current_user.duoc_xem_viec(adg.danh_gia.cong_viec):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
