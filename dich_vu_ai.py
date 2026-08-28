@@ -34,27 +34,40 @@ def _bi_gioi_han_tro_ly(nd: NguoiDung) -> bool:
 def con_gioi_han_tro_ly(nd: NguoiDung) -> tuple[bool, str | None]:
     """Kiểm tra TRƯỚC khi cho hỏi trợ lý AI hôm nay. Trả về (còn được hỏi
     không, câu thông báo nếu đã hết hạn mức — None nếu còn được hỏi)."""
-    if not _bi_gioi_han_tro_ly(nd):
+    trang_thai = trang_thai_gioi_han_tro_ly(nd)
+    if not trang_thai["gioi_han"]:
         return True, None
+
+    if trang_thai["gh_cau_hoi"] > 0 and trang_thai["so_cau_hoi"] >= trang_thai["gh_cau_hoi"]:
+        return False, (f"Bạn đã hỏi Trợ lý AI {trang_thai['gh_cau_hoi']} lần hôm nay — "
+                       f"hết hạn mức trong ngày rồi, mai hỏi tiếp nhé. Cần gấp "
+                       f"thì nhờ quản lý/sếp hỏi giúp.")
+    if trang_thai["gh_token"] > 0 and trang_thai["so_token"] >= trang_thai["gh_token"]:
+        return False, ("Bạn đã dùng hết hạn mức Trợ lý AI hôm nay, mai hỏi "
+                       "tiếp nhé.")
+    return True, None
+
+
+def trang_thai_gioi_han_tro_ly(nd: NguoiDung) -> dict:
+    """Trạng thái hạn mức Trợ lý AI hôm nay của nd — dùng để hiển thị cho
+    chính người dùng biết đã dùng bao nhiêu/còn bao nhiêu. Sếp/Admin trả
+    về {"gioi_han": False}, không cần hiện số vì không bị giới hạn."""
+    if not _bi_gioi_han_tro_ly(nd):
+        return {"gioi_han": False}
 
     gh_cau_hoi = int(lay_cai_dat("tro_ly_gioi_han_cau_hoi_ngay")
                      or _GIOI_HAN_MAC_DINH_CAU_HOI_NGAY)
     gh_token = int(lay_cai_dat("tro_ly_gioi_han_token_ngay")
                   or _GIOI_HAN_MAC_DINH_TOKEN_NGAY)
-
     su_dung = TroLySuDung.query.filter_by(
         nguoi_dung_id=nd.id, ngay=ngay_vn_hien_tai()).first()
-    so_cau_hoi = su_dung.so_cau_hoi if su_dung else 0
-    so_token = su_dung.so_token if su_dung else 0
-
-    if gh_cau_hoi > 0 and so_cau_hoi >= gh_cau_hoi:
-        return False, (f"Bạn đã hỏi Trợ lý AI {gh_cau_hoi} lần hôm nay — hết "
-                       f"hạn mức trong ngày rồi, mai hỏi tiếp nhé. Cần gấp "
-                       f"thì nhờ quản lý/sếp hỏi giúp.")
-    if gh_token > 0 and so_token >= gh_token:
-        return False, ("Bạn đã dùng hết hạn mức Trợ lý AI hôm nay, mai hỏi "
-                       "tiếp nhé.")
-    return True, None
+    return {
+        "gioi_han": True,
+        "so_cau_hoi": su_dung.so_cau_hoi if su_dung else 0,
+        "gh_cau_hoi": gh_cau_hoi,
+        "so_token": su_dung.so_token if su_dung else 0,
+        "gh_token": gh_token,
+    }
 
 
 def ghi_nhan_su_dung_tro_ly(nd: NguoiDung, so_token: int = 0):

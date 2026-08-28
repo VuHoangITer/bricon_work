@@ -147,6 +147,7 @@ def dashboard():
         loi_chao_phu=loi_chao_phu,
         chao_mung_icon=chao_mung_icon,
         hom_nay_hien_thi=f"{_THU_TRONG_TUAN[hom_nay.weekday()]}, {hom_nay:%d/%m/%Y}",
+        gioi_han_tro_ly=dich_vu_ai.trang_thai_gioi_han_tro_ly(current_user),
     )
 
 

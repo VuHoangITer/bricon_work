@@ -20,10 +20,12 @@ def hoi():
 
     con_duoc_hoi, loi_gioi_han = dich_vu_ai.con_gioi_han_tro_ly(current_user)
     if not con_duoc_hoi:
-        return jsonify({"ok": False, "loi": loi_gioi_han})
+        return jsonify({"ok": False, "loi": loi_gioi_han,
+                        "gioi_han_tro_ly": dich_vu_ai.trang_thai_gioi_han_tro_ly(current_user)})
 
     ket_qua, loi = dich_vu_ai.tro_ly_tra_loi(current_user, tin_nhan, lich_su)
     if loi:
         return jsonify({"ok": False, "loi": loi})
     db.session.commit()  # lưu lại số câu hỏi/token vừa dùng (tro_ly_tra_loi đã cộng vào session)
-    return jsonify({"ok": True, **ket_qua})
+    return jsonify({"ok": True, **ket_qua,
+                    "gioi_han_tro_ly": dich_vu_ai.trang_thai_gioi_han_tro_ly(current_user)})

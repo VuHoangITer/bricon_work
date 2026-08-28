@@ -44,7 +44,17 @@
     <input type="text" id="tro-ly-input" placeholder="Hôm nay tôi có thể giúp gì cho bạn?" autocomplete="off">
     <button class="nut nut--vang nut--nho" type="submit" id="tro-ly-gui">➤ Gửi</button>
   </form>
+
+  {% if gioi_han_tro_ly and gioi_han_tro_ly.gioi_han %}
+  <div id="tro-ly-han-muc" class="tro-ly-han-muc" style="font-size:.78rem;color:var(--muc-mo,#888);margin-top:6px">
+    Đã hỏi {{ gioi_han_tro_ly.so_cau_hoi }}/{{ gioi_han_tro_ly.gh_cau_hoi }} câu hôm nay
+  </div>
+  {% endif %}
 </div>
+
+<script>
+  window.__gioiHanTroLy = {{ (gioi_han_tro_ly or {"gioi_han": false})|tojson }};
+</script>
 
 <script>
 (function () {
@@ -70,7 +80,14 @@
   const input = document.getElementById('tro-ly-input');
   const nutGui = document.getElementById('tro-ly-gui');
   const goiYKhoi = document.getElementById('tro-ly-goi-y');
+  const hanMuc = document.getElementById('tro-ly-han-muc');
   let lichSu = [];
+
+  function capNhatHanMuc(gh) {
+    if (!hanMuc || !gh) return;
+    if (!gh.gioi_han) { hanMuc.remove(); return; }
+    hanMuc.textContent = `Đã hỏi ${gh.so_cau_hoi}/${gh.gh_cau_hoi} câu hôm nay`;
+  }
 
   function themTin(vaiTro, noiDung, duongDan, nhanNut, media) {
     khung.hidden = false;
@@ -142,6 +159,7 @@
       }
       const d = await r.json();
       dangGo.remove();
+      capNhatHanMuc(d.gioi_han_tro_ly);
       if (!d.ok) {
         themTin('ai', 'Lỗi: ' + d.loi);
         return;
