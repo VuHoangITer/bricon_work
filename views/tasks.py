@@ -7,6 +7,7 @@ from flask import (Blueprint, abort, current_app, flash, jsonify, redirect,
 from flask_login import current_user, login_required
 from sqlalchemy import case
 
+import dich_vu_ai
 import services
 from extensions import db
 from models import (CongViec, DanhGia, DinhKem, DoUuTien, GhiChuNop, LoaiDinhKem,
@@ -228,7 +229,7 @@ def ai_goi_y():
     tieu_de = (request.form.get("tieu_de") or "").strip()
     if not tieu_de:
         return jsonify({"ok": False, "loi": "Chưa nhập tên công việc."})
-    mo_ta, loi = services.ai_goi_y_mo_ta(tieu_de)
+    mo_ta, loi = dich_vu_ai.ai_goi_y_mo_ta(tieu_de)
     if loi:
         return jsonify({"ok": False, "loi": loi})
     return jsonify({"ok": True, "mo_ta": mo_ta})
@@ -243,7 +244,7 @@ def ai_tom_tat():
     noi_dung = (request.form.get("mo_ta") or "").strip()
     if not noi_dung:
         return jsonify({"ok": False, "loi": "Chưa có nội dung để tóm tắt."})
-    mo_ta, loi = services.ai_tom_tat_mo_ta(noi_dung)
+    mo_ta, loi = dich_vu_ai.ai_tom_tat_mo_ta(noi_dung)
     if loi:
         return jsonify({"ok": False, "loi": loi})
     return jsonify({"ok": True, "mo_ta": mo_ta})

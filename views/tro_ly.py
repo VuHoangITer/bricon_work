@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
-import services
+import dich_vu_ai
 
 bp = Blueprint("tro_ly", __name__, url_prefix="/tro-ly")
 
@@ -17,7 +17,7 @@ def hoi():
     if not isinstance(lich_su, list):
         lich_su = []
 
-    ket_qua, loi = services.tro_ly_tra_loi(current_user, tin_nhan, lich_su)
+    ket_qua, loi = dich_vu_ai.tro_ly_tra_loi(current_user, tin_nhan, lich_su)
     if loi:
         return jsonify({"ok": False, "loi": loi})
     return jsonify({"ok": True, **ket_qua})
