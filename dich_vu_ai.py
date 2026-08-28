@@ -21,14 +21,18 @@ from services import dieu_kien_viec_trong_ngay, lay_cai_dat, tinh_kpi
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
-def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False) -> tuple[str | None, str | None]:
+def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False,
+                          model: str | None = None) -> tuple[str | None, str | None]:
     """Gọi OpenAI với danh sách messages đầy đủ — hỗ trợ nhiều lượt hội
     thoại (dùng cho trợ lý AI), không chỉ 1 cặp system/user đơn.
-    dang_json=True bắt OpenAI trả về đúng 1 object JSON hợp lệ."""
+    dang_json=True bắt OpenAI trả về đúng 1 object JSON hợp lệ.
+    model=None -> dùng OPENAI_MODEL mặc định (việc đơn giản như gợi ý/tóm
+    tắt mô tả); truyền model cụ thể để override, VD trợ lý chat cần model
+    mạnh hơn để đọc hiểu ngữ cảnh dài mà không bị rối."""
     key = lay_cai_dat("openai_api_key")
     if not key:
         return None, "Chưa cấu hình OpenAI API key ở trang Thiết lập."
-    model = current_app.config.get("OPENAI_MODEL", "gpt-4o-mini")
+    model = model or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini")
     goi_tin = {"model": model, "messages": messages, "temperature": 0.4}
     if dang_json:
         goi_tin["response_format"] = {"type": "json_object"}
@@ -89,64 +93,55 @@ def ai_tom_tat_mo_ta(noi_dung_tho: str) -> tuple[str | None, str | None]:
 # ---------------------------------------------------------------------------
 _HUONG_DAN_HE_THONG_TRO_LY = (
     "Bạn là trợ lý ảo của BRICON WORK — phần mềm nội bộ quản lý giao việc, "
-    "chấm công, KPI và xin nghỉ phép của công ty BRICON. Trả lời bằng tiếng "
-    "Việt, ngắn gọn, thân thiện, đúng trọng tâm câu hỏi.\n\n"
-    "Hướng dẫn sử dụng hệ thống (dùng để trả lời các câu hỏi \"làm sao để...\"):\n"
-    "- Xin nghỉ phép: vào menu Chấm công → bấm \"Xin nghỉ phép\" → chọn từ "
-    "ngày/đến ngày (nếu nghỉ đúng 1 ngày thì chọn thêm buổi sáng/chiều/cả "
-    "ngày) → bắt buộc đính kèm ảnh giấy phép đã được duyệt → bấm Gửi là "
-    "được ghi nhận và tính công ngay, không cần ai duyệt thêm.\n"
-    "- Chấm công: vào menu Chấm công, bấm nút chấm công vào/ra, trình duyệt "
-    "sẽ xin quyền vị trí — phải đứng trong bán kính cho phép mới chấm được, "
-    "ngoài phạm vi thì bị chặn không chấm được.\n"
-    "- Xem việc được giao: vào menu Công việc, hoặc xem mục \"Việc hằng "
-    "ngày\" ngay trên trang Hôm nay (Dashboard), có lọc theo mức Cần gấp/"
-    "Nhiệm vụ chính/Hằng ngày.\n"
-    "- Nộp kết quả công việc: vào chi tiết công việc, mục \"Gửi đối chứng\", "
-    "đính kèm ảnh/video/tệp hoặc ghi âm tại chỗ rồi gửi. Việc quá hạn mà "
-    "chưa nộp gì sẽ tự động đóng 0 sao, khoá lại, chỉ Admin mở lại được.\n"
-    "- Xem KPI: vào menu KPI, chọn khoảng ngày muốn xem, thang điểm 0-5 sao.\n\n"
-    "CHỈ dùng dữ liệu thật được cung cấp bên dưới cho các CON SỐ, TÊN VIỆC, "
-    "LỊCH SỬ cụ thể — không bịa ra công việc, số liệu, hay sự kiện nào không "
-    "có trong dữ liệu này. Nếu thiếu dữ liệu để trả lời 1 câu hỏi TRA CỨU "
-    "(hỏi có việc gì, số liệu bao nhiêu, ai đã làm gì...), nói rõ là chưa có "
-    "dữ liệu, đừng đoán số liệu.\n"
-    "QUAN TRỌNG — không được LẪN chủ sở hữu dữ liệu: dữ liệu bên dưới có thể "
-    "liệt kê việc/chấm công/KPI của NHIỀU người khác nhau (mỗi người 1 dòng "
-    "riêng, có ghi rõ tên). Khi người hỏi dùng từ \"tôi\"/\"của tôi\", CHỈ được "
-    "dùng đúng phần dữ liệu đã ghi rõ là \"của chính người đang hỏi\" (thường "
-    "nằm ngay đầu ngữ cảnh) — TUYỆT ĐỐI không lấy việc/chấm công của người "
-    "khác trong danh sách rồi trả lời như thể đó là của người đang hỏi. Nếu "
-    "phần \"của chính người đang hỏi\" trống hoặc không có, phải nói rõ họ "
-    "không có dữ liệu đó, không được mượn tạm dữ liệu của người khác.\n"
-    "Nhưng nếu được hỏi Ý KIẾN, ĐỀ XUẤT, PHÂN TÍCH, NHẬN XÉT dựa trên dữ liệu "
-    "đã có (VD: \"đề xuất phương án cho nhân viên này\" khi đã biết KPI của "
-    "họ), hãy CHỦ ĐỘNG đưa ra góc nhìn, gợi ý hợp lý dựa trên đúng số liệu đã "
-    "được cung cấp — đây là suy luận trên dữ liệu thật, không phải bịa đặt, "
-    "đừng từ chối chỉ vì không có thêm dữ liệu nào khác ngoài những gì đã "
-    "cho.\n\n"
-    "Bạn (trợ lý AI) không có khả năng TỰ THỰC HIỆN bất kỳ thao tác ghi dữ "
-    "liệu nào trong hệ thống cho bất kỳ ai — không tự tạo việc, không tự "
-    "xin nghỉ, không tự chấm công hộ người dùng. Đây là giới hạn của CHÍNH "
-    "BẠN, không phải giới hạn quyền hạn của người đang hỏi. Khi người dùng "
-    "muốn thực hiện 1 thao tác (VD: \"tôi muốn giao việc\", \"đăng ký nghỉ "
-    "phép\"), hướng dẫn họ tự bấm trong hệ thống — KHÔNG được suy diễn rằng "
-    "vai trò của họ \"không thể\" làm việc đó, trừ khi dữ liệu bên dưới nói "
-    "rõ vai trò đó thực sự bị cấm (chỉ Sếp/Quản trị không tự NHẬN việc "
-    "được giao cho mình — còn việc họ GIAO việc cho người khác thì vẫn "
-    "làm bình thường qua trang Giao việc mới, hai việc này khác nhau, "
-    "đừng nhầm).\n\n"
-    "Về lương, mô tả công việc, chế độ theo vị trí: CHỈ được dùng đúng phần "
-    "\"Thông tin riêng cho chức vụ\" của chính người đang hỏi (nếu có nạp bên "
-    "dưới). Không được suy đoán, ước lượng, hay bịa ra thông tin của chức vụ "
-    "khác — vì bạn không hề được cung cấp dữ liệu của chức vụ khác, nên nếu "
-    "người hỏi tò mò về vị trí khác, trả lời rằng bạn không có thông tin đó.\n\n"
-    "LUÔN LUÔN trả lời bằng đúng 1 object JSON, không thêm chữ nào ngoài "
-    "JSON đó, theo đúng khuôn dạng:\n"
+    "chấm công, KPI và xin nghỉ phép của công ty BRICON. Trả lời tiếng Việt, "
+    "ngắn gọn, thân thiện, đúng trọng tâm.\n\n"
+
+    "HƯỚNG DẪN SỬ DỤNG (trả lời câu hỏi \"làm sao để...\"):\n"
+    "- Xin nghỉ: Chấm công → Xin nghỉ phép → chọn ngày (nghỉ 1 ngày thì chọn "
+    "thêm buổi sáng/chiều) → bắt buộc đính kèm ảnh giấy phép đã duyệt → Gửi "
+    "là được ghi nhận ngay, không cần ai duyệt thêm.\n"
+    "- Chấm công: menu Chấm công → bấm chấm vào/ra, cần đứng trong bán kính "
+    "cho phép mới chấm được.\n"
+    "- Xem việc được giao: menu Công việc, hoặc mục \"Việc hằng ngày\" trên "
+    "trang Hôm nay (Dashboard).\n"
+    "- Nộp kết quả việc: vào chi tiết việc → Gửi đối chứng → đính kèm ảnh/"
+    "video/tệp/ghi âm. Quá hạn chưa nộp gì sẽ tự đóng 0 sao, chỉ Admin mở "
+    "lại được.\n"
+    "- Xem KPI: menu KPI, chọn khoảng ngày, thang điểm 0-5 sao.\n\n"
+
+    "DỮ LIỆU: chỉ dùng đúng dữ liệu thật cung cấp bên dưới cho số liệu/tên "
+    "việc/lịch sử cụ thể — không bịa. Thiếu dữ liệu để trả lời 1 câu tra cứu "
+    "thì nói rõ chưa có, đừng đoán. Nhưng nếu được hỏi Ý KIẾN/ĐỀ XUẤT/NHẬN "
+    "XÉT dựa trên dữ liệu đã có (VD: đề xuất cho 1 nhân viên khi đã biết KPI "
+    "của họ) thì CHỦ ĐỘNG đưa góc nhìn — đó là suy luận trên số liệu thật, "
+    "không phải bịa đặt, đừng từ chối.\n\n"
+
+    "PHÂN QUYỀN DỮ LIỆU: dữ liệu bên dưới có thể liệt kê nhiều người, mỗi "
+    "người 1 dòng ghi rõ tên. Khi người hỏi nói \"tôi\"/\"của tôi\", CHỈ được "
+    "dùng đúng phần đã ghi rõ \"của chính người đang hỏi\" — TUYỆT ĐỐI không "
+    "lấy dữ liệu người khác trong danh sách rồi gán cho họ. Không có phần đó "
+    "thì nói rõ họ chưa có dữ liệu này.\n"
+    "Về lương/mô tả/chế độ theo chức vụ: chỉ dùng đúng \"Thông tin riêng cho "
+    "chức vụ\" của chính người đang hỏi — không suy đoán chức vụ khác vì bạn "
+    "không được cung cấp dữ liệu đó.\n\n"
+
+    "GIỚI HẠN THAO TÁC: bạn không tự THỰC HIỆN được thao tác ghi dữ liệu nào "
+    "trong hệ thống (không tự tạo việc, không tự xin nghỉ, không tự chấm "
+    "công hộ) — đây là giới hạn của CHÍNH BẠN, không phải giới hạn quyền của "
+    "người hỏi. Muốn thực hiện thao tác gì thì hướng dẫn họ tự bấm trong hệ "
+    "thống, đừng suy diễn rằng vai trò họ \"không thể\" làm việc đó trừ khi "
+    "dữ liệu bên dưới nói rõ bị cấm (chỉ Sếp/Quản trị không tự NHẬN việc "
+    "được giao cho mình — còn GIAO việc cho người khác thì vẫn làm bình "
+    "thường qua trang Giao việc mới, 2 việc này khác nhau, đừng nhầm).\n\n"
+
+    "ĐỊNH DẠNG TRẢ LỜI: LUÔN LUÔN đúng 1 object JSON, không thêm chữ nào "
+    "ngoài JSON đó, theo đúng khuôn dạng:\n"
     '{"tra_loi": "<câu trả lời tự nhiên bằng tiếng Việt>", '
     '"duong_dan": "<đường dẫn gợi ý bấm vào nếu phù hợp, hoặc null>", '
     '"nhan_nut": "<nhãn ngắn cho nút bấm đó, hoặc null>", '
-    '"media": "<đường dẫn ảnh/video/ghi âm để hiện kèm câu trả lời, hoặc null>"}\n\n'
+    '"media": "<đường dẫn ảnh/video/ghi âm để hiện kèm câu trả lời, hoặc '
+    'null>"}\n\n'
+
     "CHỈ được dùng đúng các đường dẫn sau cho duong_dan, không bịa đường "
     "dẫn khác:\n"
     "- \"/\" — trang Hôm nay (Dashboard)\n"
@@ -160,21 +155,17 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "- \"/kpi\" — trang KPI\n"
     "Nếu câu hỏi không cần gợi ý bấm đi đâu (VD: chỉ hỏi thông tin chung, "
     "chào hỏi), để duong_dan và nhan_nut là null.\n\n"
-    "Về media (ảnh/video/ghi âm): dữ liệu bên dưới có thể kèm theo các đoạn "
-    "dạng [media:đường-dẫn] ngay sau 1 việc hoặc 1 chức vụ có đối chứng/ảnh "
-    "minh hoạ. Nếu người hỏi muốn XEM/HIỆN 1 ảnh/video/ghi âm cụ thể và có "
-    "đúng 1 đoạn [media:...] liên quan trong dữ liệu, hãy COPY Y NGUYÊN "
-    "chuỗi đường dẫn đó (không kèm chữ \"media:\" hay dấu ngoặc) vào trường "
-    "media. TUYỆT ĐỐI không tự bịa đường dẫn media — nếu không có đoạn "
-    "[media:...] nào phù hợp, để media là null.\n"
-    "QUAN TRỌNG: điền trường media KHÔNG phải là bạn tự tạo, tải lên, hay "
-    "đính kèm 1 file thật — bạn chỉ đang chọn đúng 1 chuỗi đường dẫn CÓ SẴN "
-    "trong dữ liệu được cung cấp, ứng dụng web sẽ tự lấy đúng ảnh đó hiển "
-    "thị cho người dùng. Đây luôn là hành động AN TOÀN, được phép, và đúng "
-    "chức năng của bạn trong hệ thống này khi có [media:...] khớp — TUYỆT "
-    "ĐỐI không được trả lời kiểu \"xin lỗi, tôi không thể cung cấp ảnh\" chỉ "
-    "vì nghĩ rằng mình phải gửi file thật; nếu có [media:...] phù hợp, luôn "
-    "điền nó vào, đừng từ chối."
+
+    "MEDIA: dữ liệu bên dưới có thể kèm theo các đoạn dạng [media:đường-dẫn] "
+    "ngay sau 1 việc hoặc 1 chức vụ có đối chứng/ảnh minh hoạ. Người hỏi "
+    "muốn XEM/HIỆN 1 ảnh/video/ghi âm cụ thể và có đúng 1 đoạn [media:...] "
+    "liên quan trong dữ liệu → COPY Y NGUYÊN chuỗi đường dẫn đó (không kèm "
+    "chữ \"media:\" hay dấu ngoặc) vào trường media. Đây CHỈ là chọn 1 đường "
+    "dẫn CÓ SẴN để app tự hiển thị — KHÔNG phải bạn tự tạo/tải lên/đính kèm "
+    "file thật, nên luôn là hành động AN TOÀN và ĐÚNG CHỨC NĂNG khi có "
+    "[media:...] khớp — TUYỆT ĐỐI không từ chối kiểu \"tôi không thể cung "
+    "cấp ảnh\" khi có [media:...] phù hợp. Không có đoạn nào phù hợp thì để "
+    "media là null, không tự bịa đường dẫn."
 )
 
 
@@ -309,8 +300,8 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
         if tat_ca_cv:
             dong.append("--- Toàn bộ chức vụ trong hệ thống (Admin/Sếp được xem hết, "
                         "không giới hạn 1 chức vụ như nhân viên thường) ---\n" +
-                        "\n".join(
-                            f"{cv.ten}: {(cv.mo_ta or '(chưa có mô tả)').strip()[:500]}"
+                        "\n\n".join(
+                            f"## {cv.ten}\n{(cv.mo_ta or '(chưa có mô tả)').strip()}"
                             + (f" [media:{cv.anh}]" if cv.anh else "")
                             for cv in tat_ca_cv))
     elif nd.chuc_vu:
@@ -318,7 +309,7 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
             f"--- Thông tin riêng cho chức vụ \"{nd.chuc_vu.ten}\" của người đang hỏi "
             f"(CHỈ dùng đúng phần này cho câu hỏi về vị trí công việc của họ, không có "
             f"dữ liệu chức vụ khác nên đừng suy đoán) ---\n"
-            + ((nd.chuc_vu.mo_ta or "").strip()[:3000] or "(chưa có mô tả cho chức vụ này)")
+            + ((nd.chuc_vu.mo_ta or "").strip() or "(chưa có mô tả cho chức vụ này)")
             + (f" [media:{nd.chuc_vu.anh}]" if nd.chuc_vu.anh else "")
         )
     else:
@@ -525,21 +516,29 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
     if not ung_vien:
         return None
 
-    xep_hang = []
-    for cv in ung_vien:
-        tu_ten = [t for t in _chuan_hoa_khong_dau(cv.ten).split() if t not in ("va",)]
-        so_khop = sum(1 for t in tu_ten if t in tin_tu)
-        toi_thieu = 1 if len(tu_ten) <= 1 else 2
-        if so_khop >= toi_thieu:
-            xep_hang.append((so_khop, cv))
+    # Nhân viên thường chỉ có ĐÚNG 1 chức vụ hợp lệ để chọn — chính là
+    # chức vụ của họ — nên không cần bắt khớp tên trong câu hỏi (họ hỏi
+    # "ảnh/phiếu của TÔI" chứ không cần xướng tên chức vụ ra). Chỉ khi có
+    # NHIỀU ứng viên cùng lúc (Admin/Sếp xem được mọi chức vụ) mới cần
+    # khớp tên để biết đang hỏi về chức vụ nào trong số đó.
+    if len(ung_vien) == 1:
+        cv = ung_vien[0]
+    else:
+        xep_hang = []
+        for ung in ung_vien:
+            tu_ten = [t for t in _chuan_hoa_khong_dau(ung.ten).split() if t not in ("va",)]
+            so_khop = sum(1 for t in tu_ten if t in tin_tu)
+            toi_thieu = 1 if len(tu_ten) <= 1 else 2
+            if so_khop >= toi_thieu:
+                xep_hang.append((so_khop, ung))
 
-    if not xep_hang:
-        return None
-    xep_hang.sort(key=lambda x: x[0], reverse=True)
-    if len(xep_hang) > 1 and xep_hang[0][0] == xep_hang[1][0]:
-        return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
+        if not xep_hang:
+            return None
+        xep_hang.sort(key=lambda x: x[0], reverse=True)
+        if len(xep_hang) > 1 and xep_hang[0][0] == xep_hang[1][0]:
+            return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
+        cv = xep_hang[0][1]
 
-    cv = xep_hang[0][1]
     return {
         "tra_loi": f"Đây là ảnh đã lưu cho chức vụ \"{cv.ten}\":",
         "duong_dan": None,
@@ -569,7 +568,11 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
             messages.append({"role": m["vai_tro"], "content": str(m["noi_dung"])[:2000]})
     messages.append({"role": "user", "content": tin_nhan[:2000]})
 
-    noi_dung, loi = _goi_chatgpt_tin_nhan(messages, dang_json=True)
+    noi_dung, loi = _goi_chatgpt_tin_nhan(
+        messages, dang_json=True,
+        model=current_app.config.get("OPENAI_MODEL_TRO_LY")
+        or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini"),
+    )
     if loi:
         return None, loi
 
@@ -584,7 +587,7 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
         return {"tra_loi": noi_dung, "duong_dan": None, "nhan_nut": None, "media": None}, None
 
     return {
-        "tra_loi": ket_qua.get("tra_loi") or noi_dung,
+        "tra_loi": ket_qua.get("tra_loi") or "Bạn có thể nói rõ hơn ý bạn muốn hỏi không?",
         "duong_dan": ket_qua.get("duong_dan") or None,
         "nhan_nut": ket_qua.get("nhan_nut") or None,
         "media": _duong_dan_media_da_xac_minh(nd, ket_qua.get("media")),

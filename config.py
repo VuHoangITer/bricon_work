@@ -30,6 +30,13 @@ class Config:
 
     API_KEY = os.getenv("API_KEY", "")
 
+    # Model dùng cho AI gợi ý/tóm tắt mô tả việc (việc đơn giản, model nhẹ
+    # là đủ). OPENAI_MODEL_TRO_LY riêng cho trợ lý chat — nếu không set thì
+    # dùng lại OPENAI_MODEL; nên đặt model mạnh hơn ở đây vì trợ lý phải
+    # đọc ngữ cảnh dài (mô tả chức vụ, KPI, chấm công...) mà không bị rối.
+    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    OPENAI_MODEL_TRO_LY = os.getenv("OPENAI_MODEL_TRO_LY", "")
+
     UPLOAD_ROOT = os.getenv("UPLOAD_ROOT", "/tmp/bricon-uploads")
     MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "60"))
     MAX_CONTENT_LENGTH = MAX_UPLOAD_MB * 1024 * 1024
