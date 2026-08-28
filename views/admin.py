@@ -400,6 +400,7 @@ def info_ai():
     return render_template(
         "admin_info_ai.html",
         thong_tin_chung=services.lay_cai_dat("thong_tin_chung_cong_ty", ""),
+        thong_tin_san_pham=services.lay_cai_dat("thong_tin_san_pham", ""),
         ds_chuc_vu=ChucVu.query.order_by(ChucVu.ten).all(),
     )
 
@@ -411,6 +412,16 @@ def luu_thong_tin_chung():
     services.dat_cai_dat("thong_tin_chung_cong_ty", noi_dung)
     db.session.commit()
     flash("Đã lưu thông tin chung công ty.", "success")
+    return redirect(url_for("admin.info_ai"))
+
+
+@bp.route("/info-ai/san-pham", methods=["POST"])
+@chi_admin
+def luu_thong_tin_san_pham():
+    noi_dung = (request.form.get("thong_tin_san_pham") or "").strip()
+    services.dat_cai_dat("thong_tin_san_pham", noi_dung)
+    db.session.commit()
+    flash("Đã lưu thông tin sản phẩm.", "success")
     return redirect(url_for("admin.info_ai"))
 
 

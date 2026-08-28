@@ -324,13 +324,35 @@ def _can_boi_canh_chuc_vu(van_ban: str, tat_ca_cv) -> bool:
     return False
 
 
+# Từ khoá nhận diện câu hỏi liên quan sản phẩm — dựa theo tên các nhóm sản
+# phẩm thật của BRICON (đã chuẩn hoá bỏ dấu). "Thông tin sản phẩm" tách
+# riêng khỏi "Thông tin chung" vì khá dài (danh mục + mô tả nhiều sản
+# phẩm) — chỉ nạp khi thật sự cần, tránh tốn token cho câu hỏi không liên
+# quan (chấm công, KPI, nghỉ phép...).
+_TU_KHOA_SAN_PHAM = (
+    "san pham", "keo dan gach", "dan gach", "cha ron", "chong tham",
+    "2 thanh phan", "hai thanh phan", "tram tuong", "mo kinh", "epoxy",
+    "dung cu thi cong", "phu gia", "quy cach dong goi", "dong goi",
+    "thong so ky thuat", "gia ban", "bao gia", "catalogue", "catalog",
+)
+
+
+def _can_boi_canh_san_pham(van_ban: str) -> bool:
+    tin_chuan = _chuan_hoa_khong_dau(van_ban)
+    return any(cum in tin_chuan for cum in _TU_KHOA_SAN_PHAM)
+
+
 def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
     """Dựng đoạn ngữ cảnh dữ liệu thật của người đang hỏi, nhét vào system
     prompt để trợ lý AI trả lời đúng, không bịa.
 
-    Có 2 lớp thông tin tổ chức nạp thêm ngoài dữ liệu việc/chấm công:
+    Có 3 lớp thông tin tổ chức nạp thêm ngoài dữ liệu việc/chấm công:
     - Thông tin chung công ty (chế độ, chính sách...) — áp dụng cho mọi
-      người, quản lý ở trang Info AI.
+      người, quản lý ở trang Info AI, LUÔN nạp vì tương đối ngắn và hầu
+      như câu nào cũng có thể cần tới.
+    - Thông tin sản phẩm (danh mục, mô tả, thông số) — tách riêng vì khá
+      dài, CHỈ nạp khi van_ban_gan_day cho thấy câu hỏi thật sự liên quan
+      sản phẩm (xem _can_boi_canh_san_pham).
     - Thông tin riêng theo Chức vụ của đúng người đang hỏi (mô tả công
       việc, lương, chế độ riêng vị trí) — CHỈ nạp đúng 1 chức vụ của họ,
       không nạp chức vụ khác, nên AI không có gì để lẫn lộn giữa các
@@ -352,7 +374,12 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
     thong_tin_chung = lay_cai_dat("thong_tin_chung_cong_ty")
     if thong_tin_chung:
         dong.append("--- Thông tin chung công ty (áp dụng cho mọi người) ---\n"
-                    + thong_tin_chung[:4000])
+                    + thong_tin_chung)
+
+    thong_tin_san_pham = lay_cai_dat("thong_tin_san_pham")
+    if thong_tin_san_pham and _can_boi_canh_san_pham(van_ban_gan_day):
+        dong.append("--- Thông tin sản phẩm (chỉ nạp khi câu hỏi liên quan sản phẩm) ---\n"
+                    + thong_tin_san_pham)
 
     if nd.la_admin_sep:
         from models import ChucVu

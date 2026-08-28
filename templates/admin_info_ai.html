@@ -29,6 +29,19 @@
   </form>
 </div>
 
+<div class="the">
+  <h3>Thông tin sản phẩm</h3>
+  <p style="color:var(--muc-mo);font-size:.85rem">Danh mục, mô tả, thông số sản phẩm công ty. Tách riêng khỏi
+    "Thông tin chung" — Trợ lý AI CHỈ đọc phần này khi câu hỏi thực sự liên quan tới sản phẩm, đỡ tốn token cho
+    những câu hỏi khác (chấm công, KPI, nghỉ phép...).</p>
+  <form method="post" action="{{ url_for('admin.luu_thong_tin_san_pham') }}">
+    <div class="o-nhap">
+      <textarea name="thong_tin_san_pham" rows="8" placeholder="VD: 1. KEO DÁN GẠCH&#10;- Keo Dán Gạch Bricon Nội Thất: dùng khu vực khô ráo trong nhà, khổ gạch ≤80x80cm...">{{ thong_tin_san_pham }}</textarea>
+    </div>
+    <button class="nut nut--rong" type="submit">Lưu thông tin sản phẩm</button>
+  </form>
+</div>
+
 <details class="the the--them" open>
   <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm chức vụ</summary>
   <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data" style="margin-top:14px">
