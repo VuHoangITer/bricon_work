@@ -214,7 +214,7 @@
 {# ------------------------------------------------------- sếp đánh giá #}
 {% if duoc_duyet and viec.trang_thai == TrangThai.CHO_DUYET %}
 <div class="tieu-khu"><h2>Đánh giá kết quả</h2></div>
-<form class="the" method="post" enctype="multipart/form-data"
+<form class="the" method="post" enctype="multipart/form-data" id="form-danh-gia"
       action="{{ url_for('tasks.danh_gia', viec_id=viec.id) }}">
   <div class="o-nhap">
     <label>Chấm sao (chỉ dùng khi Đạt)</label>
@@ -232,8 +232,13 @@
   </div>
   <div class="o-nhap">
     <label>Ảnh minh hoạ (không bắt buộc)</label>
-    <input type="file" name="anh_danh_gia" multiple accept="image/*">
-    <div class="goi-y">Có thể chọn nhiều ảnh cùng lúc — VD chụp chỗ cần sửa, ảnh mẫu tham khảo.</div>
+    <input type="file" id="chon-anh-danh-gia" multiple accept="image/*">
+    <input type="file" name="anh_danh_gia" id="anh-danh-gia-an" multiple style="display:none">
+    <div id="xem-truoc-danh-gia" class="luoi-tep" style="margin-top:8px"></div>
+    <div class="goi-y">Chọn nhiều ảnh cùng lúc hoặc bấm chọn thêm nhiều lần — không mất
+      ảnh đã chọn trước đó, bấm ✕ trên ảnh để bỏ bớt. Vừa cắt/chụp màn hình xong thì
+      bấm <strong>Ctrl+V</strong> (Mac: <strong>Cmd+V</strong>) ngay trên trang này để
+      dán ảnh thẳng vào, không cần lưu file ra ngoài rồi mới chọn.</div>
   </div>
   <div class="hang-nut">
     <button class="nut nut--xanh" type="submit" name="ket_qua" value="dat">Duyệt đạt</button>
@@ -270,5 +275,6 @@
 {% block scripts %}
 <script>
   khoiTaoDoiChung({{ config.MAX_UPLOAD_MB }});
+  khoiTaoDanhGia();
 </script>
 {% endblock %}

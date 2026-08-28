@@ -248,3 +248,78 @@ function khoiTaoDoiChung(gioiHanMB) {
 }
 
 document.addEventListener('DOMContentLoaded', khoiTaoChamCong);
+
+/* --------------------------------------------- sếp đính kèm ảnh khi đánh giá */
+function khoiTaoDanhGia() {
+  const form = document.getElementById('form-danh-gia');
+  if (!form) return;
+
+  const oAnh = document.getElementById('chon-anh-danh-gia');   // input hiển thị, dùng để mở hộp thoại
+  const oAnhAn = document.getElementById('anh-danh-gia-an');   // input ẩn, thực sự gửi lên server
+  const xemTruoc = document.getElementById('xem-truoc-danh-gia');
+  let daChon = [];   // TOÀN BỘ ảnh đã chọn/dán, gộp qua nhiều lần — cùng cơ chế với khoiTaoDoiChung()
+
+  function dongBoOAnh() {
+    const dt = new DataTransfer();
+    for (const f of daChon) dt.items.add(f);
+    oAnhAn.files = dt.files;
+  }
+
+  function veLaiXemTruoc() {
+    xemTruoc.innerHTML = '';
+    daChon.forEach((f, idx) => {
+      const o = document.createElement('div');
+      o.className = 'tep';
+      o.innerHTML = `<img src="${URL.createObjectURL(f)}" alt="">`;
+      const xoa = document.createElement('button');
+      xoa.type = 'button';
+      xoa.className = 'tep-xoa';
+      xoa.textContent = '✕';
+      xoa.title = 'Bỏ ảnh này';
+      xoa.addEventListener('click', () => {
+        daChon.splice(idx, 1);
+        dongBoOAnh();
+        veLaiXemTruoc();
+      });
+      o.appendChild(xoa);
+      xemTruoc.appendChild(o);
+    });
+  }
+
+  function themAnh(file) {
+    const daCo = daChon.some(
+      (x) => x.name === file.name && x.size === file.size && x.lastModified === file.lastModified
+    );
+    if (!daCo) daChon.push(file);
+    dongBoOAnh();
+    veLaiXemTruoc();
+  }
+
+  if (oAnh) {
+    oAnh.addEventListener('change', () => {
+      for (const f of oAnh.files) themAnh(f);
+      oAnh.value = '';   // reset để chọn lại đúng ảnh cũ vẫn bắn 'change'
+    });
+  }
+
+  // Dán ảnh Ctrl+V (Cmd+V trên Mac) — vừa cắt/chụp màn hình xong dán thẳng
+  // vào, không cần lưu ra file rồi mới bấm chọn. Bắt ở document (không chỉ
+  // riêng ô ảnh) để dán được dù đang bấm vào đâu trên trang chi tiết việc,
+  // miễn còn đang ở trang có form đánh giá này.
+  document.addEventListener('paste', (e) => {
+    const items = (e.clipboardData || window.clipboardData)?.items;
+    if (!items) return;
+    let coAnh = false;
+    for (const it of items) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        const f = it.getAsFile();
+        if (!f) continue;
+        const duoi = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+        const ten = f.name && f.name !== 'image.png' ? f.name : `dan-anh-${Date.now()}.${duoi}`;
+        themAnh(new File([f], ten, { type: f.type }));
+        coAnh = true;
+      }
+    }
+    if (coAnh) e.preventDefault();
+  });
+}
