@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Giao việc mới · BRICON WORK{% endblock %}
 {% block content %}
-<div class="page-head"><div class="page-head-copy"><h1>Giao việc mới</h1><p>Mỗi người được chọn sẽ nhận một công việc riêng và một tin nhắn Zalo kèm đường dẫn.</p></div></div>
+<div class="page-head"><div class="page-head-copy"><h1>Giao việc mới</h1></div></div>
 <form class="the" method="post" id="form-giao-viec">
   <div class="o-nhap"><label for="tieu_de">Tên công việc</label><input id="tieu_de" name="tieu_de" type="text" required maxlength="255" value="{{ tieu_de or '' }}" placeholder="VD: Kiểm kê kho keo dán gạch chi nhánh Bình Tân"></div>
   <div class="o-nhap"><label for="mo_ta">Yêu cầu chi tiết</label><textarea id="mo_ta" name="mo_ta" placeholder="Làm gì, ở đâu, cần nộp lại đối chứng gì…">{{ mo_ta or '' }}</textarea>
@@ -28,8 +28,8 @@
 
   <div class="o-nhap" id="khoi-han-thuong">
     <label for="han">Hạn hoàn thành</label>
-    <input id="han" name="han" type="datetime-local" value="{{ han or '' }}">
-    <div class="goi-y">Không bắt buộc: đặt thêm "Ngày bắt đầu" bên dưới nếu muốn việc này hiện trong "Việc hằng ngày" suốt từ ngày đó tới ngày hạn, không chỉ đúng ngày hạn (VD: việc chờ duyệt/chờ phản hồi kéo dài nhiều ngày).</div>
+    <input id="han" name="han" type="datetime-local"
+           value="{{ han if han else (hom_nay.isoformat() ~ 'T17:25' if (uu_tien or 'thuong') != 'cao' else '') }}">
     <label for="ngay_bat_dau" style="margin-top:10px">Ngày bắt đầu (không bắt buộc)</label>
     <input id="ngay_bat_dau" name="ngay_bat_dau" type="date" value="{{ ngay_bat_dau or '' }}">
   </div>
@@ -38,7 +38,7 @@
     <label>Áp dụng cho các ngày</label>
     <div class="hang" style="margin-bottom:10px">
       <input type="month" id="thang-hang-ngay" value="{{ thang_hang_ngay }}">
-      <input type="time" id="gio-hang-ngay" name="gio_hang_ngay" value="{{ gio_hang_ngay or '08:00' }}">
+      <input type="time" id="gio-hang-ngay" name="gio_hang_ngay" value="{{ gio_hang_ngay or '17:25' }}">
     </div>
     <div id="luoi-ngay" class="luoi-ngay"></div>
     <div class="goi-y">Bấm chọn nhiều ngày trong tháng — mỗi ngày được chọn sẽ tạo 1 công việc riêng, dùng chung giờ hạn ở trên. Đổi tháng để chọn thêm ngày ở tháng khác, các ngày đã chọn trước đó vẫn được giữ.</div>
@@ -49,7 +49,6 @@
 
 <div id="khoi-viec-them-container"></div>
 <button type="button" class="nut nut--phu" id="nut-them-khoi" style="margin-top:6px" form="form-giao-viec" formnovalidate>+ Thêm việc khác</button>
-<p class="goi-y" style="margin-top:8px">Mỗi khối thêm là 1 công việc riêng (tên/nội dung/người nhận khác nhau), cùng gửi Zalo trong 1 lần bấm. Việc thêm không hỗ trợ lịch nhiều ngày kiểu "Hằng ngày" — cần loại đó thì tạo riêng.</p>
 
 <template id="mau-khoi-viec">
   <div class="khoi-viec-them the" style="margin-top:16px">
@@ -94,6 +93,7 @@
 (function () {
   const chonUuTien = document.getElementById('do_uu_tien');
   const khoiThuong = document.getElementById('khoi-han-thuong');
+  const hanInput = document.getElementById('han');
   const khoiHangNgay = document.getElementById('khoi-han-hang-ngay');
   const thangInput = document.getElementById('thang-hang-ngay');
   const luoiNgay = document.getElementById('luoi-ngay');
@@ -142,7 +142,21 @@
     khoiHangNgay.style.display = hangNgay ? '' : 'none';
   }
 
-  chonUuTien.addEventListener('change', capNhatHienThi);
+  // Cần gấp: để trống ô hạn, bắt buộc người giao tự chọn cho đúng mức độ
+  // gấp — không áp mặc định 17h25 (mặc định đó chỉ hợp cho Nhiệm vụ chính).
+  const macDinhHan = `{{ hom_nay.isoformat() }}T17:25`;
+  function ganLaiHanTheoUuTien() {
+    if (chonUuTien.value === 'cao') {
+      hanInput.value = '';
+    } else if (chonUuTien.value === 'thuong' && !hanInput.value) {
+      hanInput.value = macDinhHan;
+    }
+  }
+
+  chonUuTien.addEventListener('change', () => {
+    capNhatHienThi();
+    ganLaiHanTheoUuTien();
+  });
   thangInput.addEventListener('change', veLuoiNgay);
 
   veLuoiNgay();
@@ -247,8 +261,18 @@
 
     khoi.querySelector('.o-tieu-de').name = `tieu_de_${idx}`;
     khoi.querySelector('.o-mo-ta').name = `mo_ta_${idx}`;
-    khoi.querySelector('.o-uu-tien').name = `do_uu_tien_${idx}`;
-    khoi.querySelector('.o-han').name = `han_${idx}`;
+    const chonUuTienI = khoi.querySelector('.o-uu-tien');
+    const hanInputI = khoi.querySelector('.o-han');
+    chonUuTienI.name = `do_uu_tien_${idx}`;
+    hanInputI.name = `han_${idx}`;
+    hanInputI.value = macDinhHan;  // mặc định Nhiệm vụ chính (option đầu) — Cần gấp sẽ tự để trống khi chọn
+    chonUuTienI.addEventListener('change', () => {
+      if (chonUuTienI.value === 'cao') {
+        hanInputI.value = '';
+      } else if (!hanInputI.value) {
+        hanInputI.value = macDinhHan;
+      }
+    });
     khoi.querySelector('.o-ngay-bat-dau').name = `ngay_bat_dau_${idx}`;
     khoi.querySelectorAll('.o-nguoi-nhan input[type=checkbox]').forEach((cb) => {
       cb.name = `nguoi_nhan_id_${idx}`;

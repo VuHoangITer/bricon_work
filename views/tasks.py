@@ -270,7 +270,7 @@ def giao_viec():
         han_raw = request.form.get("han") or ""
         ngay_bat_dau_raw = (request.form.get("ngay_bat_dau") or "").strip()
         cac_ngay_raw = request.form.getlist("ngay_hang_ngay")
-        gio_hang_ngay = request.form.get("gio_hang_ngay") or "08:00"
+        gio_hang_ngay = request.form.get("gio_hang_ngay") or "17:25"
         thang_hang_ngay = request.form.get("thang_hang_ngay") or thang_hien_tai
 
         def loi(thong_bao):
