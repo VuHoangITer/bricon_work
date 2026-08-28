@@ -671,11 +671,21 @@ def _thu_khop_anh_san_pham(tin_nhan: str) -> dict | None:
 
     tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
     tin_tu = set(tin_chuan.split())
-    if not tin_tu & {"anh", "hinh", "photo", "image", "phieu", "tds", "catalogue", "catalog"}:
-        return None
 
     ung_vien = [sp for sp in SanPhamAI.query.all() if sp.anh]
     if not ung_vien:
+        return None
+
+    # Ngoài các từ xin xem ảnh chung chung, người dùng thường gõ THẲNG tên
+    # nhãn đã đặt cho ảnh (VD: "bảng định mức", "bảng màu") thay vì nói
+    # "cho xem ảnh" — nên cũng phải tính là muốn xem ảnh trong trường hợp
+    # này, không chỉ dựa vào bộ từ khoá chung cố định.
+    tu_khoa_chung = {"anh", "hinh", "photo", "image", "phieu", "tds", "catalogue", "catalog"}
+    tu_nhan_da_luu = {
+        t for sp in ung_vien for a in sp.anh if a.nhan
+        for t in _chuan_hoa_khong_dau(a.nhan).split() if len(t) > 2
+    }
+    if not (tin_tu & tu_khoa_chung) and not (tin_tu & tu_nhan_da_luu):
         return None
 
     xep_hang = []
