@@ -168,6 +168,44 @@ class ChucVu(db.Model):
         return f"<ChucVu {self.ten}>"
 
 
+class SanPhamAI(db.Model):
+    """1 mục thông tin sản phẩm cho Trợ lý AI đọc — tên + mô tả + nhiều
+    ảnh minh hoạ (TDS, bảng định mức, bảng màu...). Quản lý tự do ở trang
+    Info AI (thêm/sửa/xoá ngay trên web), không hardcode trong code —
+    tương tự ChucVu nhưng hỗ trợ NHIỀU ảnh/sản phẩm thay vì chỉ 1."""
+    __tablename__ = "san_pham_ai"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ten = db.Column(db.String(255), nullable=False)
+    mo_ta = db.Column(db.Text)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    anh = db.relationship(
+        "AnhSanPhamAI", back_populates="san_pham",
+        cascade="all, delete-orphan", order_by="AnhSanPhamAI.id"
+    )
+
+    def __repr__(self):
+        return f"<SanPhamAI {self.ten}>"
+
+
+class AnhSanPhamAI(db.Model):
+    """1 ảnh minh hoạ gắn với 1 SanPhamAI — 1 sản phẩm có thể có nhiều
+    ảnh (VD: TDS, bảng định mức, bảng màu), mỗi ảnh có nhãn riêng để AI
+    phân biệt đúng loại ảnh khi người hỏi cần."""
+    __tablename__ = "anh_san_pham_ai"
+
+    id = db.Column(db.Integer, primary_key=True)
+    san_pham_id = db.Column(db.Integer, db.ForeignKey("san_pham_ai.id"), nullable=False, index=True)
+    duong_dan = db.Column(db.String(500), nullable=False)
+    nhan = db.Column(db.String(255))  # VD: "TDS", "Bảng định mức", "Bảng màu"
+
+    san_pham = db.relationship("SanPhamAI", back_populates="anh")
+
+    def __repr__(self):
+        return f"<AnhSanPhamAI {self.nhan or self.duong_dan}>"
+
+
 class NguoiDung(UserMixin, db.Model):
     __tablename__ = "nguoi_dung"
 

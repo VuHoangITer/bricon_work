@@ -1,14 +1,16 @@
+import os
 import secrets
 from functools import wraps
 
-from flask import (Blueprint, abort, flash, redirect, render_template, request,
-                   url_for)
+from flask import (Blueprint, abort, current_app, flash, redirect, render_template,
+                   request, url_for)
 from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import (BoPhan, BotZalo, ChamCong, ChucVu, CongViec, DanhGia,
-                    DiemChamCong, DinhKem, LogZalo, NguoiDung, VaiTro)
+from models import (AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
+                    DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI,
+                    VaiTro)
 
 bp = Blueprint("admin", __name__, url_prefix="/quan-tri")
 
@@ -402,6 +404,7 @@ def info_ai():
         thong_tin_chung=services.lay_cai_dat("thong_tin_chung_cong_ty", ""),
         thong_tin_san_pham=services.lay_cai_dat("thong_tin_san_pham", ""),
         ds_chuc_vu=ChucVu.query.order_by(ChucVu.ten).all(),
+        ds_san_pham_ai=SanPhamAI.query.order_by(SanPhamAI.ten).all(),
     )
 
 
@@ -422,6 +425,72 @@ def luu_thong_tin_san_pham():
     services.dat_cai_dat("thong_tin_san_pham", noi_dung)
     db.session.commit()
     flash("Đã lưu thông tin sản phẩm.", "success")
+    return redirect(url_for("admin.info_ai"))
+
+
+@bp.route("/info-ai/san-pham-ai", methods=["POST"])
+@bp.route("/info-ai/san-pham-ai/<int:spid>", methods=["POST"])
+@chi_admin
+def luu_san_pham_ai(spid=None):
+    """Thêm mới (spid=None) hoặc sửa tên/mô tả 1 sản phẩm AI hiện có.
+    Có thể đính kèm nhiều ảnh cùng lúc ngay trong lần lưu này — mỗi ảnh
+    chọn trong 1 lần lưu dùng chung 1 nhãn (VD: "TDS", "Bảng định mức")."""
+    sp = db.session.get(SanPhamAI, spid) if spid else None
+    if spid and not sp:
+        abort(404)
+    if not sp:
+        sp = SanPhamAI()
+
+    ten = (request.form.get("ten") or "").strip()
+    if not ten:
+        flash("Cần nhập tên sản phẩm.", "error")
+        return redirect(url_for("admin.info_ai"))
+
+    sp.ten = ten
+    sp.mo_ta = (request.form.get("mo_ta") or "").strip()
+
+    nhan_anh = (request.form.get("nhan_anh") or "").strip()
+    cac_anh = [f for f in request.files.getlist("anh") if f and f.filename]
+    for f in cac_anh:
+        duong_dan, _ = services.luu_file(f, "san-pham-ai")
+        sp.anh.append(AnhSanPhamAI(duong_dan=duong_dan, nhan=nhan_anh or None))
+
+    if not spid:
+        db.session.add(sp)
+    db.session.commit()
+    flash("Đã lưu sản phẩm.", "success")
+    return redirect(url_for("admin.info_ai"))
+
+
+@bp.route("/info-ai/san-pham-ai/<int:spid>/xoa", methods=["POST"])
+@chi_admin
+def xoa_san_pham_ai(spid):
+    sp = db.session.get(SanPhamAI, spid) or abort(404)
+    for a in sp.anh:
+        duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *a.duong_dan.split("/"))
+        try:
+            os.remove(duong_dan_tuyet_doi)
+        except OSError:
+            pass
+    ten = sp.ten
+    db.session.delete(sp)
+    db.session.commit()
+    flash(f"Đã xoá sản phẩm {ten}.", "success")
+    return redirect(url_for("admin.info_ai"))
+
+
+@bp.route("/info-ai/san-pham-ai/anh/<int:anh_id>/xoa", methods=["POST"])
+@chi_admin
+def xoa_anh_san_pham_ai(anh_id):
+    a = db.session.get(AnhSanPhamAI, anh_id) or abort(404)
+    duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *a.duong_dan.split("/"))
+    try:
+        os.remove(duong_dan_tuyet_doi)
+    except OSError:
+        pass
+    db.session.delete(a)
+    db.session.commit()
+    flash("Đã xoá ảnh.", "success")
     return redirect(url_for("admin.info_ai"))
 
 

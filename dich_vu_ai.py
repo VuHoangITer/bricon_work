@@ -377,9 +377,28 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
                     + thong_tin_chung)
 
     thong_tin_san_pham = lay_cai_dat("thong_tin_san_pham")
-    if thong_tin_san_pham and _can_boi_canh_san_pham(van_ban_gan_day):
+    can_san_pham = _can_boi_canh_san_pham(van_ban_gan_day)
+    if thong_tin_san_pham and can_san_pham:
         dong.append("--- Thông tin sản phẩm (chỉ nạp khi câu hỏi liên quan sản phẩm) ---\n"
                     + thong_tin_san_pham)
+
+    if can_san_pham:
+        from models import SanPhamAI
+        ds_sp_anh = [sp for sp in SanPhamAI.query.order_by(SanPhamAI.ten).all() if sp.anh]
+        if ds_sp_anh:
+            dong.append(
+                "--- Sản phẩm có ảnh minh hoạ kèm theo (TDS, bảng định mức, bảng "
+                "màu...) — mỗi ảnh có nhãn ghi rõ trước dấu ':' để biết đúng loại "
+                "ảnh nào ---\n" +
+                "\n\n".join(
+                    f"## {sp.ten}\n{(sp.mo_ta or '').strip()}\n"
+                    + " | ".join(
+                        f"{(a.nhan + ': ') if a.nhan else ''}[media:{a.duong_dan}]"
+                        for a in sp.anh
+                    )
+                    for sp in ds_sp_anh
+                )
+            )
 
     if nd.la_admin_sep:
         from models import ChucVu
@@ -639,6 +658,60 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
     }
 
 
+def _thu_khop_anh_san_pham(tin_nhan: str) -> dict | None:
+    """Khớp trực tiếp (KHÔNG qua AI) khi người hỏi xin xem ảnh 1 sản phẩm
+    cụ thể (TDS, bảng định mức, bảng màu...) — cùng lý do tách khỏi luồng
+    AI như _thu_khop_anh_chuc_vu (model đôi khi tự ý từ chối "gửi ảnh").
+
+    Chỉ trả kết quả khi khớp rõ ràng: đúng 1 sản phẩm, VÀ (sản phẩm đó chỉ
+    có 1 ảnh, hoặc khớp thêm được đúng 1 ảnh theo nhãn) — mơ hồ thì trả
+    None để câu hỏi rơi xuống luồng AI bình thường (AI vẫn có đủ ngữ cảnh
+    kèm nhãn từng ảnh để tự chọn)."""
+    from models import SanPhamAI
+
+    tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
+    tin_tu = set(tin_chuan.split())
+    if not tin_tu & {"anh", "hinh", "photo", "image", "phieu", "tds", "catalogue", "catalog"}:
+        return None
+
+    ung_vien = [sp for sp in SanPhamAI.query.all() if sp.anh]
+    if not ung_vien:
+        return None
+
+    xep_hang = []
+    for sp in ung_vien:
+        tu_ten = [t for t in _chuan_hoa_khong_dau(sp.ten).split() if len(t) > 2]
+        so_khop = sum(1 for t in tu_ten if t in tin_tu)
+        toi_thieu = 1 if len(tu_ten) <= 1 else 2
+        if so_khop >= toi_thieu:
+            xep_hang.append((so_khop, sp))
+
+    if not xep_hang:
+        return None
+    xep_hang.sort(key=lambda x: x[0], reverse=True)
+    if len(xep_hang) > 1 and xep_hang[0][0] == xep_hang[1][0]:
+        return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
+    sp = xep_hang[0][1]
+
+    if len(sp.anh) == 1:
+        anh = sp.anh[0]
+    else:
+        khop_nhan = [
+            a for a in sp.anh if a.nhan
+            and any(t in tin_chuan for t in _chuan_hoa_khong_dau(a.nhan).split())
+        ]
+        if len(khop_nhan) != 1:
+            return None  # nhiều ảnh, chưa rõ đúng ảnh nào -> để AI tự chọn qua ngữ cảnh
+        anh = khop_nhan[0]
+
+    return {
+        "tra_loi": f"Đây là ảnh {(anh.nhan + ' ') if anh.nhan else ''}của sản phẩm \"{sp.ten}\":",
+        "duong_dan": None,
+        "nhan_nut": None,
+        "media": url_for("media", duong_dan=anh.duong_dan),
+    }
+
+
 def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[dict | None, str | None]:
     """Trợ lý AI hỏi-đáp — trả lời dựa trên dữ liệu thật của đúng người
     đang hỏi (lấy theo nd, không lấy theo dữ liệu client gửi lên) + hướng
@@ -651,6 +724,10 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
     ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan)
     if ket_qua_anh:
         return ket_qua_anh, None
+
+    ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan)
+    if ket_qua_anh_sp:
+        return ket_qua_anh_sp, None
 
     # Gộp câu hỏi hiện tại + vài lượt gần nhất để xét có cần nạp toàn bộ
     # mô tả chức vụ không — câu hỏi nối tiếp kiểu "chi tiết hơn" không lặp

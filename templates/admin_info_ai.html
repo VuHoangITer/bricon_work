@@ -43,6 +43,73 @@
 </div>
 
 <details class="the the--them" open>
+  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm sản phẩm (có ảnh)</summary>
+  <p style="color:var(--muc-mo);font-size:.85rem;margin-top:8px">Dùng cho từng sản phẩm cần kèm ảnh minh hoạ
+    (TDS, bảng định mức, bảng màu...) — không cần gõ tay vào ô "Thông tin sản phẩm" ở trên. Có thể chọn nhiều ảnh
+    cùng lúc; nếu các ảnh chọn cùng 1 lần là cùng loại (VD: đều là ảnh TDS) thì gõ chung 1 nhãn cho tất cả.</p>
+  <form method="post" action="{{ url_for('admin.luu_san_pham_ai') }}" enctype="multipart/form-data" style="margin-top:14px">
+    <div class="o-nhap"><label>Tên sản phẩm</label>
+      <input name="ten" required placeholder="VD: Keo Chà Ron Bột Bricon"></div>
+    <div class="o-nhap"><label>Nội dung (mô tả, công dụng, thông số...)</label>
+      <textarea name="mo_ta" rows="6" placeholder="VD: Keo chà ron bột gốc xi măng, mạch ron 1-6mm, đóng gói 1kg/túi..."></textarea></div>
+    <div class="o-nhap"><label>Nhãn cho (các) ảnh bên dưới — không bắt buộc</label>
+      <input name="nhan_anh" placeholder="VD: TDS, Bảng định mức, Bảng màu..."></div>
+    <div class="o-nhap"><label>Chọn ảnh — có thể chọn nhiều ảnh cùng lúc</label>
+      <input type="file" name="anh" accept="image/*" multiple></div>
+    <button class="nut nut--rong" type="submit">Lưu sản phẩm</button>
+  </form>
+</details>
+
+<div class="tieu-khu"><h2>Danh sách sản phẩm (có ảnh)</h2><span class="dem">{{ ds_san_pham_ai|length }}</span></div>
+
+{% for sp in ds_san_pham_ai %}
+<details class="the">
+  <summary style="cursor:pointer"><strong>{{ sp.ten }}</strong>
+    {% if sp.anh %}<span class="dem">{{ sp.anh|length }} ảnh</span>{% endif %}</summary>
+
+  <form method="post" action="{{ url_for('admin.luu_san_pham_ai', spid=sp.id) }}" enctype="multipart/form-data" style="margin-top:14px">
+    <div class="o-nhap"><label>Tên sản phẩm</label><input name="ten" value="{{ sp.ten }}" required></div>
+    <div class="o-nhap"><label>Nội dung</label><textarea name="mo_ta" rows="6">{{ sp.mo_ta or '' }}</textarea></div>
+
+    {% if sp.anh %}
+    <div class="o-nhap"><label>Ảnh hiện tại</label>
+      <div class="luoi-tep">
+        {% for a in sp.anh %}
+        <div class="tep" style="position:relative">
+          <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.nhan or sp.ten }}">
+          {% if a.nhan %}<span style="position:absolute;left:4px;bottom:4px;background:rgba(28,28,26,.72);
+            color:#fff;font-size:.68rem;padding:2px 6px;border-radius:4px">{{ a.nhan }}</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="hang-nut" style="margin-top:8px;flex-wrap:wrap">
+        {% for a in sp.anh %}
+        <form method="post" action="{{ url_for('admin.xoa_anh_san_pham_ai', anh_id=a.id) }}"
+              onsubmit="return confirm('Xoá ảnh {{ a.nhan or '' }} này?')">
+          <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">
+            Xoá {{ a.nhan or ('ảnh ' ~ loop.index) }}</button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="o-nhap"><label>Nhãn cho ảnh mới thêm — không bắt buộc</label>
+      <input name="nhan_anh" placeholder="VD: TDS, Bảng định mức, Bảng màu..."></div>
+    <div class="o-nhap"><label>Thêm ảnh mới (không bắt buộc) — có thể chọn nhiều ảnh</label>
+      <input type="file" name="anh" accept="image/*" multiple></div>
+    <button class="nut nut--nho" type="submit">Lưu</button>
+  </form>
+  <form method="post" action="{{ url_for('admin.xoa_san_pham_ai', spid=sp.id) }}" style="margin-top:10px"
+        onsubmit="return confirm('Xoá sản phẩm {{ sp.ten }} (kèm toàn bộ ảnh)?')">
+    <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá sản phẩm</button>
+  </form>
+</details>
+{% else %}
+<div class="trong"><strong>Chưa có sản phẩm nào có ảnh</strong>Thêm sản phẩm đầu tiên ở khối bên trên.</div>
+{% endfor %}
+
+<details class="the the--them" open>
   <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm chức vụ</summary>
   <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data" style="margin-top:14px">
     <div class="o-nhap"><label>Tên chức vụ</label>
