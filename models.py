@@ -542,3 +542,25 @@ class XinNghi(db.Model):
 
     def __repr__(self):
         return f"<XinNghi {self.nguoi_dung_id} {self.ngay} {self.buoi}>"
+
+
+class TroLySuDung(db.Model):
+    """Theo dõi mức dùng Trợ lý AI của từng người, TÍNH THEO NGÀY — dùng để
+    áp giới hạn số câu hỏi + số token cho Nhân viên/Quản lý bộ phận (Sếp/
+    Admin không giới hạn), tránh tốn hết ngân sách API vì hỏi tràn lan.
+    Mỗi người mỗi ngày chỉ có đúng 1 dòng, cộng dồn dần trong ngày."""
+    __tablename__ = "tro_ly_su_dung"
+    __table_args__ = (
+        db.UniqueConstraint("nguoi_dung_id", "ngay", name="uq_trolysudung_nguoi_ngay"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    ngay = db.Column(db.Date, nullable=False, index=True)
+    so_cau_hoi = db.Column(db.Integer, nullable=False, default=0)
+    so_token = db.Column(db.Integer, nullable=False, default=0)
+
+    nguoi_dung = db.relationship("NguoiDung")
+
+    def __repr__(self):
+        return f"<TroLySuDung {self.nguoi_dung_id} {self.ngay} cau_hoi={self.so_cau_hoi} token={self.so_token}>"

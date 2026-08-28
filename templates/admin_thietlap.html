@@ -37,6 +37,27 @@
 </div>
 
 <div class="the">
+  <h3>Hạn mức Trợ lý AI mỗi ngày</h3>
+  <p style="color:var(--muc-mo);font-size:.85rem">
+    Áp dụng cho <b>Nhân viên</b> và <b>Quản lý bộ phận</b> — Sếp/Admin không bị giới hạn.
+    Hết hạn mức trong ngày, người dùng sẽ thấy thông báo và phải đợi qua hôm sau (00:00 giờ Việt Nam).
+    Để 0 ở ô nào nghĩa là bỏ giới hạn ô đó.
+  </p>
+  <form method="post" action="{{ url_for('admin.luu_gioi_han_tro_ly') }}">
+    <div class="o-nhap">
+      <label>Số câu hỏi / người / ngày</label>
+      <input type="number" name="gh_cau_hoi" min="0" step="1" value="{{ gh_cau_hoi }}">
+    </div>
+    <div class="o-nhap">
+      <label>Số token / người / ngày</label>
+      <input type="number" name="gh_token" min="0" step="1" value="{{ gh_token }}">
+      <div class="goi-y">Token là đơn vị OpenAI tính phí (cả câu hỏi lẫn câu trả lời). Vài chục nghìn token/ngày là đủ hỏi-đáp bình thường.</div>
+    </div>
+    <button class="nut nut--rong" type="submit">Lưu hạn mức</button>
+  </form>
+</div>
+
+<div class="the">
   <h3>Chạy thử báo cáo Zalo theo lịch</h3>
   <p style="color:var(--muc-mo);font-size:.85rem">
     Bấm để gửi thử ngay lập tức — dùng kiểm tra trước khi đặt cron thật trên VPS.

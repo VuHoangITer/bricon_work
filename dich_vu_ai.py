@@ -14,8 +14,63 @@ import requests
 from flask import current_app, url_for
 
 from extensions import db
-from models import NguoiDung, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai
+from models import NguoiDung, TroLySuDung, VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai
 from services import dieu_kien_viec_trong_ngay, lay_cai_dat, tinh_kpi
+
+# ---------------------------------------------------------------------------
+# GIỚI HẠN TRỢ LÝ AI — chỉ áp cho Nhân viên/Quản lý bộ phận (Sếp/Admin dùng
+# thoải mái). Mặc định khiêm tốn vì gọi API ngoài tốn tiền thật; Admin có
+# thể chỉnh lại 2 số này ở trang Thiết lập (không cần sửa code/deploy lại).
+# ---------------------------------------------------------------------------
+_GIOI_HAN_MAC_DINH_CAU_HOI_NGAY = 15
+_GIOI_HAN_MAC_DINH_TOKEN_NGAY = 20000
+
+
+def _bi_gioi_han_tro_ly(nd: NguoiDung) -> bool:
+    """Sếp/Admin không giới hạn; Quản lý bộ phận + Nhân viên bị giới hạn."""
+    return nd.vai_tro in (VaiTro.NHAN_VIEN, VaiTro.QUAN_LY)
+
+
+def con_gioi_han_tro_ly(nd: NguoiDung) -> tuple[bool, str | None]:
+    """Kiểm tra TRƯỚC khi cho hỏi trợ lý AI hôm nay. Trả về (còn được hỏi
+    không, câu thông báo nếu đã hết hạn mức — None nếu còn được hỏi)."""
+    if not _bi_gioi_han_tro_ly(nd):
+        return True, None
+
+    gh_cau_hoi = int(lay_cai_dat("tro_ly_gioi_han_cau_hoi_ngay")
+                     or _GIOI_HAN_MAC_DINH_CAU_HOI_NGAY)
+    gh_token = int(lay_cai_dat("tro_ly_gioi_han_token_ngay")
+                  or _GIOI_HAN_MAC_DINH_TOKEN_NGAY)
+
+    su_dung = TroLySuDung.query.filter_by(
+        nguoi_dung_id=nd.id, ngay=ngay_vn_hien_tai()).first()
+    so_cau_hoi = su_dung.so_cau_hoi if su_dung else 0
+    so_token = su_dung.so_token if su_dung else 0
+
+    if gh_cau_hoi > 0 and so_cau_hoi >= gh_cau_hoi:
+        return False, (f"Bạn đã hỏi Trợ lý AI {gh_cau_hoi} lần hôm nay — hết "
+                       f"hạn mức trong ngày rồi, mai hỏi tiếp nhé. Cần gấp "
+                       f"thì nhờ quản lý/sếp hỏi giúp.")
+    if gh_token > 0 and so_token >= gh_token:
+        return False, ("Bạn đã dùng hết hạn mức Trợ lý AI hôm nay, mai hỏi "
+                       "tiếp nhé.")
+    return True, None
+
+
+def ghi_nhan_su_dung_tro_ly(nd: NguoiDung, so_token: int = 0):
+    """Cộng dồn 1 câu hỏi (+ số token nếu có gọi OpenAI thật) vào bảng theo
+    dõi của đúng hôm nay. Ghi cho MỌI người kể cả Sếp/Admin (không bị chặn
+    nhưng vẫn theo dõi được ai đang dùng nhiều) — chỉ con_gioi_han_tro_ly ở
+    trên mới là nơi quyết định có chặn hay không."""
+    hom_nay = ngay_vn_hien_tai()
+    su_dung = TroLySuDung.query.filter_by(
+        nguoi_dung_id=nd.id, ngay=hom_nay).first()
+    if not su_dung:
+        su_dung = TroLySuDung(nguoi_dung_id=nd.id, ngay=hom_nay,
+                              so_cau_hoi=0, so_token=0)
+        db.session.add(su_dung)
+    su_dung.so_cau_hoi += 1
+    su_dung.so_token += max(so_token, 0)
 
 # ---------------------------------------------------------------------------
 # TÍCH HỢP CHATGPT — gợi ý / tóm tắt yêu cầu chi tiết khi giao việc
@@ -24,7 +79,7 @@ _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
 def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: str | None = None,
-                          _da_thu_lai: bool = False, _bo_nhiet_do: bool = False) -> tuple[str | None, str | None]:
+                          _da_thu_lai: bool = False, _bo_nhiet_do: bool = False) -> tuple[str | None, str | None, int]:
     """Gọi OpenAI với danh sách messages đầy đủ — hỗ trợ nhiều lượt hội
     thoại (dùng cho trợ lý AI), không chỉ 1 cặp system/user đơn.
     dang_json=True bắt OpenAI trả về đúng 1 object JSON hợp lệ.
@@ -34,10 +89,12 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: 
     _da_thu_lai, _bo_nhiet_do: dùng nội bộ, không truyền tay — đánh dấu đã
     tự thử lại 1 lần khi bị rate limit / đã tự bỏ tham số temperature vì
     model không cho tuỳ chỉnh (VD dòng gpt-5.6 chỉ nhận đúng mặc định),
-    tránh lặp vô hạn."""
+    tránh lặp vô hạn.
+    Trả về thêm số token đã dùng (total_tokens theo OpenAI báo) để nơi gọi
+    ghi nhận vào hạn mức — 0 nếu lỗi/chưa gọi được."""
     key = lay_cai_dat("openai_api_key")
     if not key:
-        return None, "Chưa cấu hình OpenAI API key ở trang Thiết lập."
+        return None, "Chưa cấu hình OpenAI API key ở trang Thiết lập.", 0
     model = model or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini")
     goi_tin = {"model": model, "messages": messages}
     if not _bo_nhiet_do:
@@ -53,7 +110,7 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: 
         )
         du_lieu = r.json()
     except Exception as e:  # noqa: BLE001
-        return None, f"Không gọi được OpenAI: {type(e).__name__}: {e}"
+        return None, f"Không gọi được OpenAI: {type(e).__name__}: {e}", 0
 
     if "error" in du_lieu:
         loi = du_lieu["error"]
@@ -68,7 +125,7 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: 
             return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model,
                                          _da_thu_lai=True, _bo_nhiet_do=_bo_nhiet_do)
         if r.status_code == 429:
-            return None, "Trợ lý đang có nhiều người hỏi cùng lúc, bạn thử lại sau vài giây nhé."
+            return None, "Trợ lý đang có nhiều người hỏi cùng lúc, bạn thử lại sau vài giây nhé.", 0
 
         # Vài model mới (VD dòng gpt-5.6) không cho tuỳ chỉnh temperature,
         # chỉ nhận đúng giá trị mặc định -> tự bỏ tham số này rồi gọi lại
@@ -79,19 +136,23 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: 
             return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model,
                                          _da_thu_lai=_da_thu_lai, _bo_nhiet_do=True)
 
-        return None, thong_diep
+        return None, thong_diep, 0
+    so_token = int((du_lieu.get("usage") or {}).get("total_tokens") or 0)
     try:
-        return du_lieu["choices"][0]["message"]["content"].strip(), None
+        return du_lieu["choices"][0]["message"]["content"].strip(), None, so_token
     except (KeyError, IndexError):
-        return None, "Phản hồi từ OpenAI không đúng định dạng mong đợi."
+        return None, "Phản hồi từ OpenAI không đúng định dạng mong đợi.", so_token
 
 
 def _goi_chatgpt(he_thong: str, nguoi_dung_hoi: str) -> tuple[str | None, str | None]:
-    """Gọi 1 lượt chat đơn giản tới OpenAI. Trả về (nội dung trả lời, lỗi)."""
-    return _goi_chatgpt_tin_nhan([
+    """Gọi 1 lượt chat đơn giản tới OpenAI. Trả về (nội dung trả lời, lỗi).
+    Dùng cho gợi ý/tóm tắt mô tả (chỉ Quản lý/Sếp/Admin gọi được, không bị
+    giới hạn hạn mức) nên bỏ qua số token trả về, không cần đếm."""
+    noi_dung, loi, _so_token = _goi_chatgpt_tin_nhan([
         {"role": "system", "content": he_thong},
         {"role": "user", "content": nguoi_dung_hoi},
     ])
+    return noi_dung, loi
 
 
 def ai_goi_y_mo_ta(tieu_de: str) -> tuple[str | None, str | None]:
@@ -773,10 +834,12 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
 
     ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan, ngu_canh_gan_day)
     if ket_qua_anh:
+        ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
         return ket_qua_anh, None
 
     ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan, ngu_canh_gan_day)
     if ket_qua_anh_sp:
+        ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
         return ket_qua_anh_sp, None
 
     van_ban_gan_day = tin_nhan + " " + ngu_canh_gan_day
@@ -788,13 +851,17 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
             messages.append({"role": m["vai_tro"], "content": str(m["noi_dung"])[:2000]})
     messages.append({"role": "user", "content": tin_nhan[:2000]})
 
-    noi_dung, loi = _goi_chatgpt_tin_nhan(
+    noi_dung, loi, so_token = _goi_chatgpt_tin_nhan(
         messages, dang_json=True,
         model=current_app.config.get("OPENAI_MODEL_TRO_LY")
         or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini"),
     )
     if loi:
+        # Gọi lỗi (kể cả rate-limit) không tính là 1 câu hỏi thành công —
+        # không trừ vào hạn mức của người dùng.
         return None, loi
+
+    ghi_nhan_su_dung_tro_ly(nd, so_token)
 
     van_ban = (noi_dung or "").strip()
     if van_ban.startswith("```"):

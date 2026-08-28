@@ -6,6 +6,7 @@ from flask import (Blueprint, abort, current_app, flash, redirect, render_templa
                    request, url_for)
 from flask_login import current_user, login_required
 
+import dich_vu_ai
 import services
 from extensions import db
 from models import (AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
@@ -297,7 +298,13 @@ def thiet_lap():
     return render_template("admin_thietlap.html",
                            ds=ds_bot,
                            so_dung_theo_bot=so_dung_theo_bot,
-                           openai_api_key=services.lay_cai_dat("openai_api_key"))
+                           openai_api_key=services.lay_cai_dat("openai_api_key"),
+                           gh_cau_hoi=services.lay_cai_dat(
+                               "tro_ly_gioi_han_cau_hoi_ngay",
+                               str(dich_vu_ai._GIOI_HAN_MAC_DINH_CAU_HOI_NGAY)),
+                           gh_token=services.lay_cai_dat(
+                               "tro_ly_gioi_han_token_ngay",
+                               str(dich_vu_ai._GIOI_HAN_MAC_DINH_TOKEN_NGAY)))
 
 
 @bp.route("/thiet-lap/ai", methods=["POST"])
@@ -307,6 +314,23 @@ def luu_cai_dat_ai():
     services.dat_cai_dat("openai_api_key", key)
     db.session.commit()
     flash("Đã lưu API key AI." if key else "Đã xoá API key AI.", "success")
+    return redirect(url_for("admin.thiet_lap"))
+
+
+@bp.route("/thiet-lap/ai-gioi-han", methods=["POST"])
+@chi_admin
+def luu_gioi_han_tro_ly():
+    """Hạn mức Trợ lý AI/ngày cho Nhân viên + Quản lý bộ phận (Sếp/Admin
+    không giới hạn) — để 0 ở ô nào nghĩa là bỏ giới hạn đó."""
+    gh_cau_hoi = request.form.get("gh_cau_hoi", type=int)
+    gh_token = request.form.get("gh_token", type=int)
+    if gh_cau_hoi is None or gh_cau_hoi < 0 or gh_token is None or gh_token < 0:
+        flash("Hạn mức phải là số nguyên không âm.", "error")
+        return redirect(url_for("admin.thiet_lap"))
+    services.dat_cai_dat("tro_ly_gioi_han_cau_hoi_ngay", str(gh_cau_hoi))
+    services.dat_cai_dat("tro_ly_gioi_han_token_ngay", str(gh_token))
+    db.session.commit()
+    flash("Đã lưu hạn mức Trợ lý AI.", "success")
     return redirect(url_for("admin.thiet_lap"))
 
 
