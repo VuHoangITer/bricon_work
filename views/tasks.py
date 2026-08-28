@@ -572,13 +572,13 @@ def huy_viec(viec_id):
 @bp.route("/viec/<int:viec_id>/mo-lai", methods=["POST"])
 @login_required
 def mo_lai_viec(viec_id):
-    """Chỉ Admin/Ban giám đốc — mở lại việc đã bị hệ thống tự động đóng
-    (nhận biết qua so_sao_cuoi == 0, vì chấm tay không bao giờ cho ra 0 sao).
-    Mở lại đưa việc về Làm lại, tự động được cộng 3 giờ gia hạn theo đúng
-    quy tắc tính KPI đã có."""
-    if not current_user.la_admin_sep:
-        abort(403)
+    """Admin/Ban giám đốc, hoặc Quản lý bộ phận của nhân viên nhận việc —
+    mở lại việc đã bị hệ thống tự động đóng (nhận biết qua so_sao_cuoi == 0,
+    vì chấm tay không bao giờ cho ra 0 sao). Mở lại đưa việc về Làm lại, tự
+    động được cộng 3 giờ gia hạn theo đúng quy tắc tính KPI đã có."""
     viec = db.session.get(CongViec, viec_id) or abort(404)
+    if not current_user.duoc_duyet_viec(viec):
+        abort(403)
     if not (viec.trang_thai == TrangThai.HOAN_THANH and viec.so_sao_cuoi == 0):
         flash("Chỉ mở lại được việc đã bị hệ thống tự động đóng (0 sao).", "error")
         return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
@@ -605,11 +605,20 @@ def mo_lai_viec(viec_id):
 @login_required
 def xoa_viec(viec_id):
     """Chỉ Admin/Ban giám đốc — xoá vĩnh viễn 1 công việc, kể cả tệp đính
-    kèm trên ổ đĩa. Không thể khôi phục, khác với Huỷ (chỉ đổi trạng thái)."""
+    kèm trên ổ đĩa. Không thể khôi phục, khác với Huỷ (chỉ đổi trạng thái).
+    Vẫn báo Zalo cho nhân viên như khi Huỷ — với họ, việc biến mất hay bị
+    đổi trạng thái Huỷ thì thực tế cũng là không cần làm nữa, cần được báo
+    giống nhau."""
     if not current_user.la_admin_sep:
         abort(403)
     viec = db.session.get(CongViec, viec_id) or abort(404)
     ma, ten = viec.ma, viec.tieu_de
+    services.gui_cho_nhan_vien(
+        viec.nguoi_nhan,
+        f"🚫 Công việc [{ma}] {ten} đã được huỷ bởi {current_user.ho_ten}. "
+        f"Bạn không cần làm nữa.",
+        viec,
+    )
     services.xoa_file_dinh_kem(viec)
     services.go_lien_ket_log_zalo_cho_viec(viec)
     db.session.delete(viec)
