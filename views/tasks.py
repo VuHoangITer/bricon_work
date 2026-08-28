@@ -120,9 +120,12 @@ def dashboard():
     viec_hom_nay_cong_ty = 0
     viec_hom_nay_cong_ty_theo_cot = []
     if current_user.la_admin_sep:
+        # Không tính việc đang "Chờ duyệt" — nhân viên đã nộp xong phần
+        # việc của họ rồi, đưa vào đây dễ gây tưởng nhầm là còn ai đó
+        # chưa làm gì trong ngày.
         viec_hom_nay_cong_ty_ds = (
             CongViec.query.filter(
-                CongViec.trang_thai.in_(TrangThai.DANG_MO),
+                CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
                 dieu_kien_hom_nay,
             )
             .order_by(CongViec.han.is_(None), CongViec.han)
