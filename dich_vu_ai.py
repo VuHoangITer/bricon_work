@@ -5,6 +5,8 @@ gộp chung làm services.py khó đọc/khó tìm. File này chỉ lo phần Op
 mọi thứ khác (Zalo, chấm công, KPI, excel...) vẫn ở services.py.
 """
 import json
+import re
+import time
 import unicodedata
 from datetime import datetime, timedelta
 
@@ -22,13 +24,15 @@ _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
 def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False,
-                          model: str | None = None) -> tuple[str | None, str | None]:
+                          model: str | None = None, _da_thu_lai: bool = False) -> tuple[str | None, str | None]:
     """Gọi OpenAI với danh sách messages đầy đủ — hỗ trợ nhiều lượt hội
     thoại (dùng cho trợ lý AI), không chỉ 1 cặp system/user đơn.
     dang_json=True bắt OpenAI trả về đúng 1 object JSON hợp lệ.
     model=None -> dùng OPENAI_MODEL mặc định (việc đơn giản như gợi ý/tóm
     tắt mô tả); truyền model cụ thể để override, VD trợ lý chat cần model
-    mạnh hơn để đọc hiểu ngữ cảnh dài mà không bị rối."""
+    mạnh hơn để đọc hiểu ngữ cảnh dài mà không bị rối.
+    _da_thu_lai: dùng nội bộ, không truyền tay — đánh dấu đã tự thử lại 1
+    lần khi bị rate limit, tránh lặp vô hạn."""
     key = lay_cai_dat("openai_api_key")
     if not key:
         return None, "Chưa cấu hình OpenAI API key ở trang Thiết lập."
@@ -48,7 +52,18 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False,
         return None, f"Không gọi được OpenAI: {type(e).__name__}: {e}"
 
     if "error" in du_lieu:
-        return None, du_lieu["error"].get("message", "OpenAI báo lỗi không rõ nguyên nhân.")
+        thong_diep = du_lieu["error"].get("message", "OpenAI báo lỗi không rõ nguyên nhân.")
+        # Rate limit (429) thường chỉ tạm thời trong vài giây -> tự chờ
+        # đúng khoảng OpenAI báo rồi thử lại 1 lần, thay vì bắt người dùng
+        # thấy nguyên lỗi kỹ thuật mỗi khi nghẽn thoáng qua.
+        if r.status_code == 429 and not _da_thu_lai:
+            khop = re.search(r"try again in ([\d.]+)s", thong_diep)
+            cho_giay = min(float(khop.group(1)), 25) + 0.5 if khop else 5
+            time.sleep(cho_giay)
+            return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model, _da_thu_lai=True)
+        if r.status_code == 429:
+            return None, "Trợ lý đang có nhiều người hỏi cùng lúc, bạn thử lại sau vài giây nhé."
+        return None, thong_diep
     try:
         return du_lieu["choices"][0]["message"]["content"].strip(), None
     except (KeyError, IndexError):
@@ -265,7 +280,24 @@ def _kiem_tra_media_hop_le(nd: NguoiDung, duong_dan: str) -> str | None:
     return None
 
 
-def _boi_canh_tro_ly(nd: NguoiDung) -> str:
+def _can_boi_canh_chuc_vu(van_ban: str, tat_ca_cv) -> bool:
+    """Mô tả 6 chức vụ cộng lại ~49 nghìn ký tự — tốn kha khá token nếu
+    nạp cho MỌI câu hỏi của Sếp/Admin dù không liên quan (VD: "hôm nay có
+    bao nhiêu việc chờ duyệt" không cần đọc mô tả chức vụ), dễ đụng rate
+    limit của OpenAI. Chỉ nạp toàn bộ khi câu hỏi (hoặc vài lượt gần đây,
+    do van_ban truyền vào đã gộp sẵn) có nhắc tới chức vụ/nhiệm vụ hoặc
+    tên 1 trong các chức vụ đó."""
+    tin_chuan = _chuan_hoa_khong_dau(van_ban)
+    if any(cum in tin_chuan for cum in ("chuc vu", "nhiem vu", "mo ta cong viec", "vi tri cong viec")):
+        return True
+    for cv in tat_ca_cv:
+        tu_ten = [t for t in _chuan_hoa_khong_dau(cv.ten).split() if len(t) > 2 and t not in ("va", "kiem")]
+        if any(t in tin_chuan for t in tu_ten):
+            return True
+    return False
+
+
+def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
     """Dựng đoạn ngữ cảnh dữ liệu thật của người đang hỏi, nhét vào system
     prompt để trợ lý AI trả lời đúng, không bịa.
 
@@ -275,8 +307,9 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
     - Thông tin riêng theo Chức vụ của đúng người đang hỏi (mô tả công
       việc, lương, chế độ riêng vị trí) — CHỈ nạp đúng 1 chức vụ của họ,
       không nạp chức vụ khác, nên AI không có gì để lẫn lộn giữa các
-      chức vụ dù có bị hỏi khéo. Riêng Admin/Sếp được nạp TOÀN BỘ chức vụ
-      (vì họ vốn đã quản lý phần này ở Info AI).
+      chức vụ dù có bị hỏi khéo. Riêng Admin/Sếp được nạp TOÀN BỘ mô tả
+      chức vụ NHƯNG chỉ khi van_ban_gan_day cho thấy câu hỏi thực sự liên
+      quan (xem _can_boi_canh_chuc_vu) — tránh tốn token vô ích.
 
     Với Quản lý/Sếp/Admin, còn nạp thêm dữ liệu chấm công + việc hôm nay/
     ngày mai của TỪNG nhân viên trong phạm vi (bộ phận với Quản lý, toàn
@@ -297,13 +330,18 @@ def _boi_canh_tro_ly(nd: NguoiDung) -> str:
     if nd.la_admin_sep:
         from models import ChucVu
         tat_ca_cv = ChucVu.query.order_by(ChucVu.ten).all()
-        if tat_ca_cv:
+        if tat_ca_cv and _can_boi_canh_chuc_vu(van_ban_gan_day, tat_ca_cv):
             dong.append("--- Toàn bộ chức vụ trong hệ thống (Admin/Sếp được xem hết, "
                         "không giới hạn 1 chức vụ như nhân viên thường) ---\n" +
                         "\n\n".join(
                             f"## {cv.ten}\n{(cv.mo_ta or '(chưa có mô tả)').strip()}"
                             + (f" [media:{cv.anh}]" if cv.anh else "")
                             for cv in tat_ca_cv))
+        elif tat_ca_cv:
+            dong.append(
+                "Các chức vụ hiện có trong hệ thống (hỏi cụ thể tên 1 chức "
+                "vụ để xem đầy đủ mô tả nhiệm vụ của chức vụ đó): "
+                + ", ".join(cv.ten for cv in tat_ca_cv))
     elif nd.chuc_vu:
         dong.append(
             f"--- Thông tin riêng cho chức vụ \"{nd.chuc_vu.ten}\" của người đang hỏi "
@@ -560,7 +598,12 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
     if ket_qua_anh:
         return ket_qua_anh, None
 
-    boi_canh = _boi_canh_tro_ly(nd)
+    # Gộp câu hỏi hiện tại + vài lượt gần nhất để xét có cần nạp toàn bộ
+    # mô tả chức vụ không — câu hỏi nối tiếp kiểu "chi tiết hơn" không lặp
+    # lại tên chức vụ nhưng vẫn đang hỏi tiếp về chức vụ đã nhắc lượt trước.
+    van_ban_gan_day = tin_nhan + " " + " ".join(
+        str(m.get("noi_dung", "")) for m in lich_su[-4:] if isinstance(m, dict))
+    boi_canh = _boi_canh_tro_ly(nd, van_ban_gan_day)
     messages = [{"role": "system",
                 "content": _HUONG_DAN_HE_THONG_TRO_LY + "\n\nDữ liệu hiện tại:\n" + boi_canh}]
     for m in lich_su[-8:]:
