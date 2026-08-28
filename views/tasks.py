@@ -305,6 +305,9 @@ def giao_viec():
                 except ValueError:
                     return loi("Có ngày không hợp lệ trong danh sách đã chọn.")
                 danh_sach_han.append(datetime(d.year, d.month, d.day, gio_h, gio_m))
+            if any(h <= gio_vn_hien_tai() for h in danh_sach_han):
+                return loi("Có ngày/giờ áp dụng đã ở trong quá khứ so với thời điểm hiện tại "
+                           f"({gio_vn_hien_tai():%H:%M %d/%m}) — chọn lại ngày hoặc giờ cho phù hợp.")
         else:
             han = None
             if han_raw:
@@ -312,6 +315,9 @@ def giao_viec():
                     han = datetime.strptime(han_raw, "%Y-%m-%dT%H:%M")
                 except ValueError:
                     return loi("Hạn hoàn thành không đúng định dạng.")
+                if han <= gio_vn_hien_tai():
+                    return loi("Hạn hoàn thành phải ở trong tương lai so với thời điểm hiện tại "
+                               f"({gio_vn_hien_tai():%H:%M %d/%m}) — không thể giao việc với hạn đã qua.")
             if ngay_bat_dau_raw:
                 try:
                     ngay_bat_dau = date.fromisoformat(ngay_bat_dau_raw)
@@ -363,6 +369,10 @@ def giao_viec():
                     han_i = datetime.strptime(han_i_raw, "%Y-%m-%dT%H:%M")
                 except ValueError:
                     han_i = None
+                if han_i and han_i <= gio_vn_hien_tai():
+                    han_i = None  # hạn đã ở quá khứ — bỏ qua thay vì khoá cả form,
+                                  # coi như việc thêm này không đặt hạn (giống cách
+                                  # ngày bắt đầu vô lý cũng chỉ bị bỏ qua bên dưới)
             ngay_bat_dau_i = None
             ngay_bat_dau_i_raw = (request.form.get(f"ngay_bat_dau_{idx}") or "").strip()
             if ngay_bat_dau_i_raw:
@@ -738,6 +748,10 @@ def dat_lai_han(viec_id):
             han_moi = datetime.strptime(han_raw, "%Y-%m-%dT%H:%M")
         except ValueError:
             flash("Hạn hoàn thành không đúng định dạng.", "error")
+            return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+        if han_moi <= gio_vn_hien_tai():
+            flash("Hạn hoàn thành phải ở trong tương lai — nếu đặt hạn đã qua, "
+                  "việc sẽ bị hệ thống tự động đóng và chấm 0 sao ngay lập tức.", "error")
             return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
 
     ngay_bat_dau_raw = (request.form.get("ngay_bat_dau") or "").strip()
