@@ -599,7 +599,7 @@ def _chuan_hoa_khong_dau(s: str) -> str:
     return s.replace("đ", "d").replace("Đ", "D").lower().strip()
 
 
-def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
+def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> dict | None:
     """Khớp trực tiếp (KHÔNG qua AI) khi người hỏi xin xem ảnh minh hoạ 1
     chức vụ cụ thể — tách riêng khỏi luồng AI vì mô hình chat đôi khi tự ý
     từ chối "gửi ảnh" (hiểu nhầm là phải tự tạo/đính kèm file thật) dù chỉ
@@ -610,7 +610,13 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
     Chỉ trả kết quả khi khớp ĐÚNG 1 chức vụ và người hỏi có quyền xem
     (Admin/Sếp xem được mọi chức vụ; nhân viên thường chỉ chức vụ của
     chính mình) — nếu mơ hồ (0 hoặc >1 khớp cùng điểm), trả None để câu
-    hỏi rơi xuống luồng AI bình thường xử lý tiếp."""
+    hỏi rơi xuống luồng AI bình thường xử lý tiếp.
+
+    ngu_canh (không bắt buộc): vài lượt hỏi-đáp gần nhất, CHỈ dùng để suy
+    ra chức vụ đang nói tới khi câu hỏi hiện tại quá ngắn (VD người dùng
+    chỉ gõ tiếp "ảnh" sau khi đã nhắc tên chức vụ ở lượt trước) — không
+    dùng để xét có đang xin xem ảnh hay không, việc đó luôn chỉ xét đúng
+    câu hỏi hiện tại (tin_nhan)."""
     from models import ChucVu
 
     tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
@@ -635,10 +641,11 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
     if len(ung_vien) == 1:
         cv = ung_vien[0]
     else:
+        tin_tu_rong = tin_tu | set(_chuan_hoa_khong_dau(ngu_canh).split())
         xep_hang = []
         for ung in ung_vien:
             tu_ten = [t for t in _chuan_hoa_khong_dau(ung.ten).split() if t not in ("va",)]
-            so_khop = sum(1 for t in tu_ten if t in tin_tu)
+            so_khop = sum(1 for t in tu_ten if t in tin_tu_rong)
             toi_thieu = 1 if len(tu_ten) <= 1 else 2
             if so_khop >= toi_thieu:
                 xep_hang.append((so_khop, ung))
@@ -658,7 +665,7 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str) -> dict | None:
     }
 
 
-def _thu_khop_anh_san_pham(tin_nhan: str) -> dict | None:
+def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     """Khớp trực tiếp (KHÔNG qua AI) khi người hỏi xin xem ảnh 1 sản phẩm
     cụ thể (TDS, bảng định mức, bảng màu...) — cùng lý do tách khỏi luồng
     AI như _thu_khop_anh_chuc_vu (model đôi khi tự ý từ chối "gửi ảnh").
@@ -666,7 +673,13 @@ def _thu_khop_anh_san_pham(tin_nhan: str) -> dict | None:
     Chỉ trả kết quả khi khớp rõ ràng: đúng 1 sản phẩm, VÀ (sản phẩm đó chỉ
     có 1 ảnh, hoặc khớp thêm được đúng 1 ảnh theo nhãn) — mơ hồ thì trả
     None để câu hỏi rơi xuống luồng AI bình thường (AI vẫn có đủ ngữ cảnh
-    kèm nhãn từng ảnh để tự chọn)."""
+    kèm nhãn từng ảnh để tự chọn).
+
+    ngu_canh (không bắt buộc): vài lượt hỏi-đáp gần nhất, CHỈ dùng để suy
+    ra sản phẩm/ảnh đang nói tới khi câu hỏi hiện tại quá ngắn (VD người
+    dùng chỉ gõ tiếp "ảnh" sau khi đã nhắc tên sản phẩm ở lượt trước) —
+    không dùng để xét có đang xin xem ảnh hay không, việc đó luôn chỉ xét
+    đúng câu hỏi hiện tại (tin_nhan)."""
     from models import SanPhamAI
 
     tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
@@ -688,10 +701,15 @@ def _thu_khop_anh_san_pham(tin_nhan: str) -> dict | None:
     if not (tin_tu & tu_khoa_chung) and not (tin_tu & tu_nhan_da_luu):
         return None
 
+    # Gộp thêm ngữ cảnh vài lượt gần đây CHỈ để suy ra ĐÚNG sản phẩm/ảnh
+    # nào — câu hỏi nối tiếp kiểu chỉ gõ "ảnh" không lặp lại tên sản phẩm
+    # nhưng vẫn đang hỏi tiếp về sản phẩm vừa nhắc ở lượt trước.
+    tin_tu_rong = tin_tu | set(_chuan_hoa_khong_dau(ngu_canh).split())
+
     xep_hang = []
     for sp in ung_vien:
         tu_ten = [t for t in _chuan_hoa_khong_dau(sp.ten).split() if len(t) > 2]
-        so_khop = sum(1 for t in tu_ten if t in tin_tu)
+        so_khop = sum(1 for t in tu_ten if t in tin_tu_rong)
         toi_thieu = 1 if len(tu_ten) <= 1 else 2
         if so_khop >= toi_thieu:
             xep_hang.append((so_khop, sp))
@@ -706,13 +724,27 @@ def _thu_khop_anh_san_pham(tin_nhan: str) -> dict | None:
     if len(sp.anh) == 1:
         anh = sp.anh[0]
     else:
-        khop_nhan = [
-            a for a in sp.anh if a.nhan
-            and any(t in tin_chuan for t in _chuan_hoa_khong_dau(a.nhan).split())
-        ]
-        if len(khop_nhan) != 1:
+        # Chấm điểm theo từ ĐẶC TRƯNG RIÊNG của từng nhãn (loại bỏ các từ
+        # trùng với tên sản phẩm, vì những từ đó lặp lại ở MỌI nhãn của
+        # cùng 1 sản phẩm nên không phân biệt được ảnh nào với ảnh nào —
+        # VD nhãn "TDS Keo chà ron..." và "Bảng định mức... keo chà ron..."
+        # đều chứa "keo chà ron" như tên sản phẩm). Lấy nhãn có điểm cao
+        # nhất và không bị hoà điểm với nhãn khác.
+        tu_ten_sp = set(_chuan_hoa_khong_dau(sp.ten).split())
+        xep_hang_anh = []
+        for a in sp.anh:
+            if not a.nhan:
+                continue
+            tu_nhan_rieng = set(_chuan_hoa_khong_dau(a.nhan).split()) - tu_ten_sp
+            so_khop = len(tu_nhan_rieng & tin_tu_rong)
+            if so_khop:
+                xep_hang_anh.append((so_khop, a))
+        if not xep_hang_anh:
             return None  # nhiều ảnh, chưa rõ đúng ảnh nào -> để AI tự chọn qua ngữ cảnh
-        anh = khop_nhan[0]
+        xep_hang_anh.sort(key=lambda x: x[0], reverse=True)
+        if len(xep_hang_anh) > 1 and xep_hang_anh[0][0] == xep_hang_anh[1][0]:
+            return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
+        anh = xep_hang_anh[0][1]
 
     return {
         "tra_loi": f"Đây là ảnh {(anh.nhan + ' ') if anh.nhan else ''}của sản phẩm \"{sp.ten}\":",
@@ -731,19 +763,23 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
     Trả về (dict {tra_loi, duong_dan, nhan_nut, media}, lỗi) — các trường
     phụ có thể None nếu câu hỏi không cần gợi ý đi đâu / không có media.
     """
-    ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan)
+    # Vài lượt hỏi-đáp gần nhất — dùng để suy ra ĐANG NÓI TỚI đối tượng nào
+    # (chức vụ/sản phẩm) khi câu hỏi hiện tại quá ngắn, không lặp lại tên
+    # (VD "chi tiết hơn", hoặc chỉ gõ "ảnh" sau khi đã nhắc tên sản phẩm ở
+    # lượt trước) — cần tính TRƯỚC bước khớp cứng ảnh bên dưới để 2 hàm đó
+    # cũng suy luận được, không chỉ dùng cho việc nạp ngữ cảnh AI.
+    ngu_canh_gan_day = " ".join(
+        str(m.get("noi_dung", "")) for m in lich_su[-4:] if isinstance(m, dict))
+
+    ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan, ngu_canh_gan_day)
     if ket_qua_anh:
         return ket_qua_anh, None
 
-    ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan)
+    ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan, ngu_canh_gan_day)
     if ket_qua_anh_sp:
         return ket_qua_anh_sp, None
 
-    # Gộp câu hỏi hiện tại + vài lượt gần nhất để xét có cần nạp toàn bộ
-    # mô tả chức vụ không — câu hỏi nối tiếp kiểu "chi tiết hơn" không lặp
-    # lại tên chức vụ nhưng vẫn đang hỏi tiếp về chức vụ đã nhắc lượt trước.
-    van_ban_gan_day = tin_nhan + " " + " ".join(
-        str(m.get("noi_dung", "")) for m in lich_su[-4:] if isinstance(m, dict))
+    van_ban_gan_day = tin_nhan + " " + ngu_canh_gan_day
     boi_canh = _boi_canh_tro_ly(nd, van_ban_gan_day)
     messages = [{"role": "system",
                 "content": _HUONG_DAN_HE_THONG_TRO_LY + "\n\nDữ liệu hiện tại:\n" + boi_canh}]
