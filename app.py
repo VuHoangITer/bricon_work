@@ -8,7 +8,7 @@ from flask_login import current_user, login_required
 from config import Config
 from extensions import db, login_manager, migrate
 from models import (AnhDanhGia, AnhSanPhamAI, BotZalo, BuoiNghi, ChamCong, ChucVu,
-                    CongViec, DinhKem, DoUuTien, LoaiDinhKem, NguoiDung, TrangThai,
+                    CongViec, DinhKem, DoUuTien, LoaiDinhKem, MucSao, NguoiDung, TrangThai,
                     VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 
@@ -135,6 +135,7 @@ def create_app(config_class=Config):
             "LoaiDinhKem": LoaiDinhKem,
             "DoUuTien": DoUuTien,
             "BuoiNghi": BuoiNghi,
+            "MucSao": MucSao,
             "bay_gio": gio_vn_hien_tai(),
             "hom_nay": ngay_vn_hien_tai(),
         }

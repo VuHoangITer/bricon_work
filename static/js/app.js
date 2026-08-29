@@ -261,13 +261,19 @@ function khoiTaoDoiChung(gioiHanMB) {
 document.addEventListener('DOMContentLoaded', khoiTaoChamCong);
 
 /* --------------------------------------------- sếp đính kèm ảnh khi đánh giá */
-function khoiTaoDanhGia() {
-  const form = document.getElementById('form-danh-gia');
+function khoiTaoDanhGia(idForm, idChonAnh, idAnhAn, idXemTruoc, idCanhBao) {
+  idForm = idForm || 'form-danh-gia';
+  idChonAnh = idChonAnh || 'chon-anh-danh-gia';
+  idAnhAn = idAnhAn || 'anh-danh-gia-an';
+  idXemTruoc = idXemTruoc || 'xem-truoc-danh-gia';
+  idCanhBao = idCanhBao || 'canh-bao-zalo-danh-gia';
+
+  const form = document.getElementById(idForm);
   if (!form) return;
 
-  const oAnh = document.getElementById('chon-anh-danh-gia');   // input hiển thị, dùng để mở hộp thoại
-  const oAnhAn = document.getElementById('anh-danh-gia-an');   // input ẩn, thực sự gửi lên server
-  const xemTruoc = document.getElementById('xem-truoc-danh-gia');
+  const oAnh = document.getElementById(idChonAnh);   // input hiển thị, dùng để mở hộp thoại
+  const oAnhAn = document.getElementById(idAnhAn);   // input ẩn, thực sự gửi lên server
+  const xemTruoc = document.getElementById(idXemTruoc);
   let daChon = [];   // TOÀN BỘ ảnh đã chọn/dán, gộp qua nhiều lần — cùng cơ chế với khoiTaoDoiChung()
 
   function dongBoOAnh() {
@@ -306,7 +312,7 @@ function khoiTaoDanhGia() {
     veLaiXemTruoc();
   }
 
-  const canhBaoZaloDanhGia = document.getElementById('canh-bao-zalo-danh-gia');
+  const canhBaoZaloDanhGia = document.getElementById(idCanhBao);
   if (canhBaoZaloDanhGia && /zalo|messenger|fban|fbav|instagram/i.test(navigator.userAgent)) {
     canhBaoZaloDanhGia.style.display = 'block';
   }
@@ -325,7 +331,9 @@ function khoiTaoDanhGia() {
   // Dán ảnh Ctrl+V (Cmd+V trên Mac) — vừa cắt/chụp màn hình xong dán thẳng
   // vào, không cần lưu ra file rồi mới bấm chọn. Bắt ở document (không chỉ
   // riêng ô ảnh) để dán được dù đang bấm vào đâu trên trang chi tiết việc,
-  // miễn còn đang ở trang có form đánh giá này.
+  // miễn còn đang ở trang có form đánh giá này. Cả 2 form (đánh giá lần
+  // đầu / đánh giá lại) không bao giờ cùng hiện 1 lúc nên không lo dán 1
+  // lần bị nhân đôi vào cả 2 nơi.
   document.addEventListener('paste', (e) => {
     const items = (e.clipboardData || window.clipboardData)?.items;
     if (!items) return;

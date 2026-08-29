@@ -794,6 +794,25 @@ def bao_da_duyet(viec: CongViec, dg: DanhGia):
     gui_cho_nhan_vien(viec.nguoi_nhan, nd, viec)
 
 
+def bao_danh_gia_lai(viec: CongViec, nguoi_sua: NguoiDung, sao_cu: int | None,
+                      sao_moi: int, ly_do: str):
+    """Báo cho nhân viên khi Admin/Sếp/Quản lý bộ phận sửa lại số sao của 1
+    việc đã Hoàn thành (VD phát hiện vấn đề lúc bàn giao thực tế) — ảnh
+    hưởng KPI của họ nên luôn báo, không âm thầm sửa."""
+    sao_cu_hien = f"{sao_cu}★" if sao_cu is not None else "chưa có sao"
+    nhan_sao_moi = MucSao.nhan(sao_moi)
+    dong_nhan = f" - {nhan_sao_moi}" if nhan_sao_moi else ""
+    nd = (
+        f"✏️ Sếp vừa sửa lại đánh giá công việc của bạn\n\n"
+        f"[{viec.ma}] {viec.tieu_de}\n"
+        f"Đánh giá: {sao_cu_hien} → {sao_moi}★{dong_nhan}\n"
+        f"Người sửa: {nguoi_sua.ho_ten}\n"
+        f"Lý do: {ly_do}\n\n"
+        f"Xem lại:\n{viec.link}"
+    )
+    gui_cho_nhan_vien(viec.nguoi_nhan, nd, viec)
+
+
 def bao_lam_lai(viec: CongViec, dg: DanhGia):
     nd = (
         f"🔁 Công việc chưa đạt, cần làm lại\n\n"

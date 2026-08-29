@@ -362,6 +362,13 @@ class CongViec(db.Model):
     def danh_gia_theo_lan(self, lan: int):
         return next((d for d in self.danh_gia if d.lan_gui == lan), None)
 
+    @property
+    def lich_su_danh_gia_lai(self):
+        """Các lần Admin/Sếp/Quản lý bộ phận sửa lại số sao sau khi việc đã
+        Hoàn thành (VD phát hiện vấn đề lúc bàn giao thực tế) — hiện riêng,
+        không lẫn vào dòng thời gian nộp/duyệt theo từng lần gửi ở trên."""
+        return [d for d in self.danh_gia if d.ket_qua == "danh_gia_lai"]
+
     def ghi_chu_theo_lan(self, lan: int):
         return next((g for g in self.ghi_chu_nop if g.lan_gui == lan), None)
 

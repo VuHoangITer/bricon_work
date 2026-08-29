@@ -581,6 +581,63 @@ def danh_gia(viec_id):
     return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
 
 
+@bp.route("/viec/<int:viec_id>/danh-gia-lai", methods=["POST"])
+@login_required
+def danh_gia_lai(viec_id):
+    """Admin/Sếp/Quản lý bộ phận sửa lại số sao của 1 việc ĐÃ Hoàn thành —
+    dùng cho trường hợp lúc chấm ban đầu chưa phát hiện vấn đề (VD phát
+    hiện lúc bàn giao thực tế), không giới hạn thời gian. KPI tự cập nhật
+    theo vì tính trực tiếp từ so_sao_cuoi, không lưu số liệu KPI riêng."""
+    viec = db.session.get(CongViec, viec_id) or abort(404)
+    if not current_user.duoc_duyet_viec(viec):
+        abort(403)
+    if viec.trang_thai != TrangThai.HOAN_THANH:
+        flash("Chỉ đánh giá lại được việc đã Hoàn thành.", "error")
+        return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+    so_sao_moi = request.form.get("so_sao_moi", type=int)
+    if so_sao_moi is None or not (0 <= so_sao_moi <= 5):
+        flash("Chọn số sao hợp lệ (0-5).", "error")
+        return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+    ly_do = (request.form.get("ly_do") or "").strip()
+    if not ly_do:
+        flash("Cần nêu rõ lý do đánh giá lại, để nhân viên hiểu vì sao sao bị đổi.", "error")
+        return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+    sao_cu = viec.so_sao_cuoi
+    if so_sao_moi == sao_cu:
+        flash("Số sao mới trùng với số sao hiện tại, không có gì để đổi.", "info")
+        return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+    viec.so_sao_cuoi = so_sao_moi
+    dgl = DanhGia(
+        cong_viec_id=viec.id, nguoi_danh_gia_id=current_user.id,
+        lan_gui=viec.lan_gui, ket_qua="danh_gia_lai", so_sao=so_sao_moi,
+        ghi_chu=ly_do,
+    )
+    db.session.add(dgl)
+    db.session.flush()  # lấy dgl.id để gắn ảnh
+
+    for f in request.files.getlist("anh_danh_gia_lai"):
+        if not f or not f.filename:
+            continue
+        if services.phan_loai(f.filename, f.mimetype) != LoaiDinhKem.ANH:
+            flash(f"Bỏ qua tệp không phải ảnh: {f.filename}", "error")
+            continue
+        duong_dan, _ = services.luu_file(f, "danh-gia")
+        db.session.add(AnhDanhGia(danh_gia_id=dgl.id, duong_dan=duong_dan, ten_goc=f.filename[:255]))
+
+    db.session.commit()
+
+    services.bao_danh_gia_lai(viec, current_user, sao_cu, so_sao_moi, ly_do)
+    db.session.commit()
+
+    sao_cu_hien = f"{sao_cu}★" if sao_cu is not None else "chưa có sao"
+    flash(f"Đã cập nhật đánh giá: {sao_cu_hien} → {so_sao_moi}★. KPI sẽ tự tính lại theo số sao mới.", "success")
+    return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+
+
 @bp.route("/viec/<int:viec_id>/huy", methods=["POST"])
 @login_required
 def huy_viec(viec_id):

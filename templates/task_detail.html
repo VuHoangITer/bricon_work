@@ -258,6 +258,72 @@
 </form>
 {% endif %}
 
+{% if viec.lich_su_danh_gia_lai %}
+<div class="tieu-khu"><h2>Lịch sử đánh giá lại</h2><span class="dem">{{ viec.lich_su_danh_gia_lai|length }}</span></div>
+<div class="the" style="padding:0">
+  {% for dgl in viec.lich_su_danh_gia_lai %}
+  <div style="padding:12px 14px{% if not loop.last %};border-bottom:1px solid var(--vien){% endif %}">
+    <div style="font-size:.9rem;font-weight:600">→ {{ dgl.so_sao }}★{% if dgl.so_sao in MucSao.NHAN %} — {{ MucSao.NHAN[dgl.so_sao] }}{% endif %}</div>
+    <div style="font-size:.82rem;color:var(--muc-mo);margin-top:2px">
+      {{ dgl.nguoi_danh_gia.ho_ten }} · {{ dgl.tao_luc|gio }}
+    </div>
+    {% if dgl.ghi_chu %}<div style="font-size:.85rem;margin-top:4px">{{ dgl.ghi_chu }}</div>{% endif %}
+    {% if dgl.anh %}
+    <div class="luoi-tep" style="margin-top:8px">
+      {% for a in dgl.anh %}
+      <a class="tep" href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener">
+        <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.ten_goc }}" loading="lazy"></a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if duoc_duyet and viec.trang_thai == TrangThai.HOAN_THANH %}
+<details class="the" style="margin-top:8px">
+  <summary style="cursor:pointer;font-weight:600;padding:2px 0">✏️ Đánh giá lại (sửa số sao)</summary>
+  <form method="post" action="{{ url_for('tasks.danh_gia_lai', viec_id=viec.id) }}"
+        enctype="multipart/form-data" id="form-danh-gia-lai" style="margin-top:14px">
+    <div class="o-nhap">
+      <label for="so_sao_moi">Số sao mới (hiện tại: {{ viec.so_sao_cuoi if viec.so_sao_cuoi is not none else '—' }}★)</label>
+      <select id="so_sao_moi" name="so_sao_moi" required>
+        {% for i in [5,4,3,2,1,0] %}
+        <option value="{{ i }}" {% if viec.so_sao_cuoi == i %}selected{% endif %}>
+          {{ i }} sao{% if i in MucSao.NHAN %} — {{ MucSao.NHAN[i] }}{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="o-nhap">
+      <label for="ly_do_danh_gia_lai">Lý do đổi lại đánh giá</label>
+      <textarea id="ly_do_danh_gia_lai" name="ly_do" required
+                placeholder="VD: lúc bàn giao thực tế phát hiện lỗi mà lúc chấm chưa thấy…"></textarea>
+    </div>
+    <div class="o-nhap">
+      <label>Ảnh minh chứng (không bắt buộc)</label>
+      <div class="canh-bao-nho" id="canh-bao-zalo-danh-gia-lai" style="display:none;margin-bottom:12px">
+        ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
+        khi bấm link ngay trong khung chat Zalo/Messenger). Quay lại đoạn
+        chat, <strong>nhấn giữ (long-press) vào link này</strong> → chọn
+        <strong>"Mở bằng trình duyệt"</strong> rồi thử lại — hoặc bỏ qua
+        ảnh, không bắt buộc.
+      </div>
+      <input type="file" id="chon-anh-danh-gia-lai" multiple accept="image/*">
+      <input type="file" name="anh_danh_gia_lai" id="anh-danh-gia-lai-an" multiple style="display:none">
+      <div id="xem-truoc-danh-gia-lai" class="luoi-tep" style="margin-top:8px"></div>
+      <div class="goi-y">Chọn nhiều ảnh cùng lúc hoặc bấm chọn thêm nhiều lần — không mất
+        ảnh đã chọn trước đó, bấm ✕ trên ảnh để bỏ bớt. Vừa cắt/chụp màn hình xong thì
+        bấm <strong>Ctrl+V</strong> (Mac: <strong>Cmd+V</strong>) ngay trên trang này để
+        dán ảnh thẳng vào.</div>
+    </div>
+    <button class="nut nut--phu nut--nho" type="submit">Cập nhật đánh giá</button>
+    <div class="goi-y">Gửi Zalo báo ngay cho {{ viec.nguoi_nhan.ho_ten }}, KPI tự tính lại theo sao mới.</div>
+  </form>
+</details>
+{% endif %}
+
 {% if duoc_duyet and viec.trang_thai in TrangThai.DANG_MO %}
 <form method="post" action="{{ url_for('tasks.huy_viec', viec_id=viec.id) }}"
       onsubmit="return confirm('Huỷ công việc {{ viec.ma }}?')">
@@ -286,5 +352,7 @@
 <script>
   khoiTaoDoiChung({{ config.MAX_UPLOAD_MB }});
   khoiTaoDanhGia();
+  khoiTaoDanhGia('form-danh-gia-lai', 'chon-anh-danh-gia-lai', 'anh-danh-gia-lai-an',
+                'xem-truoc-danh-gia-lai', 'canh-bao-zalo-danh-gia-lai');
 </script>
 {% endblock %}
