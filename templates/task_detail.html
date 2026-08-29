@@ -163,11 +163,14 @@
   {% endif %}
 
   <div class="canh-bao-nho" id="canh-bao-zalo" style="display:none;margin-bottom:12px">
-    ⚠️ Bạn đang mở link này trong app Zalo — Zalo chặn không cho chọn nhiều
-    ảnh/video cùng 1 lần. Bấm nút <strong>⋮</strong> (3 chấm, góc trên bên
-    phải) → <strong>Mở bằng trình duyệt</strong> để chọn được nhiều cùng
-    lúc. Nếu không thấy nút đó, vẫn bấm "Chọn tệp" được nhiều lần để gộp
-    dần từng ảnh một.
+    ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh/video (thường
+    gặp khi bấm link ngay trong khung chat Zalo/Messenger). Cách khắc
+    phục nhanh nhất: quay lại đoạn chat, <strong>nhấn giữ (long-press)
+    vào link này</strong> → chọn <strong>"Mở bằng trình duyệt"</strong>
+    hoặc <strong>"Sao chép liên kết"</strong> rồi dán qua Chrome/Safari
+    và thử chọn ảnh lại. Nếu đã mở sẵn ở đây rồi, cũng có thể bấm nút
+    <strong>⋮</strong> (3 chấm, góc trên bên phải) → <strong>Mở bằng
+    trình duyệt</strong>.
   </div>
 
   <div class="o-nhap">
@@ -232,6 +235,13 @@
   </div>
   <div class="o-nhap">
     <label>Ảnh minh hoạ (không bắt buộc)</label>
+    <div class="canh-bao-nho" id="canh-bao-zalo-danh-gia" style="display:none;margin-bottom:12px">
+      ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
+      khi bấm link ngay trong khung chat Zalo/Messenger). Quay lại đoạn
+      chat, <strong>nhấn giữ (long-press) vào link này</strong> → chọn
+      <strong>"Mở bằng trình duyệt"</strong> rồi thử lại — hoặc bỏ qua
+      ảnh minh hoạ, không bắt buộc.
+    </div>
     <input type="file" id="chon-anh-danh-gia" multiple accept="image/*">
     <input type="file" name="anh_danh_gia" id="anh-danh-gia-an" multiple style="display:none">
     <div id="xem-truoc-danh-gia" class="luoi-tep" style="margin-top:8px"></div>

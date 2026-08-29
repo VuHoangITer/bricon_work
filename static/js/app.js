@@ -74,13 +74,20 @@ function khoiTaoDoiChung(gioiHanMB) {
   const banGhi = [];               // các File ghi âm tạo trong trình duyệt
   let daChon = [];                 // TOÀN BỘ ảnh/video/tệp đã chọn, gộp qua nhiều lần bấm
 
-  // App Zalo mở link bằng webview riêng của nó, webview này có bug đã biết
-  // (report ngay trên forum dev của Zalo): <input multiple> bị vô hiệu,
-  // chỉ chọn được 1 tệp/lần dù code đúng chuẩn. Không có cách nào sửa từ
-  // phía web — chỉ báo cho nhân viên biết để họ mở bằng trình duyệt thật.
+  // App nhắn tin (Zalo, Messenger...) mở link bằng webview riêng, một số
+  // phiên bản có bug đã biết: hộp thoại chọn tệp báo đã chọn xong (hiện
+  // tên tệp) nhưng KHÔNG trả File thật nào về cho trang web — <input>
+  // luôn rỗng dù người dùng đã chụp/chọn ảnh thật. Không có cách sửa từ
+  // phía web. Nhận diện qua User-Agent không đáng tin (mỗi phiên bản/máy
+  // một khác) nên dò trực tiếp: hễ 'change' bắn ra mà input.files rỗng,
+  // gần như chắc chắn đang dính đúng lỗi này — báo ngay lúc đó, đúng lúc
+  // người dùng cần biết nhất, thay vì chờ bấm Gửi mới báo lỗi mơ hồ.
   const canhBaoZalo = document.getElementById('canh-bao-zalo');
-  if (canhBaoZalo && /zalo/i.test(navigator.userAgent)) {
-    canhBaoZalo.style.display = 'block';
+  function hienCanhBaoWebviewLoi() {
+    if (canhBaoZalo) canhBaoZalo.style.display = 'block';
+  }
+  if (/zalo|messenger|fban|fbav|instagram/i.test(navigator.userAgent)) {
+    hienCanhBaoWebviewLoi();
   }
 
   function tongDungLuong() {
@@ -142,6 +149,10 @@ function khoiTaoDoiChung(gioiHanMB) {
   function gomTuInput(input) {
     if (!input) return;
     input.addEventListener('change', () => {
+      if (input.files.length === 0) {
+        hienCanhBaoWebviewLoi();
+        return;
+      }
       for (const f of input.files) {
         const daCo = daChon.some(
           (x) => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified
@@ -295,8 +306,17 @@ function khoiTaoDanhGia() {
     veLaiXemTruoc();
   }
 
+  const canhBaoZaloDanhGia = document.getElementById('canh-bao-zalo-danh-gia');
+  if (canhBaoZaloDanhGia && /zalo|messenger|fban|fbav|instagram/i.test(navigator.userAgent)) {
+    canhBaoZaloDanhGia.style.display = 'block';
+  }
+
   if (oAnh) {
     oAnh.addEventListener('change', () => {
+      if (oAnh.files.length === 0) {
+        if (canhBaoZaloDanhGia) canhBaoZaloDanhGia.style.display = 'block';
+        return;
+      }
       for (const f of oAnh.files) themAnh(f);
       oAnh.value = '';   // reset để chọn lại đúng ảnh cũ vẫn bắn 'change'
     });
