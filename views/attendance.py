@@ -2,7 +2,7 @@ import base64
 import binascii
 from datetime import date, datetime, timedelta
 
-from flask import (Blueprint, abort, current_app, flash, redirect,
+from flask import (Blueprint, Response, abort, current_app, flash, redirect,
                    render_template, request, send_file, url_for)
 from flask_login import current_user, login_required
 
@@ -218,6 +218,13 @@ def xin_nghi():
             flash("Cần nhập lý do nghỉ.", "error")
             return redirect(url_for("attendance.xin_nghi"))
 
+        so_dien_thoai = (request.form.get("so_dien_thoai") or "").strip()
+        if not so_dien_thoai:
+            flash("Cần nhập số điện thoại liên hệ để ghi vào đơn xin nghỉ.", "error")
+            return redirect(url_for("attendance.xin_nghi"))
+        if current_user.so_dien_thoai != so_dien_thoai:
+            current_user.so_dien_thoai = so_dien_thoai  # đồng bộ luôn vào hồ sơ cho lần sau
+
         ban_giao_cho = None
         ban_giao_cho_id_raw = (request.form.get("ban_giao_cho_id") or "").strip()
         if ban_giao_cho_id_raw:
@@ -287,6 +294,62 @@ def xin_nghi():
         .all()
     )
     return render_template("xin_nghi.html", lich_su=lich_su, dong_nghiep=dong_nghiep)
+
+
+@bp.route("/xin-nghi/xem-truoc-don", methods=["POST"])
+@login_required
+def xem_truoc_don():
+    """AJAX — sinh thử NGUYÊN TỜ đơn xin nghỉ (đúng hàm dùng khi gửi thật:
+    services.tao_pdf_don_xin_nghi) từ dữ liệu đang điền dở trên form + chữ
+    ký vừa vẽ, để nhân viên xem trước đầy đủ cả đơn trước khi bấm gửi hẳn.
+    KHÔNG lưu bất kỳ thay đổi nào xuống DB (luôn rollback ở cuối)."""
+    if current_user.la_admin_sep:
+        abort(403)
+
+    try:
+        ngay_dau = date.fromisoformat(request.form.get("ngay_dau", ""))
+        ngay_cuoi = date.fromisoformat(request.form.get("ngay_cuoi") or request.form.get("ngay_dau"))
+    except ValueError:
+        abort(400)
+    if ngay_cuoi < ngay_dau:
+        abort(400)
+
+    buoi = request.form.get("buoi") or BuoiNghi.CA_NGAY
+    if buoi not in BuoiNghi.NHAN:
+        buoi = BuoiNghi.CA_NGAY
+    if ngay_dau != ngay_cuoi:
+        buoi = BuoiNghi.CA_NGAY
+
+    ly_do = (request.form.get("ly_do") or "").strip() or "(chưa nhập lý do)"
+    so_dien_thoai = (request.form.get("so_dien_thoai") or "").strip() or "(chưa nhập số điện thoại)"
+
+    ban_giao_cho = None
+    ban_giao_cho_id_raw = (request.form.get("ban_giao_cho_id") or "").strip()
+    if ban_giao_cho_id_raw:
+        ban_giao_cho = db.session.get(NguoiDung, int(ban_giao_cho_id_raw))
+
+    chu_ky_raw = request.form.get("chu_ky") or ""
+    if "," not in chu_ky_raw:
+        abort(400)
+    try:
+        chu_ky_png = base64.b64decode(chu_ky_raw.split(",", 1)[1])
+    except (ValueError, binascii.Error):
+        abort(400)
+
+    # Đổi tạm SĐT trên object đang có trong session để đơn xem trước hiện
+    # đúng số vừa gõ (kể cả khi khác số đã lưu) — không commit, rollback
+    # ngay sau khi sinh xong để chắc chắn không lỡ lưu xuống DB.
+    so_dien_thoai_cu = current_user.so_dien_thoai
+    current_user.so_dien_thoai = so_dien_thoai
+    try:
+        pdf_bytes = services.tao_pdf_don_xin_nghi(
+            current_user, ngay_dau, ngay_cuoi, buoi, ly_do, ban_giao_cho, chu_ky_png,
+        )
+    finally:
+        current_user.so_dien_thoai = so_dien_thoai_cu
+        db.session.rollback()
+
+    return Response(pdf_bytes, mimetype="application/pdf")
 
 
 @bp.route("/xin-nghi/<int:id>/xoa", methods=["POST"])

@@ -14,6 +14,7 @@ import requests
 from flask import current_app
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
+from PIL import Image as PILImage
 from werkzeug.utils import secure_filename
 
 from extensions import db
@@ -123,53 +124,140 @@ def _dang_ky_font_unicode():
     pdfmetrics.registerFont(TTFont("DejaVu-Bold", os.path.join(thu_muc_font, "DejaVuSans-Bold.ttf")))
 
 
+def cat_anh_chu_ky(chu_ky_png: bytes, le: int = 8) -> bytes:
+    """Cắt ảnh chữ ký (canvas PNG nền trong suốt) về đúng vùng có mực, chừa
+    thêm 1 chút lề — dùng CHUNG cho cả lúc xem trước (route xem_truoc_chu_ky)
+    và lúc nhúng thật vào PDF (tao_pdf_don_xin_nghi), để "xem trước" luôn
+    khớp 100% với PDF thật, không lệch thuật toán giữa 2 nơi.
+
+    Dùng PIL.Image.getbbox() (toàn bộ pixel có mực, dù đậm hay nhạt) — từng
+    thử cách "chỉ tính cột/dòng có mật độ mực đủ dày" để loại đuôi ký mảnh,
+    nhưng cách đó dễ cắt nhầm luôn cả nét chữ ký thật (không chỉ đuôi) nên
+    bỏ, chấp nhận đổi lại: nếu ai ký kèm 1 nét vuốt dài tách hẳn ra xa thân
+    chữ ký, bbox sẽ rộng hơn 1 chút — vẫn tốt hơn nhiều so với mất nét.
+
+    Trả về bytes PNG đã cắt (nguyên bản nếu canvas trắng, không có gì để cắt).
+    """
+    anh = PILImage.open(BytesIO(chu_ky_png))
+    hop = anh.getbbox()
+    if hop:
+        x0, y0, x1, y1 = hop
+        x0 = max(0, x0 - le)
+        y0 = max(0, y0 - le)
+        x1 = min(anh.width, x1 + le)
+        y1 = min(anh.height, y1 + le)
+        anh = anh.crop((x0, y0, x1, y1))
+    buf = BytesIO()
+    anh.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def tao_pdf_don_xin_nghi(nguoi_dung: NguoiDung, ngay_dau: date, ngay_cuoi: date,
                           buoi: str, ly_do: str, ban_giao_cho: NguoiDung | None,
                           chu_ky_png: bytes) -> bytes:
-    """Sinh file PDF đơn xin nghỉ phép đã điền sẵn thông tin nhân viên +
-    chữ ký điện tử vừa vẽ — thay cho việc nhân viên phải in ra, ký tay,
-    chụp ảnh rồi tải lên như trước. Trả về nội dung PDF dạng bytes."""
+    """Sinh file PDF đơn xin nghỉ phép theo đúng thể thức văn bản hành chính
+    (quốc hiệu tiêu ngữ 2 cột, số văn bản, bảng thông tin người làm đơn),
+    đã điền sẵn thông tin nhân viên + chữ ký điện tử vừa vẽ — thay cho việc
+    nhân viên phải in ra, ký tay, chụp ảnh rồi tải lên như trước. Trả về
+    nội dung PDF dạng bytes."""
+    from reportlab.lib.colors import HexColor
     from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.platypus import Image as RLImage
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus.flowables import HRFlowable
 
     _dang_ky_font_unicode()
+
+    VANG_DAM = HexColor("#8A6A1E")
+    XAM = HexColor("#75746E")
+    XAM_VIEN = HexColor("#E8E6E1")
+    DEN = HexColor("#1C1C1A")
+    XANH = HexColor("#3F7D55")
+    XANH_NHAT = HexColor("#EAF3EC")
 
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
-        topMargin=2 * cm, bottomMargin=2 * cm, leftMargin=2.5 * cm, rightMargin=2.5 * cm,
+        topMargin=1.4 * cm, bottomMargin=1.4 * cm, leftMargin=2.3 * cm, rightMargin=2.3 * cm,
     )
+    rong_trang = A4[0] - 2.3 * cm - 2.3 * cm
 
-    kieu_giua = ParagraphStyle("giua", fontName="DejaVu", fontSize=13, alignment=TA_CENTER, leading=16)
-    kieu_giua_dam = ParagraphStyle("giua_dam", fontName="DejaVu-Bold", fontSize=13, alignment=TA_CENTER, leading=16)
+    kieu_quoc_hieu = ParagraphStyle("quoc_hieu", fontName="DejaVu-Bold", fontSize=13, alignment=TA_CENTER, leading=16)
+    kieu_tieu_ngu = ParagraphStyle("tieu_ngu", fontName="DejaVu", fontSize=11.5, alignment=TA_CENTER, leading=15)
     kieu_tieu_de = ParagraphStyle("tieu_de", fontName="DejaVu-Bold", fontSize=16, alignment=TA_CENTER,
-                                  spaceBefore=14, spaceAfter=14)
-    kieu_thuong = ParagraphStyle("thuong", fontName="DejaVu", fontSize=11.5, alignment=TA_JUSTIFY,
-                                 leading=17, spaceAfter=8)
-    kieu_phai = ParagraphStyle("phai", fontName="DejaVu", fontSize=11, alignment=TA_RIGHT)
-    kieu_phai_dam = ParagraphStyle("phai_dam", fontName="DejaVu-Bold", fontSize=11.5, alignment=TA_RIGHT)
-    kieu_phai_nho = ParagraphStyle("phai_nho", fontName="DejaVu", fontSize=9.5, alignment=TA_RIGHT,
-                                   textColor="#666666")
+                                  textColor=DEN, spaceBefore=8, spaceAfter=14)
+    kieu_de_muc = ParagraphStyle("de_muc", fontName="DejaVu-Bold", fontSize=10.5, textColor=VANG_DAM,
+                                 spaceBefore=12, spaceAfter=6)
+    kieu_thuong = ParagraphStyle("thuong", fontName="DejaVu", fontSize=10.5, alignment=TA_JUSTIFY,
+                                 leading=15, spaceAfter=6, textColor=DEN)
+    kieu_kinh_gui_nhan = ParagraphStyle("kinh_gui_nhan", fontName="DejaVu-Bold", fontSize=11, textColor=DEN)
+    kieu_kinh_gui_gt = ParagraphStyle("kinh_gui_gt", fontName="DejaVu", fontSize=11, textColor=DEN,
+                                      leading=15, spaceAfter=2)
+    kieu_nhan_tt = ParagraphStyle("nhan_tt", fontName="DejaVu-Bold", fontSize=10, textColor=XAM)
+    kieu_gt_tt = ParagraphStyle("gt_tt", fontName="DejaVu", fontSize=11, textColor=DEN)
+    kieu_phai = ParagraphStyle("phai", fontName="DejaVu", fontSize=10.5, alignment=TA_RIGHT, textColor=DEN)
+    kieu_phai_dam = ParagraphStyle("phai_dam", fontName="DejaVu-Bold", fontSize=11, alignment=TA_RIGHT, textColor=DEN)
+    kieu_phai_nho = ParagraphStyle("phai_nho", fontName="DejaVu", fontSize=9, alignment=TA_RIGHT, textColor=XAM)
+    kieu_xn_tieu_de = ParagraphStyle("xn_tieu_de", fontName="DejaVu-Bold", fontSize=9, alignment=TA_CENTER, textColor=XANH)
+    kieu_xn_nd = ParagraphStyle("xn_nd", fontName="DejaVu", fontSize=8.7, alignment=TA_CENTER, textColor=DEN, leading=12.5)
+    kieu_xn_tg = ParagraphStyle("xn_tg", fontName="DejaVu", fontSize=8, alignment=TA_CENTER, textColor=XAM, spaceBefore=4)
 
+    bay_gio = gio_vn_hien_tai()
+
+    # Quốc hiệu/tiêu ngữ đứng ngay đầu trang, căn giữa, chiếm trọn chiều
+    # ngang trang — đúng thể thức văn bản hành chính, không kèm theo bất
+    # kỳ letterhead công ty nào ở trên nó.
     noi_dung = [
-        Paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", kieu_giua_dam),
-        Paragraph("Độc lập – Tự do – Hạnh phúc", kieu_giua),
-        Spacer(1, 14),
+        Paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", kieu_quoc_hieu),
+        Paragraph("Độc lập - Tự do - Hạnh phúc", kieu_tieu_ngu),
+        HRFlowable(width="32%", thickness=1, color=DEN, hAlign="CENTER", spaceBefore=3, spaceAfter=6),
         Paragraph("ĐƠN XIN NGHỈ PHÉP", kieu_tieu_de),
     ]
 
-    kinh_gui = "Ban Giám đốc BRICON"
+    # "Kính gửi" nhiều nơi nhận thì mỗi nơi xuống 1 dòng riêng, thẳng hàng
+    # dưới dòng đầu — không viết liền thành 1 câu nối bằng dấu phẩy.
+    cac_noi_nhan = ["Ban Giám đốc BRICON"]
     if nguoi_dung.vai_tro == VaiTro.NHAN_VIEN and nguoi_dung.bo_phan:
-        kinh_gui += f", Quản lý bộ phận {nguoi_dung.bo_phan.ten}"
-    noi_dung.append(Paragraph(f"<b>Kính gửi:</b> {kinh_gui}", kieu_thuong))
-    noi_dung.append(Paragraph(f"<b>Tên tôi là:</b> {nguoi_dung.ho_ten}", kieu_thuong))
-    noi_dung.append(Paragraph(
-        f"<b>Chức vụ:</b> {nguoi_dung.chuc_vu.ten if nguoi_dung.chuc_vu else '—'}", kieu_thuong))
-    noi_dung.append(Paragraph(f"<b>Điện thoại liên hệ:</b> {nguoi_dung.so_dien_thoai or '—'}", kieu_thuong))
+        cac_noi_nhan.append(f"Quản lý bộ phận {nguoi_dung.bo_phan.ten}")
+    bang_kinh_gui = Table(
+        [[Paragraph("Kính gửi:", kieu_kinh_gui_nhan),
+          [Paragraph(dong, kieu_kinh_gui_gt) for dong in cac_noi_nhan]]],
+        colWidths=[2.6 * cm, rong_trang - 2.6 * cm],
+    )
+    bang_kinh_gui.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    noi_dung.append(bang_kinh_gui)
+
+    # ------------------------------------------------ bảng thông tin người làm đơn
+    noi_dung.append(Paragraph("THÔNG TIN NGƯỜI LÀM ĐƠN", kieu_de_muc))
+
+    def _hang_tt(nhan, gt):
+        return [Paragraph(nhan, kieu_nhan_tt), Paragraph(gt, kieu_gt_tt)]
+
+    du_lieu_tt = [
+        _hang_tt("Họ và tên", nguoi_dung.ho_ten),
+        _hang_tt("Mã nhân viên", nguoi_dung.ma_dinh_danh),
+        _hang_tt("Chức vụ", nguoi_dung.chuc_vu.ten if nguoi_dung.chuc_vu else "—"),
+        _hang_tt("Bộ phận", nguoi_dung.bo_phan.ten if nguoi_dung.bo_phan else "—"),
+        _hang_tt("Điện thoại liên hệ", nguoi_dung.so_dien_thoai),
+    ]
+    bang_tt = Table(du_lieu_tt, colWidths=[rong_trang * 0.28, rong_trang * 0.72])
+    bang_tt.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEBELOW", (0, 0), (-1, -2), 0.5, XAM_VIEN),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    noi_dung.append(bang_tt)
+
+    # ------------------------------------------------ nội dung xin nghỉ
+    noi_dung.append(Paragraph("NỘI DUNG XIN NGHỈ", kieu_de_muc))
 
     if ngay_dau == ngay_cuoi:
         so_ngay_hien = f"{BuoiNghi.SO_NGAY.get(buoi, 1.0):g} ngày ({BuoiNghi.NHAN.get(buoi, '')})"
@@ -189,24 +277,71 @@ def tao_pdf_don_xin_nghi(nguoi_dung: NguoiDung, ngay_dau: date, ngay_cuoi: date,
             f"<b>{ban_giao_cho.ho_ten}</b>{chuc_vu_bgc}.", kieu_thuong))
 
     noi_dung.append(Paragraph(
-        "Tôi xin hứa sẽ cập nhật đầy đủ nội dung công tác trong thời gian vắng. "
-        "Rất mong Ban Giám đốc xem xét và chấp thuận.", kieu_thuong))
-    noi_dung.append(Paragraph("Xin trân trọng cảm ơn!", kieu_thuong))
-    noi_dung.append(Spacer(1, 14))
+        "Tôi xin cam kết thực hiện nghiêm túc thời gian nghỉ phép như đã đăng ký ở trên, "
+        "chủ động sắp xếp và bàn giao công việc đầy đủ trước khi nghỉ để không làm ảnh hưởng "
+        "đến tiến độ chung của bộ phận và công ty. Trong trường hợp cần thiết, tôi vẫn sẵn sàng "
+        "phối hợp xử lý công việc từ xa. Tôi cam kết quay trở lại làm việc đúng thời hạn đã đăng ký "
+        "và xin hoàn toàn chịu trách nhiệm nếu để xảy ra sai sót do việc nghỉ phép của mình gây ra.",
+        kieu_thuong,
+    ))
+    noi_dung.append(Paragraph(
+        "Kính mong Ban Giám đốc xem xét và tạo điều kiện chấp thuận cho tôi được nghỉ phép "
+        "theo nguyện vọng trên. Tôi xin trân trọng cảm ơn!", kieu_thuong,
+    ))
+    noi_dung.append(Spacer(1, 8))
 
-    bay_gio = gio_vn_hien_tai()
-    noi_dung.append(Paragraph(f"BRICON, ngày {bay_gio:%d} tháng {bay_gio:%m} năm {bay_gio:%Y}", kieu_phai))
-    noi_dung.append(Paragraph("NGƯỜI LÀM ĐƠN", kieu_phai_dam))
-    noi_dung.append(Paragraph("(Đã ký điện tử)", kieu_phai_nho))
-    noi_dung.append(Spacer(1, 4))
+    # ------------------------------------------------ khung xác nhận + ký tên
+    # Cắt bằng đúng hàm cat_anh_chu_ky() dùng chung với route xem trước, để
+    # "xem trước" trên form luôn khớp 100% với PDF thật.
+    buf_anh_ky = BytesIO(cat_anh_chu_ky(chu_ky_png))
 
-    anh_ky = RLImage(BytesIO(chu_ky_png))
-    ti_le = min(1.0, (6 * cm) / anh_ky.imageWidth)
+    anh_ky = RLImage(buf_anh_ky)
+    ti_le = min(1.0, (5.5 * cm) / anh_ky.imageWidth)
     anh_ky.drawWidth = anh_ky.imageWidth * ti_le
     anh_ky.drawHeight = anh_ky.imageHeight * ti_le
-    anh_ky.hAlign = "RIGHT"
-    noi_dung.append(anh_ky)
-    noi_dung.append(Paragraph(nguoi_dung.ho_ten, kieu_phai_dam))
+
+    # QUAN TRỌNG: Image.hAlign KHÔNG căn đúng mép phải thật của cột khi ảnh
+    # nằm trong 1 list nhiều phần tử lồng bên trong ô của Table (đã đo trực
+    # tiếp trên PDF thật bằng PyMuPDF — lệch trái cố định dù chữ ký gì đi
+    # nữa, không liên quan gì tới bước cắt ảnh ở trên). Sửa bằng cách bọc
+    # ảnh vào 1 bảng con riêng, dùng ALIGN cấp ô (đáng tin cậy hơn hẳn
+    # Image.hAlign trong trường hợp lồng nhau này) để căn đúng mép phải
+    # thật của cột "o_ky_ten" bên dưới.
+    rong_cot_ky = rong_trang * 0.62 - 14  # trừ đúng LEFTPADDING đã đặt cho cột này
+    bang_anh_ky = Table([[anh_ky]], colWidths=[rong_cot_ky])
+    bang_anh_ky.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (0, 0), "RIGHT"),
+        ("VALIGN", (0, 0), (0, 0), "TOP"),
+        ("LEFTPADDING", (0, 0), (0, 0), 0), ("RIGHTPADDING", (0, 0), (0, 0), 0),
+        ("TOPPADDING", (0, 0), (0, 0), 0), ("BOTTOMPADDING", (0, 0), (0, 0), 0),
+    ]))
+
+    o_xac_nhan = [
+        Spacer(1, 8),
+        Paragraph("✓ HỆ THỐNG TỰ ĐỘNG PHÊ DUYỆT", kieu_xn_tieu_de),
+        Spacer(1, 5),
+        Paragraph("Đơn được ghi nhận và phê duyệt tự động ngay sau khi người làm đơn ký điện tử.", kieu_xn_nd),
+        Paragraph(f"Lúc {bay_gio:%H:%M} ngày {bay_gio:%d/%m/%Y}", kieu_xn_tg),
+    ]
+    o_ky_ten = [
+        Paragraph(f"Tp. Hồ Chí Minh, ngày {bay_gio:%d} tháng {bay_gio:%m} năm {bay_gio:%Y}", kieu_phai),
+        Paragraph("NGƯỜI LÀM ĐƠN", kieu_phai_dam),
+        Paragraph("(Đã ký điện tử)", kieu_phai_nho),
+        Spacer(1, 6),
+        bang_anh_ky,
+        Paragraph(nguoi_dung.ho_ten, kieu_phai_dam),
+    ]
+    bang_ky = Table([[o_xac_nhan, o_ky_ten]], colWidths=[rong_trang * 0.38, rong_trang * 0.62])
+    bang_ky.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOX", (0, 0), (0, 0), 0.75, XANH),
+        ("BACKGROUND", (0, 0), (0, 0), XANH_NHAT),
+        ("TOPPADDING", (0, 0), (0, 0), 4), ("BOTTOMPADDING", (0, 0), (0, 0), 10),
+        ("LEFTPADDING", (0, 0), (0, 0), 10), ("RIGHTPADDING", (0, 0), (0, 0), 10),
+        ("LEFTPADDING", (1, 0), (1, 0), 14), ("RIGHTPADDING", (1, 0), (1, 0), 0),
+        ("TOPPADDING", (1, 0), (1, 0), 0), ("BOTTOMPADDING", (1, 0), (1, 0), 0),
+    ]))
+    noi_dung.append(bang_ky)
 
     doc.build(noi_dung)
     return buf.getvalue()

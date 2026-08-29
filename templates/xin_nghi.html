@@ -31,6 +31,13 @@
   </div>
 
   <div class="o-nhap">
+    <label for="so_dien_thoai">Điện thoại liên hệ</label>
+    <input id="so_dien_thoai" type="tel" name="so_dien_thoai" required
+           value="{{ current_user.so_dien_thoai or '' }}" placeholder="VD: 0909 123 456">
+    <div class="goi-y">Bắt buộc — sẽ được ghi vào đơn xin nghỉ để tiện liên hệ khi cần.</div>
+  </div>
+
+  <div class="o-nhap">
     <label for="ban_giao_cho_id">Bàn giao công việc cho (không bắt buộc)</label>
     <select id="ban_giao_cho_id" name="ban_giao_cho_id">
       <option value="">— Không cần bàn giao —</option>
@@ -76,7 +83,15 @@
     </div>
     <div class="modal-than">
       <canvas id="canvas-chu-ky" width="480" height="180"
-              style="width:100%;aspect-ratio:480/180;border:1.5px dashed var(--vien-dam);border-radius:var(--bk-n);background:#fff;touch-action:none;cursor:crosshair"></canvas>
+              style="width:100%;aspect-ratio:480/180;border:1.5px dashed var(--vien-dam);border-radius:var(--bk-n);background:#fff linear-gradient(to bottom, transparent calc(68% - 1px), #d8d6cf calc(68% - 1px), #d8d6cf 68%, transparent 68%) no-repeat;touch-action:none;cursor:crosshair"></canvas>
+      <div class="goi-y" style="margin-top:4px">Cố ký ngay trên đường kẻ mờ để chữ ký thẳng hàng, chuyên nghiệp hơn khi in ra.</div>
+      <div id="khoi-xem-truoc-ky" style="display:none;margin-top:12px">
+        <label style="font-size:.78rem;color:var(--muc-mo);font-weight:600">Xem trước đầy đủ đơn</label>
+        <iframe id="khung-xem-truoc-don" title="Xem trước đơn xin nghỉ"
+                style="width:100%;height:360px;border:1px solid var(--vien);border-radius:var(--bk-n);margin-top:4px;background:#fff"></iframe>
+        <div class="goi-y" style="margin-top:4px">Điện thoại không hiện được PDF ngay tại đây thì
+          <a id="lien-ket-xem-truoc-don" href="#" target="_blank" rel="noopener">bấm vào đây để mở toàn màn hình</a>.</div>
+      </div>
       <div id="loi-chu-ky" style="color:var(--lam-lai);font-size:.82rem;margin-top:8px"></div>
       <div class="hang-nut" style="margin-top:14px;justify-content:space-between">
         <button type="button" class="nut nut--phu nut--nho" id="nut-xoa-ky">Xoá, ký lại</button>
@@ -141,7 +156,41 @@
     xTruoc = p.x; yTruoc = p.y;
     daVe = true;
   }
-  function ketThucVe() { dangVe = false; }
+  function ketThucVe() {
+    dangVe = false;
+    napXemTruoc();
+  }
+
+  const khoiXemTruoc = document.getElementById('khoi-xem-truoc-ky');
+  const khungXemTruoc = document.getElementById('khung-xem-truoc-don');
+  const lienKetXemTruoc = document.getElementById('lien-ket-xem-truoc-don');
+  let henGioXemTruoc = null;
+  let urlBlobTruoc = null;
+
+  function napXemTruoc() {
+    if (!daVe) return;
+    clearTimeout(henGioXemTruoc);
+    henGioXemTruoc = setTimeout(async () => {
+      try {
+        const fd = new FormData();
+        fd.append('ngay_dau', dau.value);
+        fd.append('ngay_cuoi', cuoi.value || dau.value);
+        fd.append('buoi', document.getElementById('chon-buoi').value);
+        fd.append('ly_do', document.getElementById('ly_do').value);
+        fd.append('so_dien_thoai', document.getElementById('so_dien_thoai').value);
+        fd.append('ban_giao_cho_id', document.getElementById('ban_giao_cho_id').value);
+        fd.append('chu_ky', canvas.toDataURL('image/png'));
+        const r = await fetch('{{ url_for("attendance.xem_truoc_don") }}', { method: 'POST', body: fd });
+        if (!r.ok) return;
+        const blob = await r.blob();
+        if (urlBlobTruoc) URL.revokeObjectURL(urlBlobTruoc);
+        urlBlobTruoc = URL.createObjectURL(blob);
+        khungXemTruoc.src = urlBlobTruoc;
+        lienKetXemTruoc.href = urlBlobTruoc;
+        khoiXemTruoc.style.display = 'block';
+      } catch (e) { /* xem trước lỗi thì bỏ qua, không chặn việc ký/gửi */ }
+    }, 500);
+  }
 
   canvas.addEventListener('mousedown', batDauVe);
   canvas.addEventListener('mousemove', veChu);
@@ -154,6 +203,9 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     daVe = false;
     loiChuKy.textContent = '';
+    khoiXemTruoc.style.display = 'none';
+    khungXemTruoc.src = '';
+    if (urlBlobTruoc) { URL.revokeObjectURL(urlBlobTruoc); urlBlobTruoc = null; }
   }
 
   function moModal() {
