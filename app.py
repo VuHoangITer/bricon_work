@@ -113,6 +113,20 @@ def create_app(config_class=Config):
                   f"Quay video ngắn lại hoặc gửi làm nhiều lần."), 413
 
     # ---------------------------------------------------------------- jinja
+    def phien_ban_static(ten_file: str) -> str:
+        """Query string ?v=<mtime> cho file tĩnh (app.js, style.css…) — Nginx
+        đang cache /static 30 ngày kiểu 'immutable' (xem deploy doc), nên mỗi
+        khi sửa các file này phải đổi URL thì trình duyệt (và cả webview
+        Zalo) mới tải bản mới ngay, không phải chờ hết 30 ngày hay bắt nhân
+        viên tự xoá cache."""
+        duong_dan = os.path.join(app.static_folder, ten_file)
+        try:
+            return str(int(os.path.getmtime(duong_dan)))
+        except OSError:
+            return "0"
+
+    app.jinja_env.globals["phien_ban_static"] = phien_ban_static
+
     @app.context_processor
     def bien_chung():
         return {

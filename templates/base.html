@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ phien_ban_static('css/style.css') }}">
 </head>
 <body class="{{ 'da-dang-nhap' if current_user.is_authenticated else 'chua-dang-nhap' }}">
 
@@ -86,7 +86,7 @@
 </main>
 {% endif %}
 
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ phien_ban_static('js/app.js') }}"></script>
 <script>
 (function () {
   const body = document.body;
