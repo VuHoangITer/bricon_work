@@ -1,3 +1,5 @@
+import base64
+import binascii
 from datetime import date, datetime, timedelta
 
 from flask import (Blueprint, abort, current_app, flash, redirect,
@@ -211,13 +213,36 @@ def xin_nghi():
         if ngay_dau != ngay_cuoi:
             buoi = BuoiNghi.CA_NGAY  # nghỉ nhiều ngày thì luôn tính cả ngày mỗi ngày
 
-        anh = request.files.get("anh")
-        if not anh or not anh.filename:
-            flash("Cần đính kèm ảnh giấy phép đã được duyệt.", "error")
+        ly_do = (request.form.get("ly_do") or "").strip()
+        if not ly_do:
+            flash("Cần nhập lý do nghỉ.", "error")
             return redirect(url_for("attendance.xin_nghi"))
-        duong_dan, _ = services.luu_file(anh, "xin-nghi")
 
-        ghi_chu = (request.form.get("ghi_chu") or "").strip() or None
+        ban_giao_cho = None
+        ban_giao_cho_id_raw = (request.form.get("ban_giao_cho_id") or "").strip()
+        if ban_giao_cho_id_raw:
+            ban_giao_cho = db.session.get(NguoiDung, int(ban_giao_cho_id_raw))
+            if not ban_giao_cho or ban_giao_cho.id == current_user.id or not ban_giao_cho.dang_hoat_dong:
+                flash("Người bàn giao công việc không hợp lệ.", "error")
+                return redirect(url_for("attendance.xin_nghi"))
+
+        chu_ky_raw = request.form.get("chu_ky") or ""
+        if "," not in chu_ky_raw:
+            flash("Cần ký tên trước khi gửi đơn xin nghỉ.", "error")
+            return redirect(url_for("attendance.xin_nghi"))
+        try:
+            chu_ky_png = base64.b64decode(chu_ky_raw.split(",", 1)[1])
+        except (ValueError, binascii.Error):
+            flash("Chữ ký không hợp lệ, thử ký lại.", "error")
+            return redirect(url_for("attendance.xin_nghi"))
+        if len(chu_ky_png) < 200:  # canvas trắng xuất ra vẫn vài trăm byte PNG rỗng
+            flash("Cần ký tên trước khi gửi đơn xin nghỉ.", "error")
+            return redirect(url_for("attendance.xin_nghi"))
+
+        pdf_bytes = services.tao_pdf_don_xin_nghi(
+            current_user, ngay_dau, ngay_cuoi, buoi, ly_do, ban_giao_cho, chu_ky_png,
+        )
+        duong_dan = services.luu_pdf_don_xin_nghi(pdf_bytes)
 
         so_ngay_tao = (ngay_cuoi - ngay_dau).days + 1
         da_tao = 0
@@ -229,29 +254,39 @@ def xin_nghi():
                 continue  # đã xin đúng ngày + buổi này rồi, khỏi tạo trùng
             db.session.add(XinNghi(
                 nguoi_dung_id=current_user.id, ngay=ngay, buoi=buoi,
-                anh_minh_chung=duong_dan, ghi_chu=ghi_chu,
+                anh_minh_chung=duong_dan, ghi_chu=ly_do,
+                ban_giao_cho_id=ban_giao_cho.id if ban_giao_cho else None,
             ))
             da_tao += 1
         db.session.commit()
 
         if da_tao:
             services.bao_xin_nghi(
-                current_user, ngay_dau, ngay_cuoi, buoi, ghi_chu,
-                da_tao * BuoiNghi.SO_NGAY[buoi],
+                current_user, ngay_dau, ngay_cuoi, buoi, ly_do,
+                da_tao * BuoiNghi.SO_NGAY[buoi], ban_giao_cho, duong_dan,
             )
             db.session.commit()
-            flash(f"Đã ghi nhận nghỉ phép ({da_tao} ngày) — tự động duyệt qua ảnh.", "success")
+            flash(f"Đã ghi nhận nghỉ phép ({da_tao} ngày) — tự động duyệt qua đơn ký điện tử.", "success")
         else:
             flash("Những ngày này đã xin nghỉ đúng buổi này trước đó rồi.", "info")
         return redirect(url_for("attendance.xin_nghi"))
 
+    dong_nghiep = (
+        NguoiDung.query.filter(
+            NguoiDung.id != current_user.id,
+            NguoiDung.dang_hoat_dong.is_(True),
+            NguoiDung.vai_tro != VaiTro.ADMIN,
+        )
+        .order_by(NguoiDung.ho_ten)
+        .all()
+    )
     lich_su = (
         XinNghi.query.filter_by(nguoi_dung_id=current_user.id)
         .order_by(XinNghi.ngay.desc())
         .limit(30)
         .all()
     )
-    return render_template("xin_nghi.html", lich_su=lich_su)
+    return render_template("xin_nghi.html", lich_su=lich_su, dong_nghiep=dong_nghiep)
 
 
 @bp.route("/xin-nghi/<int:id>/xoa", methods=["POST"])

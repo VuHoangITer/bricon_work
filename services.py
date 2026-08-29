@@ -89,22 +89,136 @@ def co_nghi_phep_buoi(nguoi_dung_id: int, ngay, buoi: str) -> bool:
 
 
 def bao_xin_nghi(nguoi_dung: NguoiDung, ngay_dau, ngay_cuoi, buoi: str,
-                  ghi_chu: str | None, so_ngay_cong: float):
+                  ly_do: str, so_ngay_cong: float, ban_giao_cho: NguoiDung | None,
+                  duong_dan_pdf: str):
     """Báo 1 tin gộp vào nhóm QL khi có người xin nghỉ (đã tự động duyệt qua
-    ảnh minh chứng) — không cần ai duyệt tay, nhưng vẫn cho sếp biết."""
+    đơn PDF ký điện tử) — không cần ai duyệt tay, nhưng vẫn cho sếp biết."""
     if ngay_dau == ngay_cuoi:
         thoi_gian = f"Ngày {ngay_dau:%d/%m/%Y} — {BuoiNghi.NHAN.get(buoi, buoi)}"
     else:
         thoi_gian = f"Từ ngày {ngay_dau:%d/%m/%Y} đến ngày {ngay_cuoi:%d/%m/%Y} (cả ngày)"
     nd = (
-        f"🏖️ Đã ghi nhận nghỉ phép — tự động duyệt qua ảnh minh chứng\n\n"
+        f"🏖️ Đã ghi nhận nghỉ phép — tự động duyệt qua đơn ký điện tử\n\n"
         f"{nguoi_dung.ho_ten} ({nguoi_dung.ma_dinh_danh})\n"
         f"{thoi_gian}\n"
-        f"Tính {so_ngay_cong:g} ngày công."
+        f"Tính {so_ngay_cong:g} ngày công.\n"
+        f"Lý do: {ly_do}"
     )
-    if ghi_chu:
-        nd += f"\nGhi chú: {ghi_chu}"
+    if ban_giao_cho:
+        nd += f"\nBàn giao công việc cho: {ban_giao_cho.ho_ten}"
+    nd += f"\n\nXem đơn (PDF):\n{current_app.config['BASE_URL']}/media/{duong_dan_pdf}"
     gui_nhom_ql(nd)
+
+
+def _dang_ky_font_unicode():
+    """Đăng ký font DejaVu Sans (có dấu tiếng Việt) cho reportlab — chỉ cần
+    làm 1 lần. Font mặc định của reportlab (Helvetica...) không có dấu
+    tiếng Việt nên không dùng được cho đơn xin nghỉ."""
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    if "DejaVu" in pdfmetrics.getRegisteredFontNames():
+        return
+    thu_muc_font = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts")
+    pdfmetrics.registerFont(TTFont("DejaVu", os.path.join(thu_muc_font, "DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont("DejaVu-Bold", os.path.join(thu_muc_font, "DejaVuSans-Bold.ttf")))
+
+
+def tao_pdf_don_xin_nghi(nguoi_dung: NguoiDung, ngay_dau: date, ngay_cuoi: date,
+                          buoi: str, ly_do: str, ban_giao_cho: NguoiDung | None,
+                          chu_ky_png: bytes) -> bytes:
+    """Sinh file PDF đơn xin nghỉ phép đã điền sẵn thông tin nhân viên +
+    chữ ký điện tử vừa vẽ — thay cho việc nhân viên phải in ra, ký tay,
+    chụp ảnh rồi tải lên như trước. Trả về nội dung PDF dạng bytes."""
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Image as RLImage
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    _dang_ky_font_unicode()
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        topMargin=2 * cm, bottomMargin=2 * cm, leftMargin=2.5 * cm, rightMargin=2.5 * cm,
+    )
+
+    kieu_giua = ParagraphStyle("giua", fontName="DejaVu", fontSize=13, alignment=TA_CENTER, leading=16)
+    kieu_giua_dam = ParagraphStyle("giua_dam", fontName="DejaVu-Bold", fontSize=13, alignment=TA_CENTER, leading=16)
+    kieu_tieu_de = ParagraphStyle("tieu_de", fontName="DejaVu-Bold", fontSize=16, alignment=TA_CENTER,
+                                  spaceBefore=14, spaceAfter=14)
+    kieu_thuong = ParagraphStyle("thuong", fontName="DejaVu", fontSize=11.5, alignment=TA_JUSTIFY,
+                                 leading=17, spaceAfter=8)
+    kieu_phai = ParagraphStyle("phai", fontName="DejaVu", fontSize=11, alignment=TA_RIGHT)
+    kieu_phai_dam = ParagraphStyle("phai_dam", fontName="DejaVu-Bold", fontSize=11.5, alignment=TA_RIGHT)
+    kieu_phai_nho = ParagraphStyle("phai_nho", fontName="DejaVu", fontSize=9.5, alignment=TA_RIGHT,
+                                   textColor="#666666")
+
+    noi_dung = [
+        Paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", kieu_giua_dam),
+        Paragraph("Độc lập – Tự do – Hạnh phúc", kieu_giua),
+        Spacer(1, 14),
+        Paragraph("ĐƠN XIN NGHỈ PHÉP", kieu_tieu_de),
+    ]
+
+    kinh_gui = "Ban Giám đốc BRICON"
+    if nguoi_dung.vai_tro == VaiTro.NHAN_VIEN and nguoi_dung.bo_phan:
+        kinh_gui += f", Quản lý bộ phận {nguoi_dung.bo_phan.ten}"
+    noi_dung.append(Paragraph(f"<b>Kính gửi:</b> {kinh_gui}", kieu_thuong))
+    noi_dung.append(Paragraph(f"<b>Tên tôi là:</b> {nguoi_dung.ho_ten}", kieu_thuong))
+    noi_dung.append(Paragraph(
+        f"<b>Chức vụ:</b> {nguoi_dung.chuc_vu.ten if nguoi_dung.chuc_vu else '—'}", kieu_thuong))
+    noi_dung.append(Paragraph(f"<b>Điện thoại liên hệ:</b> {nguoi_dung.so_dien_thoai or '—'}", kieu_thuong))
+
+    if ngay_dau == ngay_cuoi:
+        so_ngay_hien = f"{BuoiNghi.SO_NGAY.get(buoi, 1.0):g} ngày ({BuoiNghi.NHAN.get(buoi, '')})"
+        khoang_ngay = f"ngày {ngay_dau:%d/%m/%Y}"
+    else:
+        so_ngay = (ngay_cuoi - ngay_dau).days + 1
+        so_ngay_hien = f"{so_ngay} ngày"
+        khoang_ngay = f"từ ngày {ngay_dau:%d/%m/%Y} đến ngày {ngay_cuoi:%d/%m/%Y}"
+    noi_dung.append(Paragraph(
+        f"Kính đề Ban Giám đốc cho tôi nghỉ phép {so_ngay_hien}, {khoang_ngay}.", kieu_thuong))
+    noi_dung.append(Paragraph(f"<b>Lý do:</b> {ly_do}", kieu_thuong))
+
+    if ban_giao_cho:
+        chuc_vu_bgc = f" ({ban_giao_cho.chuc_vu.ten})" if ban_giao_cho.chuc_vu else ""
+        noi_dung.append(Paragraph(
+            f"Tôi đã bàn giao công việc trong thời gian nghỉ phép lại cho: "
+            f"<b>{ban_giao_cho.ho_ten}</b>{chuc_vu_bgc}.", kieu_thuong))
+
+    noi_dung.append(Paragraph(
+        "Tôi xin hứa sẽ cập nhật đầy đủ nội dung công tác trong thời gian vắng. "
+        "Rất mong Ban Giám đốc xem xét và chấp thuận.", kieu_thuong))
+    noi_dung.append(Paragraph("Xin trân trọng cảm ơn!", kieu_thuong))
+    noi_dung.append(Spacer(1, 14))
+
+    bay_gio = gio_vn_hien_tai()
+    noi_dung.append(Paragraph(f"BRICON, ngày {bay_gio:%d} tháng {bay_gio:%m} năm {bay_gio:%Y}", kieu_phai))
+    noi_dung.append(Paragraph("NGƯỜI LÀM ĐƠN", kieu_phai_dam))
+    noi_dung.append(Paragraph("(Đã ký điện tử)", kieu_phai_nho))
+    noi_dung.append(Spacer(1, 4))
+
+    anh_ky = RLImage(BytesIO(chu_ky_png))
+    ti_le = min(1.0, (6 * cm) / anh_ky.imageWidth)
+    anh_ky.drawWidth = anh_ky.imageWidth * ti_le
+    anh_ky.drawHeight = anh_ky.imageHeight * ti_le
+    anh_ky.hAlign = "RIGHT"
+    noi_dung.append(anh_ky)
+    noi_dung.append(Paragraph(nguoi_dung.ho_ten, kieu_phai_dam))
+
+    doc.build(noi_dung)
+    return buf.getvalue()
+
+
+def luu_pdf_don_xin_nghi(pdf_bytes: bytes) -> str:
+    """Lưu PDF đơn xin nghỉ vừa sinh vào ổ đĩa, trả về đường dẫn tương đối
+    (giống quy ước luu_file — dùng chung thư mục 'xin-nghi' như ảnh cũ)."""
+    tuong_doi, tuyet_doi = _duong_dan_moi("don-xin-nghi.pdf", "xin-nghi")
+    with open(tuyet_doi, "wb") as f:
+        f.write(pdf_bytes)
+    return tuong_doi
 
 
 def lay_cac_chat_gan_day(token: str) -> tuple[list[dict], str | None, str]:

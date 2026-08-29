@@ -536,8 +536,9 @@ class BuoiNghi:
 
 
 class XinNghi(db.Model):
-    """Nghỉ phép có ảnh minh chứng (giấy phép đã được duyệt) — có ảnh là
-    coi như duyệt luôn, không qua bước duyệt tay nào nữa."""
+    """Nghỉ phép có đơn PDF ký điện tử (chữ ký vẽ tay trên form, hệ thống
+    tự render thành đơn xin nghỉ đã điền sẵn thông tin + chữ ký) — có đơn
+    là coi như duyệt luôn, không qua bước duyệt tay nào nữa."""
     __tablename__ = "xin_nghi"
     __table_args__ = (
         db.UniqueConstraint("nguoi_dung_id", "ngay", "buoi", name="uq_xinnghi_ngay_buoi"),
@@ -547,11 +548,19 @@ class XinNghi(db.Model):
     nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
     ngay = db.Column(db.Date, nullable=False, index=True)
     buoi = db.Column(db.String(10), nullable=False, default=BuoiNghi.CA_NGAY)
+    # Đường dẫn file đơn xin nghỉ — trước đây là ảnh giấy phép nhân viên tự
+    # upload, nay là PDF hệ thống tự sinh (điền sẵn thông tin + chữ ký điện
+    # tử của nhân viên), tên cột giữ nguyên để không phải xáo trộn dữ liệu
+    # cũ đã lưu.
     anh_minh_chung = db.Column(db.String(300), nullable=False)
-    ghi_chu = db.Column(db.String(255))
+    ghi_chu = db.Column(db.String(255))  # lý do nghỉ — bắt buộc nhập ở form,
+                                          # cột vẫn để nullable để không vỡ
+                                          # dữ liệu cũ (trước đây tuỳ chọn)
+    ban_giao_cho_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))  # không bắt buộc
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
-    nguoi_dung = db.relationship("NguoiDung")
+    nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
+    ban_giao_cho = db.relationship("NguoiDung", foreign_keys=[ban_giao_cho_id])
 
     @property
     def ten_buoi(self):
