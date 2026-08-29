@@ -39,7 +39,9 @@
   <div class="hang" style="margin-bottom:10px">
     <select name="trang_thai" onchange="this.form.submit()">
       <option value="" {{ 'selected' if not f_trang_thai }}>Chưa hoàn thành</option>
-      {% for ma, ten in TrangThai.NHAN.items() %}<option value="{{ ma }}" {{ 'selected' if f_trang_thai == ma }}>{{ ten }}</option>{% endfor %}
+      <option value="{{ TrangThai.CHO_DUYET }}" {{ 'selected' if f_trang_thai == TrangThai.CHO_DUYET }}>Chờ duyệt</option>
+      <option value="{{ TrangThai.HOAN_THANH }}" {{ 'selected' if f_trang_thai == TrangThai.HOAN_THANH }}>Hoàn thành</option>
+      <option value="{{ TrangThai.HUY }}" {{ 'selected' if f_trang_thai == TrangThai.HUY }}>Đã huỷ</option>
     </select>
     {% if nhan_vien %}
     <select name="nguoi" onchange="this.form.submit()">
@@ -47,18 +49,21 @@
       {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f_nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
     </select>
     {% endif %}
+    {% if f_trang_thai == TrangThai.HOAN_THANH %}
     <select name="sao" onchange="this.form.submit()">
       <option value="">Mọi mức sao</option>
       {% for i in range(0, 6) %}
       <option value="{{ i }}" {{ 'selected' if f_sao == i }}>{{ i }}★</option>
       {% endfor %}
     </select>
+    {% endif %}
   </div>
   <div class="hang" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px 10px">
     <label for="tu_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">Hạn từ</label>
     <input id="tu_ngay" type="date" name="tu_ngay" value="{{ f_tu_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
     <label for="den_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">đến</label>
     <input id="den_ngay" type="date" name="den_ngay" value="{{ f_den_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
+    <button type="button" class="nut nut--phu nut--nho" id="nut-han-hom-nay" style="flex:0 0 auto">Hạn hôm nay</button>
   </div>
   <div class="hang">
     <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm theo mã hoặc tên công việc">
@@ -116,6 +121,21 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function () {
+  const nutHomNay = document.getElementById('nut-han-hom-nay');
+  if (nutHomNay) {
+    nutHomNay.addEventListener('click', function () {
+      const d = new Date();
+      const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+                + '-' + String(d.getDate()).padStart(2, '0');
+      document.getElementById('tu_ngay').value = iso;
+      document.getElementById('den_ngay').value = iso;
+      this.form.submit();
+    });
+  }
+})();
+</script>
 {% if che_do_3_cot and current_user.la_admin_sep %}
 <script>
 (function () {

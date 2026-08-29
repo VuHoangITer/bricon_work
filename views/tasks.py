@@ -194,9 +194,11 @@ def danh_sach():
     )
 
     if che_do_3_cot:
-        # Chưa hoàn thành: chia 3 cột theo mức độ, mỗi cột xếp hạn gần nhất
-        # lên đầu — không phân trang, xem hết trong 1 trang cho dễ bao quát.
-        q = q.filter(CongViec.trang_thai.in_(TrangThai.DANG_MO))
+        # Chưa hoàn thành: CHỈ Mới giao/Đang làm/Phải làm lại — Chờ duyệt
+        # tách hẳn ra thành 1 trạng thái lọc riêng (không lẫn vào đây), vì
+        # về mặt xử lý nó là việc nhân viên ĐÃ xong phần của mình, đang chờ
+        # sếp xem, không còn là việc "chưa hoàn thành" theo nghĩa cần làm.
+        q = q.filter(CongViec.trang_thai.in_(TrangThai.CHUA_XONG))
         q = q.order_by(CongViec.han.is_(None), CongViec.han)
         viecs = q.all()
         theo_cot = [
