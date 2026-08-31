@@ -654,6 +654,8 @@ def nhac_viec_sap_qua_han(phut_truoc: int = 30) -> int:
     (mới/đang làm/phải làm lại) — việc đang chờ duyệt thì đã ngoài tầm tay
     nhân viên, không cần nhắc."""
     bay_gio = gio_vn_hien_tai()
+    if la_ngay_nghi(bay_gio.date()):
+        return 0
     moc_xa = bay_gio + timedelta(minutes=phut_truoc)
     viecs = CongViec.query.filter(
         CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
@@ -677,6 +679,8 @@ def nhac_viec_sap_qua_han(phut_truoc: int = 30) -> int:
 def nhac_cham_cong_sang() -> int:
     """7h45: gửi link chấm công cho từng nhân viên/quản lý (trừ Sếp/Admin —
     2 role này không tự chấm công). Trả về số người đã gửi."""
+    if la_hom_nay_nghi():
+        return 0
     base = current_app.config["BASE_URL"]
     nd = f"⏰ Nhớ chấm công vào nhé!\n\n{base}/cham-cong"
     ds = _nhan_vien_khong_phai_admin_sep()
@@ -689,6 +693,8 @@ def nhac_cham_cong_chieu() -> int:
     """17h32: nhắc chấm công RA — chỉ nhắc đúng người đã chấm công VÀO hôm
     nay nhưng CHƯA chấm ra (không làm phiền người đã ra rồi hoặc chưa từng
     chấm vào). Trả về số người đã gửi."""
+    if la_hom_nay_nghi():
+        return 0
     base = current_app.config["BASE_URL"]
     hom_nay = ngay_vn_hien_tai()
     ds = (ChamCong.query.filter_by(ngay=hom_nay)
@@ -708,6 +714,8 @@ def nhac_cham_cong_chieu() -> int:
 def nhac_viec_hom_nay() -> int:
     """8h00: gửi link xem việc hôm nay cho từng nhân viên/quản lý (trừ
     Sếp/Admin). Trả về số người đã gửi."""
+    if la_hom_nay_nghi():
+        return 0
     base = current_app.config["BASE_URL"]
     nd = f"📋 Xem công việc hôm nay của bạn:\n\n{base}/viec"
     ds = _nhan_vien_khong_phai_admin_sep()
@@ -718,6 +726,8 @@ def nhac_viec_hom_nay() -> int:
 
 def bao_cao_sang_cho_sep():
     """8h10: báo cáo nhanh đầu ngày cho Sếp/Quản lý — gửi vào nhóm QL."""
+    if la_hom_nay_nghi():
+        return
     from models import XinNghi
     hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
@@ -755,6 +765,8 @@ def bao_cao_chieu_cho_sep():
     hệ thống tự đóng do không nộp đúng hạn) kèm link, và liệt kê luôn từng
     việc đang chờ duyệt kèm link để sếp bấm vào duyệt ngay từ Zalo.
     """
+    if la_hom_nay_nghi():
+        return
     from models import XinNghi
     hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
@@ -810,6 +822,8 @@ def bao_cao_chieu_cho_sep():
 def bao_cao_thieu_sot():
     """18h00: báo cáo nhân viên nào còn việc chưa nộp/còn thiếu trong ngày
     — gửi vào nhóm QL, liệt kê theo từng người."""
+    if la_hom_nay_nghi():
+        return
     hom_nay = ngay_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
     cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
@@ -957,6 +971,8 @@ def _noi_dung_ban_tin_ca_nhan(nv: NguoiDung, buoi: str) -> str:
 def gui_ban_tin_sang() -> int:
     """08h00: gửi bản tin cá nhân buổi sáng cho từng nhân viên/quản lý (trừ
     Sếp/Admin) — tổng kết kết quả hôm qua + việc quan trọng hôm nay."""
+    if la_hom_nay_nghi():
+        return 0
     ds = _nhan_vien_khong_phai_admin_sep()
     for nv in ds:
         gui_cho_nhan_vien(nv, _noi_dung_ban_tin_ca_nhan(nv, "sang"))
@@ -966,6 +982,8 @@ def gui_ban_tin_sang() -> int:
 def gui_ban_tin_chieu() -> int:
     """17h30: gửi bản tin cá nhân buổi chiều cho từng nhân viên/quản lý (trừ
     Sếp/Admin) — tổng kết kết quả hôm nay + việc còn tồn cần xử lý."""
+    if la_hom_nay_nghi():
+        return 0
     ds = _nhan_vien_khong_phai_admin_sep()
     for nv in ds:
         gui_cho_nhan_vien(nv, _noi_dung_ban_tin_ca_nhan(nv, "chieu"))
@@ -1365,6 +1383,8 @@ def dong_cac_viec_qua_han() -> list[CongViec]:
     để sếp tự chấm). Gọi hàm này ở nhiều điểm (mỗi lần tải trang liên quan
     tới công việc, và cả qua cron) để việc được đóng gần như ngay khi quá hạn.
     """
+    if la_hom_nay_nghi():
+        return []
     bay_gio = gio_vn_hien_tai()
     ung_vien = CongViec.query.filter(
         CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
@@ -1576,6 +1596,22 @@ def dat_cai_dat(khoa: str, gia_tri: str):
         cd = CaiDat(khoa=khoa)
         db.session.add(cd)
     cd.gia_tri = gia_tri
+
+
+def la_ngay_nghi(ngay: date) -> bool:
+    """True nếu 'ngay' là ngày nghỉ công ty — Chủ nhật (nếu bật cài đặt
+    NGHI_CHU_NHAT, mặc định BẬT) hoặc trùng 1 ngày lễ đã khai báo trong
+    NgayNghiLe. Dùng để: bỏ qua chấm công/nghỉ không phép, chặn giao việc
+    có hạn rơi đúng ngày này, và tạm ngưng mọi tin nhắc/bản tin Zalo tự
+    động trong ngày."""
+    from models import NgayNghiLe
+    if ngay.weekday() == 6 and lay_cai_dat("NGHI_CHU_NHAT", "1") == "1":
+        return True
+    return db.session.query(NgayNghiLe.id).filter_by(ngay=ngay).first() is not None
+
+
+def la_hom_nay_nghi() -> bool:
+    return la_ngay_nghi(ngay_vn_hien_tai())
 
 
 # ---------------------------------------------------------------------------

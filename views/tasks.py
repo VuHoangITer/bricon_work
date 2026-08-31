@@ -12,8 +12,8 @@ import dich_vu_ai
 import services
 from extensions import db
 from models import (AnhDanhGia, AnhSanPhamAI, AnhYeuCau, ChucVu, CongViec, DanhGia, DinhKem,
-                    DoUuTien, GhiChuNop, LoaiDinhKem, NguoiDung, TrangThai, VaiTro, XinNghi,
-                    gio_vn_hien_tai, ngay_vn_hien_tai)
+                    DoUuTien, GhiChuNop, LoaiDinhKem, NgayNghiLe, NguoiDung, TrangThai, VaiTro,
+                    XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 bp = Blueprint("tasks", __name__)
 
@@ -258,6 +258,25 @@ def ai_tom_tat():
     return jsonify({"ok": True, "mo_ta": mo_ta})
 
 
+def _ds_ngay_nghi_json(so_ngay_toi: int = 730) -> list[str]:
+    """Danh sách ISO date của ngày nghỉ (Chủ nhật nếu bật cài đặt + ngày lễ
+    đã khai báo) từ hôm nay tới so_ngay_toi ngày tới — để JS tự vô hiệu hoá
+    đúng các ô ngày đó trên lịch chọn "Hằng ngày", không cần đợi submit
+    mới báo lỗi."""
+    hom_nay = ngay_vn_hien_tai()
+    ket_qua = set()
+    if services.lay_cai_dat("NGHI_CHU_NHAT", "1") == "1":
+        for i in range(so_ngay_toi):
+            d = hom_nay + timedelta(days=i)
+            if d.weekday() == 6:
+                ket_qua.add(d.isoformat())
+    for nnl in NgayNghiLe.query.filter(
+        NgayNghiLe.ngay >= hom_nay, NgayNghiLe.ngay <= hom_nay + timedelta(days=so_ngay_toi)
+    ).all():
+        ket_qua.add(nnl.ngay.isoformat())
+    return sorted(ket_qua)
+
+
 @bp.route("/viec/moi", methods=["GET", "POST"])
 @login_required
 def giao_viec():
@@ -265,6 +284,7 @@ def giao_viec():
         abort(403)
     nhan_vien = _nhan_vien_duoc_giao()
     thang_hien_tai = ngay_vn_hien_tai().strftime("%Y-%m")
+    ds_ngay_nghi = _ds_ngay_nghi_json()
 
     if request.method == "POST":
         nguoi_nhan_ids = request.form.getlist("nguoi_nhan_id")
@@ -284,6 +304,7 @@ def giao_viec():
                 han=han_raw, uu_tien=uu_tien, ngay_da_chon=cac_ngay_raw,
                 ngay_bat_dau=ngay_bat_dau_raw,
                 gio_hang_ngay=gio_hang_ngay, thang_hang_ngay=thang_hang_ngay,
+                ds_ngay_nghi=ds_ngay_nghi,
             )
 
         if not tieu_de or not nguoi_nhan_ids:
@@ -312,6 +333,11 @@ def giao_viec():
             if any(h <= gio_vn_hien_tai() for h in danh_sach_han):
                 return loi("Có ngày/giờ áp dụng đã ở trong quá khứ so với thời điểm hiện tại "
                            f"({gio_vn_hien_tai():%H:%M %d/%m}) — chọn lại ngày hoặc giờ cho phù hợp.")
+            ngay_nghi_trung = [h.date() for h in danh_sach_han if services.la_ngay_nghi(h.date())]
+            if ngay_nghi_trung:
+                cac_ngay_hien = ", ".join(f"{d:%d/%m}" for d in sorted(set(ngay_nghi_trung)))
+                return loi(f"Không giao được việc vào ngày nghỉ (Chủ nhật/lễ): {cac_ngay_hien} "
+                           f"— bỏ các ngày này ra khỏi lựa chọn.")
         else:
             han = None
             if han_raw:
@@ -322,6 +348,9 @@ def giao_viec():
                 if han <= gio_vn_hien_tai():
                     return loi("Hạn hoàn thành phải ở trong tương lai so với thời điểm hiện tại "
                                f"({gio_vn_hien_tai():%H:%M %d/%m}) — không thể giao việc với hạn đã qua.")
+                if services.la_ngay_nghi(han.date()):
+                    return loi(f"Ngày {han:%d/%m/%Y} là ngày nghỉ (Chủ nhật/lễ) — "
+                               f"chọn hạn vào ngày làm việc khác.")
             if ngay_bat_dau_raw:
                 try:
                     ngay_bat_dau = date.fromisoformat(ngay_bat_dau_raw)
@@ -468,7 +497,8 @@ def giao_viec():
         return redirect(url_for("tasks.chi_tiet", viec_id=tat_ca[0].id) if len(tat_ca) == 1
                         else url_for("tasks.danh_sach"))
 
-    return render_template("task_form.html", nhan_vien=nhan_vien, thang_hang_ngay=thang_hien_tai)
+    return render_template("task_form.html", nhan_vien=nhan_vien, thang_hang_ngay=thang_hien_tai,
+                           ds_ngay_nghi=ds_ngay_nghi)
 
 
 @bp.route("/viec/<int:viec_id>")
@@ -1208,6 +1238,9 @@ def dat_lai_han(viec_id):
         if han_moi <= gio_vn_hien_tai():
             flash("Hạn hoàn thành phải ở trong tương lai — nếu đặt hạn đã qua, "
                   "việc sẽ bị hệ thống tự động đóng và chấm 0 sao ngay lập tức.", "error")
+            return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
+        if services.la_ngay_nghi(han_moi.date()):
+            flash(f"Ngày {han_moi:%d/%m/%Y} là ngày nghỉ (Chủ nhật/lễ) — chọn ngày làm việc khác.", "error")
             return redirect(url_for("tasks.chi_tiet", viec_id=viec.id))
 
     ngay_bat_dau_raw = (request.form.get("ngay_bat_dau") or "").strip()

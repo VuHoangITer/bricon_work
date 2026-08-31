@@ -9,6 +9,12 @@
   </div>
 </div>
 
+{% if la_hom_nay_nghi %}
+<div class="canh-bao-nho" style="margin-bottom:12px;background:var(--chinh-nhat);border-left:3px solid var(--chinh)">
+  🎉 Hôm nay là ngày nghỉ (Chủ nhật/lễ) — không cần chấm công, không bị tính nghỉ không phép.
+</div>
+{% endif %}
+
 {% if not diems %}
 <div class="canh-bao-nho" style="margin-bottom:12px">
   Chưa có điểm chấm công nào được cấu hình, hệ thống tạm thời không kiểm tra phạm vi.

@@ -485,6 +485,24 @@ class GhiChuNop(db.Model):
         return f"<GhiChuNop viec={self.cong_viec_id} lan={self.lan_gui}>"
 
 
+class NgayNghiLe(db.Model):
+    """1 ngày nghỉ lễ/Tết cụ thể (VD Quốc khánh 2/9) — thêm/xoá tự do trên
+    web, không hardcode. Đúng ngày này: không cần chấm công (không tính
+    nghỉ không phép), không giao được việc có hạn rơi đúng ngày này, và
+    mọi tin nhắc/bản tin Zalo tự động trong ngày đều tạm ngưng. Chủ nhật
+    hằng tuần xử lý riêng qua cài đặt NGHI_CHU_NHAT (xem services.la_ngay_nghi),
+    không lưu thành hàng trong bảng này vì lặp lại vô hạn."""
+    __tablename__ = "ngay_nghi_le"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ngay = db.Column(db.Date, nullable=False, unique=True, index=True)
+    ten = db.Column(db.String(255), nullable=False)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    def __repr__(self):
+        return f"<NgayNghiLe {self.ngay} {self.ten}>"
+
+
 class DiemChamCong(db.Model):
     __tablename__ = "diem_cham_cong"
 

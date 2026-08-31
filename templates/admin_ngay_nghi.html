@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Ngày nghỉ · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Ngày nghỉ</h1>
+  <p>Vào đúng những ngày này: không cần chấm công (không tính nghỉ không phép), không giao được việc
+     có hạn rơi đúng ngày, và mọi tin nhắc/bản tin Zalo tự động trong ngày đều tạm ngưng.</p></div>
+</div>
+
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
+  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.ngay_nghi') }}">Ngày nghỉ</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.info_ai') }}">Info AI</a>
+  <a class="tab-quan-tri-nut" href="{{ url_for('admin.tro_ly_su_dung') }}">Trợ lý AI</a>
+</div>
+
+<div class="the" style="margin-bottom:16px">
+  <form method="post" action="{{ url_for('admin.luu_nghi_chu_nhat') }}">
+    <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-bottom:0">
+      <input type="checkbox" name="nghi_chu_nhat" onchange="this.form.submit()" {{ 'checked' if nghi_chu_nhat }}
+             style="width:18px;height:18px;accent-color:var(--chinh)">
+      Nghỉ Chủ nhật hằng tuần
+    </label>
+    <div class="goi-y" style="margin-top:6px">Bật thì mọi Chủ nhật đều tự động áp dụng như 1 ngày nghỉ —
+      không cần khai từng tuần. Tắt thì Chủ nhật vẫn tính là ngày làm việc bình thường.</div>
+  </form>
+</div>
+
+<details class="the the--them" open>
+  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm ngày nghỉ lễ</summary>
+  <form method="post" action="{{ url_for('admin.luu_ngay_nghi') }}" style="margin-top:14px">
+    <div class="hang">
+      <div class="o-nhap"><label>Ngày</label><input name="ngay" type="date" required></div>
+      <div class="o-nhap"><label>Tên ngày lễ</label>
+        <input name="ten" required placeholder="VD: Quốc khánh 2/9" maxlength="255"></div>
+    </div>
+    <button class="nut nut--rong" type="submit">Lưu ngày nghỉ</button>
+  </form>
+</details>
+
+<div class="tieu-khu"><h2>Ngày lễ đã khai báo</h2><span class="dem">{{ ds|length }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Ngày</th><th>Thứ</th><th>Tên</th><th></th></tr></thead>
+    <tbody>
+    {% for nnl in ds %}
+      <tr>
+        <td>{{ nnl.ngay.strftime('%d/%m/%Y') }}</td>
+        <td>{{ ['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ nhật'][nnl.ngay.weekday()] }}</td>
+        <td>{{ nnl.ten }}</td>
+        <td style="text-align:right">
+          <form method="post" action="{{ url_for('admin.xoa_ngay_nghi', id=nnl.id) }}"
+                onsubmit="return confirm('Xoá ngày nghỉ {{ nnl.ten }} ({{ nnl.ngay.strftime('%d/%m/%Y') }})? Sau khi xoá, ngày này lại tính là ngày làm việc bình thường.')">
+            <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa khai báo ngày nghỉ lễ nào.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

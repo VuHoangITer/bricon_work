@@ -63,6 +63,7 @@ def trang_cham_cong():
         lich_su=lich_su,
         nghi_theo_ngay=nghi_theo_ngay,
         diems=DiemChamCong.query.filter_by(dang_hoat_dong=True).all(),
+        la_hom_nay_nghi=services.la_hom_nay_nghi(),
     )
 
 

@@ -195,6 +195,9 @@ def create_app(config_class=Config):
     def nhac_qua_han():
         """Chạy bằng cron: nhắc Zalo các việc quá hạn chưa xong."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ, bỏ qua.")
+            return
         viecs = CongViec.query.filter(
             CongViec.han < gio_vn_hien_tai(),
             CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
@@ -215,6 +218,9 @@ def create_app(config_class=Config):
     def nhac_cho_duyet():
         """Chạy bằng cron: nhắc quản lý những việc đang chờ duyệt."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ, bỏ qua.")
+            return
         viecs = CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET).all()
         if not viecs:
             click.echo("Không có việc chờ duyệt.")
@@ -231,8 +237,8 @@ def create_app(config_class=Config):
         """Chạy bằng cron lúc 17h30 T2-T7: đánh dấu nghỉ không phép."""
         import services
         hom_nay = ngay_vn_hien_tai()
-        if hom_nay.weekday() == 6:      # Chủ nhật
-            click.echo("Chủ nhật, bỏ qua.")
+        if services.la_ngay_nghi(hom_nay):
+            click.echo("Ngày nghỉ (Chủ nhật hoặc ngày lễ), bỏ qua.")
             return
         da_cham = {c.nguoi_dung_id for c in
                    ChamCong.query.filter_by(ngay=hom_nay).all()}
@@ -260,6 +266,9 @@ def create_app(config_class=Config):
         cũng đã được tự đóng ngay mỗi khi có ai mở trang công việc trong
         lúc dùng app."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không tự đóng việc quá hạn hôm nay.")
+            return
         da_dong = services.dong_cac_viec_qua_han()
         click.echo(f"Đã tự động đóng {len(da_dong)} việc quá hạn.")
 
@@ -299,6 +308,9 @@ def create_app(config_class=Config):
         """Chạy bằng cron lúc 07:45: gửi link chấm công cho từng nhân viên/
         quản lý (trừ Sếp/Admin)."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không nhắc chấm công hôm nay.")
+            return
         so_luong = services.nhac_cham_cong_sang()
         db.session.commit()
         click.echo(f"Đã nhắc chấm công {so_luong} người.")
@@ -308,6 +320,9 @@ def create_app(config_class=Config):
         """Chạy bằng cron lúc 17:32: nhắc chấm công RA cho người đã chấm
         vào hôm nay nhưng chưa chấm ra (trừ Sếp/Admin)."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không nhắc chấm công ra hôm nay.")
+            return
         so_luong = services.nhac_cham_cong_chieu()
         db.session.commit()
         click.echo(f"Đã nhắc chấm công ra {so_luong} người.")
@@ -317,6 +332,9 @@ def create_app(config_class=Config):
         """Chạy bằng cron lúc 08:00: gửi link xem việc hôm nay cho từng
         nhân viên/quản lý (trừ Sếp/Admin)."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không nhắc xem việc hôm nay.")
+            return
         so_luong = services.nhac_viec_hom_nay()
         db.session.commit()
         click.echo(f"Đã nhắc xem việc {so_luong} người.")
@@ -327,6 +345,9 @@ def create_app(config_class=Config):
         hôm qua + việc quan trọng hôm nay + cần xử lý ngay) cho từng nhân
         viên/quản lý (trừ Sếp/Admin)."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không gửi bản tin sáng hôm nay.")
+            return
         so_luong = services.gui_ban_tin_sang()
         db.session.commit()
         click.echo(f"Đã gửi bản tin sáng cho {so_luong} người.")
@@ -336,6 +357,9 @@ def create_app(config_class=Config):
         """Chạy bằng cron lúc 17:30: gửi bản tin cá nhân buổi chiều (kết quả
         hôm nay + cần xử lý ngay) cho từng nhân viên/quản lý (trừ Sếp/Admin)."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không gửi bản tin chiều hôm nay.")
+            return
         so_luong = services.gui_ban_tin_chieu()
         db.session.commit()
         click.echo(f"Đã gửi bản tin chiều cho {so_luong} người.")
@@ -344,6 +368,9 @@ def create_app(config_class=Config):
     def bao_cao_sang():
         """Chạy bằng cron lúc 08:10: báo cáo nhanh đầu ngày vào nhóm QL."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không gửi báo cáo sáng hôm nay.")
+            return
         services.bao_cao_sang_cho_sep()
         db.session.commit()
         click.echo("Đã gửi báo cáo sáng.")
@@ -352,6 +379,9 @@ def create_app(config_class=Config):
     def bao_cao_chieu():
         """Chạy bằng cron lúc 17:30: báo cáo tóm tắt cuối ngày vào nhóm QL."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không gửi báo cáo chiều hôm nay.")
+            return
         services.bao_cao_chieu_cho_sep()
         db.session.commit()
         click.echo("Đã gửi báo cáo chiều.")
@@ -361,6 +391,9 @@ def create_app(config_class=Config):
         """Chạy bằng cron lúc 18:00: báo cáo nhân viên nào còn việc chưa
         nộp/còn thiếu trong ngày, vào nhóm QL."""
         import services
+        if services.la_hom_nay_nghi():
+            click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không gửi báo cáo việc còn thiếu hôm nay.")
+            return
         services.bao_cao_thieu_sot()
         db.session.commit()
         click.echo("Đã gửi báo cáo việc còn thiếu.")

@@ -43,6 +43,9 @@
     <label for="han">Hạn hoàn thành</label>
     <input id="han" name="han" type="datetime-local"
            value="{{ han if han else (hom_nay.isoformat() ~ 'T17:25' if (uu_tien or 'thuong') != 'cao' else '') }}">
+    <div id="canh-bao-ngay-nghi" style="display:none;font-size:.78rem;color:var(--lam-lai);margin-top:6px">
+      ⚠️ Ngày này là ngày nghỉ (Chủ nhật/lễ) — không giao được việc vào ngày này, chọn ngày khác.
+    </div>
     <label for="ngay_bat_dau" style="margin-top:10px">Ngày bắt đầu (không bắt buộc)</label>
     <input id="ngay_bat_dau" name="ngay_bat_dau" type="date" value="{{ ngay_bat_dau or '' }}">
   </div>
@@ -99,6 +102,7 @@
 </template>
 
 <script id="ngay-da-chon-du-lieu" type="application/json">{{ (ngay_da_chon or [])|tojson }}</script>
+<script id="ngay-nghi-du-lieu" type="application/json">{{ (ds_ngay_nghi or [])|tojson }}</script>
 {% endblock %}
 
 {% block scripts %}
@@ -112,6 +116,7 @@
   const luoiNgay = document.getElementById('luoi-ngay');
   const duLieuCu = JSON.parse(document.getElementById('ngay-da-chon-du-lieu').textContent || '[]');
   const ngayDaChon = new Set(duLieuCu);
+  const ngayNghiSet = new Set(JSON.parse(document.getElementById('ngay-nghi-du-lieu').textContent || '[]'));
 
   function soNgayTrongThang(nam, thang) {
     return new Date(nam, thang, 0).getDate();
@@ -124,16 +129,26 @@
     const soNgay = soNgayTrongThang(nam, thang);
     for (let d = 1; d <= soNgay; d++) {
       const iso = `${nam}-${String(thang).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const laNgayNghi = ngayNghiSet.has(iso);
       const nut = document.createElement('button');
       nut.type = 'button';
       nut.className = 'ngay-o' + (ngayDaChon.has(iso) ? ' ngay-o--chon' : '');
       nut.textContent = d;
-      nut.addEventListener('click', () => {
-        nut.classList.toggle('ngay-o--chon');
-        if (nut.classList.contains('ngay-o--chon')) ngayDaChon.add(iso);
-        else ngayDaChon.delete(iso);
-        capNhatInputAn();
-      });
+      if (laNgayNghi) {
+        nut.disabled = true;
+        nut.title = 'Ngày nghỉ (Chủ nhật/lễ) — không giao được việc vào ngày này';
+        nut.style.opacity = '.35';
+        nut.style.textDecoration = 'line-through';
+        nut.style.cursor = 'not-allowed';
+        ngayDaChon.delete(iso);  // phòng trường hợp đã chọn từ trước khi bị đặt thành ngày nghỉ
+      } else {
+        nut.addEventListener('click', () => {
+          nut.classList.toggle('ngay-o--chon');
+          if (nut.classList.contains('ngay-o--chon')) ngayDaChon.add(iso);
+          else ngayDaChon.delete(iso);
+          capNhatInputAn();
+        });
+      }
       luoiNgay.appendChild(nut);
     }
   }
@@ -171,6 +186,23 @@
     ganLaiHanTheoUuTien();
   });
   thangInput.addEventListener('change', veLuoiNgay);
+
+  const canhBaoNgayNghi = document.getElementById('canh-bao-ngay-nghi');
+  function kiemTraHanNgayNghi() {
+    const ngayCuaHan = (hanInput.value || '').slice(0, 10);
+    const trung = ngayCuaHan && ngayNghiSet.has(ngayCuaHan);
+    canhBaoNgayNghi.style.display = trung ? 'block' : 'none';
+    return trung;
+  }
+  hanInput.addEventListener('change', kiemTraHanNgayNghi);
+  kiemTraHanNgayNghi();
+
+  document.getElementById('form-giao-viec').addEventListener('submit', (ev) => {
+    if (chonUuTien.value !== 'thap' && kiemTraHanNgayNghi()) {
+      ev.preventDefault();
+      alert('Ngày này là ngày nghỉ (Chủ nhật/lễ) — không giao được việc vào ngày này, chọn ngày khác.');
+    }
+  });
 
   veLuoiNgay();
   capNhatInputAn();

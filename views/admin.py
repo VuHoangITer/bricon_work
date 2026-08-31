@@ -253,6 +253,64 @@ def diem_cham_cong():
                            ds=DiemChamCong.query.order_by(DiemChamCong.ten).all())
 
 
+@bp.route("/ngay-nghi")
+@chi_admin
+def ngay_nghi():
+    from models import NgayNghiLe
+    return render_template(
+        "admin_ngay_nghi.html",
+        ds=NgayNghiLe.query.order_by(NgayNghiLe.ngay).all(),
+        nghi_chu_nhat=services.lay_cai_dat("NGHI_CHU_NHAT", "1") == "1",
+    )
+
+
+@bp.route("/ngay-nghi/luu", methods=["POST"])
+@chi_admin
+def luu_ngay_nghi():
+    from models import NgayNghiLe
+    ngay_raw = (request.form.get("ngay") or "").strip()
+    ten = (request.form.get("ten") or "").strip()
+    if not ngay_raw or not ten:
+        flash("Cần nhập đủ ngày và tên ngày lễ.", "error")
+        return redirect(url_for("admin.ngay_nghi"))
+    try:
+        ngay = date.fromisoformat(ngay_raw)
+    except ValueError:
+        flash("Ngày không hợp lệ.", "error")
+        return redirect(url_for("admin.ngay_nghi"))
+
+    da_co = NgayNghiLe.query.filter_by(ngay=ngay).first()
+    if da_co:
+        da_co.ten = ten
+        flash(f"Đã cập nhật tên ngày nghỉ {ngay:%d/%m/%Y}.", "success")
+    else:
+        db.session.add(NgayNghiLe(ngay=ngay, ten=ten))
+        flash(f"Đã thêm ngày nghỉ {ngay:%d/%m/%Y} — {ten}.", "success")
+    db.session.commit()
+    return redirect(url_for("admin.ngay_nghi"))
+
+
+@bp.route("/ngay-nghi/<int:id>/xoa", methods=["POST"])
+@chi_admin
+def xoa_ngay_nghi(id):
+    from models import NgayNghiLe
+    nnl = db.session.get(NgayNghiLe, id) or abort(404)
+    ten, ngay = nnl.ten, nnl.ngay
+    db.session.delete(nnl)
+    db.session.commit()
+    flash(f"Đã xoá ngày nghỉ {ten} ({ngay:%d/%m/%Y}).", "success")
+    return redirect(url_for("admin.ngay_nghi"))
+
+
+@bp.route("/ngay-nghi/nghi-chu-nhat", methods=["POST"])
+@chi_admin
+def luu_nghi_chu_nhat():
+    services.dat_cai_dat("NGHI_CHU_NHAT", "1" if request.form.get("nghi_chu_nhat") == "on" else "0")
+    db.session.commit()
+    flash("Đã cập nhật cài đặt nghỉ Chủ nhật.", "success")
+    return redirect(url_for("admin.ngay_nghi"))
+
+
 @bp.route("/log-zalo")
 @chi_admin
 def log_zalo():
