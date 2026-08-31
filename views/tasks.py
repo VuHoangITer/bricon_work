@@ -42,9 +42,11 @@ def _loi_chao_theo_gio() -> tuple[str, str, str]:
 def _tu_dong_dong_viec_qua_han():
     """Chạy trước MỌI trang trong khu vực công việc — để việc quá hạn chưa
     nộp được tự đóng + chấm 0★ gần như ngay khi vừa mở app, không cần đợi
-    cron. Chỉ chạy khi đã đăng nhập, tránh khách vãng lai kích hoạt ghi DB."""
+    cron. Dùng bản "không chờ" (services.dong_cac_viec_qua_han_khong_cho):
+    đóng việc ngay (chỉ ghi DB), còn gửi Zalo chạy nền — để việc gửi Zalo
+    (có lúc chậm/timeout) không làm chậm trang của người đang chuyển tab."""
     if current_user.is_authenticated:
-        services.dong_cac_viec_qua_han()
+        services.dong_cac_viec_qua_han_khong_cho()
 
 
 # ---------------------------------------------------------------------------

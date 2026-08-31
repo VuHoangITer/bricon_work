@@ -6,6 +6,7 @@ dich_vu_ai.py — xem file đó nếu cần sửa/đọc phần AI.
 import math
 import os
 import re
+import threading
 import uuid
 from datetime import datetime, date, timedelta
 from io import BytesIO
@@ -1412,6 +1413,59 @@ def dong_cac_viec_qua_han() -> list[CongViec]:
             bao_tu_dong_dong(v)
         db.session.commit()  # lưu log zalo
 
+    return da_dong
+
+
+def dong_cac_viec_qua_han_khong_cho() -> list[CongViec]:
+    """Bản KHÔNG CHỜ của dong_cac_viec_qua_han() — dùng gọi trong
+    before_request mỗi lần tải trang (xem views/tasks.py). Việc vẫn được
+    đóng + chấm 0★ ngay lập tức (chỉ ghi DB, rất nhanh); nhưng tin nhắn Zalo
+    báo nhân viên/nhóm QL được đẩy sang 1 luồng nền riêng thay vì gọi ngay
+    tại đây — tránh bắt người dùng đứng chờ tới 10-15 giây (timeout API
+    Zalo) chỉ vì họ đang chuyển trang mà tình cờ có việc vừa quá hạn.
+
+    Cron `dong-viec-qua-han` (chạy mỗi 5 phút) vẫn dùng hàm gốc ở trên —
+    chạy nền sẵn, không ai phải chờ, nên không cần và không nên đổi.
+    """
+    if la_hom_nay_nghi():
+        return []
+    bay_gio = gio_vn_hien_tai()
+    ung_vien = CongViec.query.filter(
+        CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
+        CongViec.han.isnot(None),
+        CongViec.han < bay_gio,
+    ).all()
+
+    da_dong = []
+    for v in ung_vien:
+        han = _han_hieu_luc(v)
+        if han and bay_gio > han:
+            v.trang_thai = TrangThai.HOAN_THANH
+            v.so_sao_cuoi = 0
+            v.hoan_thanh_luc = bay_gio
+            db.session.add(DanhGia(
+                cong_viec_id=v.id, nguoi_danh_gia_id=v.nguoi_giao_id,
+                lan_gui=v.lan_gui, ket_qua="dat", so_sao=0,
+                ghi_chu="Hệ thống tự động đóng: quá hạn mà không nộp đối chứng.",
+            ))
+            da_dong.append(v)
+
+    if not da_dong:
+        return []
+    db.session.commit()
+
+    da_dong_id = [v.id for v in da_dong]
+    app = current_app._get_current_object()
+
+    def _gui_thong_bao_nen():
+        with app.app_context():
+            for vid in da_dong_id:
+                v = db.session.get(CongViec, vid)
+                if v:
+                    bao_tu_dong_dong(v)
+            db.session.commit()
+
+    threading.Thread(target=_gui_thong_bao_nen, daemon=True).start()
     return da_dong
 
 
