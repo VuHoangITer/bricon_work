@@ -57,9 +57,21 @@ def nhan_vien():
     elif trang_thai == "0":
         q = q.filter(NguoiDung.dang_hoat_dong.is_(False))
 
+    tat_ca = q.order_by(NguoiDung.dang_hoat_dong.desc(), NguoiDung.ho_ten).all()
+
+    # Nhóm theo bộ phận cho dễ lướt mắt tìm đúng người (thay vì 1 danh sách
+    # phẳng lẫn lộn mọi phòng ban) — ai chưa gán bộ phận gom vào 1 nhóm
+    # riêng, luôn xếp CUỐI CÙNG vì ít quan trọng hơn các phòng ban thật.
+    CHUA_GAN = "Chưa gán bộ phận"
+    theo_bo_phan: dict[str, list] = {}
+    for n in tat_ca:
+        ten_bp = n.bo_phan.ten if n.bo_phan else CHUA_GAN
+        theo_bo_phan.setdefault(ten_bp, []).append(n)
+    nhom_nhan_vien = sorted(theo_bo_phan.items(), key=lambda kv: (kv[0] == CHUA_GAN, kv[0]))
+
     return render_template(
         "admin_users.html",
-        ds=q.order_by(NguoiDung.dang_hoat_dong.desc(), NguoiDung.ho_ten).all(),
+        nhom_nhan_vien=nhom_nhan_vien, tong_so=len(tat_ca),
         bo_phans=BoPhan.query.order_by(BoPhan.ten).all(),
         bots=BotZalo.query.order_by(BotZalo.ten).all(),
         ds_chuc_vu=ChucVu.query.order_by(ChucVu.ten).all(),

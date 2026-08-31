@@ -381,11 +381,45 @@ details.the[open] > summary::after { content:"−"; }
 .the--them { border:1px dashed var(--chinh); background:var(--chinh-nhat); }
 .the--them > summary { font-weight:700; color:var(--chinh-dam); }
 .nv-tom-tat { display:flex; align-items:center; gap:12px; cursor:pointer; }
-.nv-avatar { width:36px; height:36px; flex:0 0 36px; border-radius:50%; display:grid; place-items:center; background:var(--chinh-nhat); color:var(--chinh-dam); font-weight:700; font-size:.95rem; }
+.nv-avatar { width:36px; height:36px; flex:0 0 36px; border-radius:50%; display:grid; place-items:center; background:var(--chinh-nhat); color:var(--chinh-dam); font-weight:700; font-size:.95rem; border:2px solid transparent; }
 .nv-thong-tin { display:flex; flex-direction:column; min-width:0; flex:1; gap:2px; }
 .nv-thong-tin strong { font-size:.9rem; font-weight:600; }
 .nv-thong-tin small { color:var(--muc-mo); font-size:.75rem; }
-.nv-nhan-nhom { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+.nv-nhan-nhom { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
+
+/* Màu nhãn vai trò — theo ĐÚNG vai trò thật, không phải theo còn làm việc
+   hay không (trước đây mọi vai trò đang hoạt động đều ra cùng 1 màu xanh,
+   không phân biệt được Admin với Nhân viên chỉ bằng màu sắc). */
+.nhan[data-tt="admin"] { color:var(--chinh-dam); }
+.nhan[data-tt="sep"] { color:var(--chinh); }
+.nhan[data-tt="quan_ly"] { color:#3a63a8; }
+.nhan[data-tt="nhan_vien"] { color:var(--muc-mo); }
+
+/* Viền avatar nhuộm theo vai trò, giúp lướt mắt nhận ra cấp bậc nhanh hơn */
+.nv-avatar[data-vt="admin"] { border-color:var(--chinh-dam); }
+.nv-avatar[data-vt="sep"] { border-color:var(--chinh); }
+.nv-avatar[data-vt="quan_ly"] { border-color:#3a63a8; }
+
+/* Hàng nhân viên đã nghỉ việc — mờ hẳn đi để mắt tự động lướt qua, tách
+   biệt rõ với người đang làm việc mà không cần đọc kỹ từng dòng chữ */
+.the--nv-nghi { opacity:.5; }
+.the--nv-nghi:hover { opacity:.8; }
+.the--nv-nghi .nv-thong-tin strong { text-decoration:line-through; text-decoration-color:var(--muc-nhat); }
+
+/* Nhóm nhân viên theo bộ phận — bao GỘP cả nhóm trong 1 khối, từng người
+   bên trong chỉ cách nhau bằng đường kẻ mỏng thay vì mỗi người 1 thẻ
+   riêng (viền + bóng đổ + margin) — đỡ tốn diện tích khi danh sách dài. */
+.khoi-nv-bo-phan { background:var(--the); border:1px solid var(--vien); border-radius:var(--bk); box-shadow:var(--bong); padding:4px 16px; margin-bottom:14px; }
+.nv-hang { padding:10px 0; border-bottom:1px solid var(--vien); }
+.nv-hang:last-child { border-bottom:none; }
+.nv-hang[open] { padding-bottom:16px; }
+.nv-hang[open] > summary { margin-bottom:12px; }
+.nv-hang-form { padding-top:2px; }
+
+/* Tiêu đề nhóm theo bộ phận */
+.nhom-bo-phan-tieu-de { display:flex; align-items:center; gap:8px; margin:22px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--vien); }
+.nhom-bo-phan-tieu-de:first-of-type { margin-top:4px; }
+.nhom-bo-phan-tieu-de h3 { font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--chinh-dam); margin:0; }
 
 /* AUTH */
 .auth-shell { min-height:100vh; display:grid; place-items:center; padding:24px; background:var(--den); }

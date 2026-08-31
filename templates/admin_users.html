@@ -82,24 +82,31 @@
   </form>
 </details>
 
-<div class="tieu-khu"><h2>Danh sách</h2><span class="dem">{{ ds|length }}</span></div>
+<div class="tieu-khu"><h2>Danh sách</h2><span class="dem">{{ tong_so }}</span></div>
 
-{% for n in ds %}
-<details class="the">
+{% for ten_bo_phan, ds_nhom in nhom_nhan_vien %}
+<div class="nhom-bo-phan-tieu-de">
+  <h3>{{ ten_bo_phan }}</h3>
+  <span class="dem">{{ ds_nhom|length }}</span>
+</div>
+<div class="khoi-nv-bo-phan">
+{% for n in ds_nhom %}
+<details class="nv-hang{{ ' the--nv-nghi' if not n.dang_hoat_dong }}">
   <summary class="nv-tom-tat">
-    <span class="nv-avatar">{{ n.ho_ten[:1]|upper }}</span>
+    <span class="nv-avatar" data-vt="{{ n.vai_tro }}">{{ n.ho_ten[:1]|upper }}</span>
     <span class="nv-thong-tin">
       <strong>{{ n.ho_ten }}</strong>
-      <small>{{ n.ma_dinh_danh }}{% if n.bo_phan %} · {{ n.bo_phan.ten }}{% endif %}</small>
+      <small>{{ n.ma_dinh_danh }}</small>
     </span>
     <span class="nv-nhan-nhom">
-      <span class="nhan" data-tt="{{ 'hoan_thanh' if n.dang_hoat_dong else 'huy' }}">{{ n.ten_vai_tro }}</span>
-      {% if not n.zalo_group_id %}<span class="nhan" data-tt="lam_lai">Chưa Zalo</span>{% endif %}
       {% if not n.dang_hoat_dong %}<span class="nhan" data-tt="huy">Đã nghỉ</span>{% endif %}
+      {% if not n.zalo_group_id %}<span class="nhan" data-tt="lam_lai">Chưa Zalo</span>{% endif %}
+      <span class="nhan" data-tt="{{ n.vai_tro }}">{{ n.ten_vai_tro }}</span>
     </span>
   </summary>
 
-  <form method="post" action="{{ url_for('admin.luu_nhan_vien') }}" style="margin-top:14px">
+  <div class="nv-hang-form">
+  <form method="post" action="{{ url_for('admin.luu_nhan_vien') }}">
     <input type="hidden" name="id" value="{{ n.id }}">
     <div class="hang">
       <div class="o-nhap"><label>Mã nhân viên</label>
@@ -165,8 +172,12 @@
     {% endif %}
     {% endif %}
   </div>
+  </div>
 </details>
-{% else %}
-<div class="trong"><strong>Không tìm thấy nhân viên nào</strong>Thử đổi bộ lọc.</div>
 {% endfor %}
+</div>
+{% endfor %}
+{% if not nhom_nhan_vien %}
+<div class="trong"><strong>Không tìm thấy nhân viên nào</strong>Thử đổi bộ lọc.</div>
+{% endif %}
 {% endblock %}
