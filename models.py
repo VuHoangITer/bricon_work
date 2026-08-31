@@ -285,7 +285,19 @@ class NguoiDung(UserMixin, db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(NguoiDung, int(user_id))
+    """Flask-Login gọi hàm này ở MỌI request (kể cả khôi phục từ remember-
+    cookie, không chỉ lúc đăng nhập) để xác định current_user. Bắt buộc
+    phải kiểm tra dang_hoat_dong ngay tại đây — nếu chỉ chặn lúc đăng nhập
+    (views/auth.py) thì 1 người ĐANG đăng nhập sẵn (session/remember-cookie
+    còn hạn tới 90 ngày, xem config.py) vẫn tiếp tục dùng được app bình
+    thường sau khi bị khoá tài khoản, coi như khoá không có tác dụng gì.
+    Trả về None ở đây khiến Flask-Login coi phiên đó là chưa đăng nhập,
+    buộc phải đăng nhập lại ngay ở request tiếp theo — và sẽ bị chặn luôn
+    tại bước đăng nhập vì dang_hoat_dong vẫn đang False."""
+    nd = db.session.get(NguoiDung, int(user_id))
+    if nd and not nd.dang_hoat_dong:
+        return None
+    return nd
 
 
 class CongViec(db.Model):
