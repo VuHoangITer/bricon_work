@@ -119,6 +119,25 @@ def dashboard():
         nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai()
     ).first()
 
+    # Việc của CHÍNH nhân viên bị hệ thống tự động đóng + chấm 0★ trong
+    # ngày hôm nay (quá hạn không nộp đối chứng) — hiện ngay trên dashboard
+    # kèm người giao để họ chủ động liên hệ xin mở lại nếu thấy chưa hợp lý,
+    # không phải tự đi lục trong danh sách việc mới biết.
+    viec_0_sao_hom_nay = []
+    if not current_user.la_admin_sep:
+        dau_ngay = datetime.combine(hom_nay, datetime.min.time())
+        cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
+        viec_0_sao_hom_nay = (
+            CongViec.query.filter(
+                CongViec.nguoi_nhan_id == current_user.id,
+                CongViec.so_sao_cuoi == 0,
+                CongViec.hoan_thanh_luc >= dau_ngay,
+                CongViec.hoan_thanh_luc <= cuoi_ngay,
+            )
+            .order_by(CongViec.hoan_thanh_luc.desc())
+            .all()
+        )
+
     viec_hom_nay_cong_ty = 0
     viec_hom_nay_cong_ty_theo_cot = []
     if current_user.la_admin_sep:
@@ -146,6 +165,7 @@ def dashboard():
         cua_toi_theo_cot=cua_toi_theo_cot,
         cho_toi_duyet=cho_toi_duyet,
         cc_hom_nay=cc_hom_nay,
+        viec_0_sao_hom_nay=viec_0_sao_hom_nay,
         viec_hom_nay_cong_ty=viec_hom_nay_cong_ty,
         viec_hom_nay_cong_ty_theo_cot=viec_hom_nay_cong_ty_theo_cot,
         loi_chao=loi_chao,

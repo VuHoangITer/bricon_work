@@ -350,6 +350,8 @@ def thiet_lap():
 
         b.ten = ten
         b.token = token
+        b.link_moi = (request.form.get("link_moi") or "").strip() or None
+        b.owner = (request.form.get("owner") or "").strip() or None
         b.dang_hoat_dong = request.form.get("dang_hoat_dong") == "on"
         if not bid:
             b.webhook_secret = secrets.token_urlsafe(24)
@@ -359,16 +361,14 @@ def thiet_lap():
         return redirect(url_for("admin.thiet_lap"))
 
     ds_bot = BotZalo.query.order_by(BotZalo.ten).all()
-    so_dung_theo_bot = {
-        bid: sl for bid, sl in (
-            db.session.query(NguoiDung.bot_zalo_id, db.func.count(NguoiDung.id))
-            .filter(NguoiDung.bot_zalo_id.isnot(None), NguoiDung.dang_hoat_dong.is_(True))
-            .group_by(NguoiDung.bot_zalo_id).all()
-        )
-    }
+    nv_theo_bot: dict[int, list[NguoiDung]] = {}
+    for nd in (NguoiDung.query.filter(NguoiDung.bot_zalo_id.isnot(None),
+                                      NguoiDung.dang_hoat_dong.is_(True))
+               .order_by(NguoiDung.ho_ten).all()):
+        nv_theo_bot.setdefault(nd.bot_zalo_id, []).append(nd)
     return render_template("admin_thietlap.html",
                            ds=ds_bot,
-                           so_dung_theo_bot=so_dung_theo_bot,
+                           nv_theo_bot=nv_theo_bot,
                            openai_api_key=services.lay_cai_dat("openai_api_key"),
                            gh_cau_hoi=services.lay_cai_dat(
                                "tro_ly_gioi_han_cau_hoi_ngay",

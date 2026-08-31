@@ -132,6 +132,8 @@ class BotZalo(db.Model):
     ten = db.Column(db.String(100), nullable=False, unique=True)
     token = db.Column(db.String(255), nullable=False)
     webhook_secret = db.Column(db.String(64))  # Zalo gửi kèm header để xác thực webhook
+    link_moi = db.Column(db.String(500))  # link mời bot vào nhóm — copy quăng vào group cho nhân viên mới
+    owner = db.Column(db.String(120))  # tên người là owner của bot này (bot chỉ vào được nhóm khi owner có mặt)
     dang_hoat_dong = db.Column(db.Boolean, default=True, nullable=False)
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 

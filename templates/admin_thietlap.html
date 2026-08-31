@@ -124,6 +124,14 @@
     <div class="o-nhap"><label>Bot token</label>
       <input name="token" required placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
       <div class="goi-y">Lấy token từ trang quản trị bot của nhà cung cấp Zalo OA/Zapps.</div></div>
+    <div class="hang">
+      <div class="o-nhap"><label>Link mời bot</label>
+        <input name="link_moi" placeholder="https://zalo.me/s/...">
+        <div class="goi-y">Copy link này quăng vào nhóm khi cần thêm bot vào — đỡ phải đi tìm.</div></div>
+      <div class="o-nhap"><label>Owner</label>
+        <input name="owner" placeholder="Tên người đang là owner nhóm">
+        <div class="goi-y">Bot chỉ vào được nhóm khi owner này có mặt trong nhóm.</div></div>
+    </div>
     <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
       <input type="checkbox" name="dang_hoat_dong" checked style="width:18px;height:18px;accent-color:var(--chinh)">
       Đang hoạt động</label>
@@ -138,8 +146,11 @@
   <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:10px">
     <span>
       <strong>{{ b.ten }}</strong>
+      {% set ds_nv = nv_theo_bot.get(b.id, []) %}
       <span style="font-size:.78rem;color:var(--muc-mo);margin-left:8px">
-        🔗 {{ so_dung_theo_bot.get(b.id, 0) }}/3 nhân viên đang dùng</span>
+        🔗 {{ ds_nv|length }}/3 —
+        {% if ds_nv %}{{ ds_nv|map(attribute='ho_ten')|join(', ') }}
+        {% else %}chưa ai dùng{% endif %}</span>
     </span>
     <span class="nhan" data-tt="{{ 'hoan_thanh' if b.dang_hoat_dong else 'huy' }}">
       {{ 'Đang hoạt động' if b.dang_hoat_dong else 'Đã tắt' }}</span>
@@ -148,6 +159,17 @@
     <input type="hidden" name="id" value="{{ b.id }}">
     <div class="o-nhap"><label>Tên bot</label><input name="ten" value="{{ b.ten }}" required></div>
     <div class="o-nhap"><label>Bot token</label><input name="token" value="{{ b.token }}" required></div>
+    <div class="hang">
+      <div class="o-nhap"><label>Link mời bot</label>
+        <div style="display:flex;gap:6px">
+          <input name="link_moi" class="o-link-moi" value="{{ b.link_moi or '' }}"
+                 placeholder="https://zalo.me/s/..." style="flex:1">
+          <button type="button" class="nut nut--phu nut--nho nut-sao-chep-link"
+                  style="flex:none">📋</button>
+        </div></div>
+      <div class="o-nhap"><label>Owner</label>
+        <input name="owner" value="{{ b.owner or '' }}" placeholder="Tên người đang là owner nhóm"></div>
+    </div>
     <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
       <input type="checkbox" name="dang_hoat_dong" {{ 'checked' if b.dang_hoat_dong }}
              style="width:18px;height:18px;accent-color:var(--chinh)"> Đang hoạt động</label>
@@ -181,6 +203,19 @@
 {% block scripts %}
 <script>
 (function () {
+  document.querySelectorAll('.nut-sao-chep-link').forEach((nut) => {
+    nut.addEventListener('click', async () => {
+      const o = nut.previousElementSibling;
+      if (!o || !o.value) return;
+      try {
+        await navigator.clipboard.writeText(o.value);
+        const cu = nut.textContent;
+        nut.textContent = '✅';
+        setTimeout(() => { nut.textContent = cu; }, 1200);
+      } catch (e) { /* trình duyệt không hỗ trợ clipboard — bỏ qua */ }
+    });
+  });
+
   const input = document.getElementById('o-openai-key');
   const nutHien = document.getElementById('nut-hien-key');
   const nutSaoChep = document.getElementById('nut-sao-chep-key');

@@ -112,6 +112,36 @@
 </div>
 {% endif %}
 
+{% if not current_user.la_admin_sep and viec_0_sao_hom_nay %}
+<div class="the" style="border-left:3px solid var(--lam-lai);margin-bottom:18px">
+  <div class="card-title-row">
+    <div>
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--lam-lai);font-weight:700">
+        ⚠️ Việc bị 0★ hôm nay</div>
+      <div style="font-size:1.05rem;font-weight:700;margin-top:4px;color:var(--lam-lai)">
+        {{ viec_0_sao_hom_nay|length }} việc bị hệ thống tự động đóng vì quá hạn</div>
+      <div class="subtle" style="font-size:.78rem;margin-top:4px">
+        Thấy chưa hợp lý thì liên hệ người giao để xin mở lại.</div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+    {% for v in viec_0_sao_hom_nay %}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;
+                flex-wrap:wrap;padding:9px 11px;border:1px solid var(--vien);border-radius:7px">
+      <a href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}" style="font-weight:600">
+        [{{ v.ma }}] {{ v.tieu_de }}</a>
+      <div style="display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--muc-mo)">
+        <span>Người giao: {{ v.nguoi_giao.ho_ten }}</span>
+        {% if v.nguoi_giao.so_dien_thoai %}
+        <a class="nut nut--phu nut--nho" href="tel:{{ v.nguoi_giao.so_dien_thoai }}">📞 Gọi</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="dashboard-grid">
   {% if current_user.la_admin_sep %}
   <button type="button" class="stat-card stat-card--lienket" id="nut-mo-viec-hang-ngay">
