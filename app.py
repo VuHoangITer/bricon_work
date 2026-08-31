@@ -7,7 +7,7 @@ from flask_login import current_user, login_required
 
 from config import Config
 from extensions import db, login_manager, migrate
-from models import (AnhDanhGia, AnhSanPhamAI, BotZalo, BuoiNghi, ChamCong, ChucVu,
+from models import (AnhDanhGia, AnhSanPhamAI, AnhYeuCau, BotZalo, BuoiNghi, ChamCong, ChucVu,
                     CongViec, DinhKem, DoUuTien, LoaiDinhKem, MucSao, NguoiDung, TrangThai,
                     VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
@@ -52,6 +52,12 @@ def create_app(config_class=Config):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
+        ayc = AnhYeuCau.query.filter_by(duong_dan=duong_dan).first()
+        if ayc:
+            if not current_user.duoc_xem_viec(ayc.cong_viec):
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
         xn = XinNghi.query.filter_by(anh_minh_chung=duong_dan).first()
         if xn:
             if xn.nguoi_dung_id != current_user.id and not current_user.la_quan_ly:
@@ -70,6 +76,22 @@ def create_app(config_class=Config):
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
         abort(404)
+
+    @app.route("/media-cong-khai/<path:duong_dan>")
+    def media_cong_khai(duong_dan):
+        """Phục vụ ảnh KHÔNG cần đăng nhập — CHỈ dùng để Zalo bot tự tải ảnh
+        về khi gọi sendPhoto (server Zalo gọi trực tiếp, không có phiên
+        đăng nhập của ai — gọi /media thường sẽ bị chặn ngay ở @login_required).
+
+        CHỈ áp dụng cho ảnh minh hoạ yêu cầu (AnhYeuCau) — tên file là uuid4
+        ngẫu nhiên nên không đoán được, an toàn tương đương kiểu "link chia
+        sẻ" của Google Drive/Dropbox. KHÔNG mở rộng route này cho đối
+        chứng/đánh giá/xin nghỉ — các loại đó vẫn luôn phải qua /media có
+        đăng nhập + kiểm tra quyền xem việc như cũ."""
+        ayc = AnhYeuCau.query.filter_by(duong_dan=duong_dan).first()
+        if not ayc:
+            abort(404)
+        return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
     # ------------------------------------------------------------- webhook
     @app.route("/webhook/zalo/<int:bot_id>", methods=["POST"])

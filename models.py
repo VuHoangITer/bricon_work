@@ -330,6 +330,10 @@ class CongViec(db.Model):
         "GhiChuNop", back_populates="cong_viec", cascade="all, delete-orphan",
         order_by="GhiChuNop.id"
     )
+    anh_yeu_cau = db.relationship(
+        "AnhYeuCau", back_populates="cong_viec", cascade="all, delete-orphan",
+        order_by="AnhYeuCau.id"
+    )
 
     # ---- tiện ích ----
     @property
@@ -441,6 +445,22 @@ class AnhDanhGia(db.Model):
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     danh_gia = db.relationship("DanhGia", back_populates="anh")
+
+
+class AnhYeuCau(db.Model):
+    """Ảnh người giao đính kèm minh hoạ ngay lúc giao việc (VD: chụp mẫu,
+    sơ đồ, vị trí cần làm...) — khác hẳn đối chứng (DinhKem, do NHÂN VIÊN
+    nộp lúc hoàn thành): đây là ảnh THAM KHẢO đi kèm yêu cầu chi tiết, hiện
+    ngay trong phần mô tả việc, không nằm trong dòng thời gian nộp/duyệt."""
+    __tablename__ = "anh_yeu_cau"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cong_viec_id = db.Column(db.Integer, db.ForeignKey("cong_viec.id"), nullable=False, index=True)
+    duong_dan = db.Column(db.String(300), nullable=False)  # tương đối so với UPLOAD_ROOT
+    ten_goc = db.Column(db.String(255))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    cong_viec = db.relationship("CongViec", back_populates="anh_yeu_cau")
 
 
 class GhiChuNop(db.Model):

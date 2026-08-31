@@ -1,5 +1,6 @@
 import base64
 import binascii
+import os
 from datetime import date, datetime, timedelta
 
 from flask import (Blueprint, Response, abort, current_app, flash, redirect,
@@ -358,10 +359,25 @@ def xoa_xin_nghi(id):
     if not current_user.la_admin_sep:
         abort(403)
     x = db.session.get(XinNghi, id) or abort(404)
-    ten, ngay = x.nguoi_dung.ho_ten, x.ngay
+    ten, ngay, duong_dan_pdf = x.nguoi_dung.ho_ten, x.ngay, x.anh_minh_chung
+
+    services.bao_tu_choi_xin_nghi(x, current_user)
     db.session.delete(x)
     db.session.commit()
-    flash(f"Đã xoá nghỉ phép của {ten} ngày {ngay:%d/%m/%Y}.", "success")
+
+    # Xoá vĩnh viễn file PDF trên đĩa — CHỈ khi không còn dòng XinNghi nào
+    # khác (của cùng đợt nghỉ nhiều ngày) đang dùng chung đúng file này,
+    # tránh làm hỏng link "Xem đơn" của các ngày còn lại chưa bị xoá.
+    con_dung_chung = XinNghi.query.filter_by(anh_minh_chung=duong_dan_pdf).first()
+    if not con_dung_chung:
+        duong_dan_tuyet_doi = os.path.join(
+            current_app.config["UPLOAD_ROOT"], *duong_dan_pdf.split("/"))
+        try:
+            os.remove(duong_dan_tuyet_doi)
+        except OSError:
+            pass
+
+    flash(f"Đã xoá vĩnh viễn nghỉ phép của {ten} ngày {ngay:%d/%m/%Y}, đã báo Zalo cho nhân viên.", "success")
     return redirect(request.referrer or url_for("attendance.bang_cong"))
 
 

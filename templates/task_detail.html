@@ -30,14 +30,24 @@
     <span class="nhan" data-tt="{{ viec.trang_thai }}">{{ viec.ten_trang_thai }}</span>
   </div>
   <h1 style="font-size:1.2rem">{{ viec.tieu_de }}</h1>
-  {% if viec.mo_ta %}
+  {% if viec.mo_ta or viec.anh_yeu_cau %}
   <div style="background:var(--chinh-nhat);border-left:3px solid var(--chinh);
               border-radius:var(--bk-n);padding:10px 12px;margin:8px 0 4px">
     <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
                 letter-spacing:.04em;color:var(--chinh-dam);margin-bottom:4px">
       📋 Yêu cầu công việc
     </div>
+    {% if viec.mo_ta %}
     <p style="white-space:pre-wrap;color:var(--muc);font-size:.9rem;margin:0">{{ viec.mo_ta }}</p>
+    {% endif %}
+    {% if viec.anh_yeu_cau %}
+    <div class="luoi-tep" style="margin-top:10px">
+      {% for a in viec.anh_yeu_cau %}
+      <a class="tep" href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener">
+        <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.ten_goc }}" loading="lazy"></a>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -62,10 +72,14 @@
     <form method="post" action="{{ url_for('tasks.dat_lai_han', viec_id=viec.id) }}"
           style="display:flex;gap:8px;align-items:center;width:100%;flex-wrap:wrap">
       <span style="font-size:.76rem;color:var(--muc-mo);flex:0 0 auto">Hạn</span>
-      <input type="datetime-local" name="han" value="{{ viec.han|input_dt }}" style="flex:1;min-width:170px">
+      <input type="datetime-local" name="han" id="input-han-moi" value="{{ viec.han|input_dt }}"
+             min="{{ bay_gio|input_dt }}" style="flex:1;min-width:170px">
       <span style="font-size:.76rem;color:var(--muc-mo);flex:0 0 auto">Bắt đầu</span>
       <input type="date" name="ngay_bat_dau" value="{{ viec.ngay_bat_dau.isoformat() if viec.ngay_bat_dau else '' }}" style="flex:0 1 150px">
       <button class="nut nut--phu nut--nho" type="submit" style="flex:0 0 auto">Đặt lại</button>
+      <div id="canh-bao-han-qua-khu" style="display:none;width:100%;font-size:.78rem;color:var(--lam-lai)">
+        ⚠️ Giờ này đã ở quá khứ — kiểm tra lại AM/PM (bấm mũi tên tăng giờ từ 11 lên 12 sẽ ra 12 giờ ĐÊM chứ không phải giờ trưa).
+      </div>
     </form>
   </div>
   {% endif %}
@@ -354,5 +368,15 @@
   khoiTaoDanhGia();
   khoiTaoDanhGia('form-danh-gia-lai', 'chon-anh-danh-gia-lai', 'anh-danh-gia-lai-an',
                 'xem-truoc-danh-gia-lai', 'canh-bao-zalo-danh-gia-lai');
+
+  (function () {
+    const oHan = document.getElementById('input-han-moi');
+    const canhBao = document.getElementById('canh-bao-han-qua-khu');
+    if (!oHan || !canhBao) return;
+    oHan.addEventListener('change', () => {
+      const chon = oHan.value ? new Date(oHan.value) : null;
+      canhBao.style.display = (chon && chon < new Date()) ? 'block' : 'none';
+    });
+  })();
 </script>
 {% endblock %}

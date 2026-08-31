@@ -2,7 +2,7 @@
 {% block title %}Giao việc mới · BRICON WORK{% endblock %}
 {% block content %}
 <div class="page-head"><div class="page-head-copy"><h1>Giao việc mới</h1></div></div>
-<form class="the" method="post" id="form-giao-viec">
+<form class="the" method="post" enctype="multipart/form-data" id="form-giao-viec">
   <div class="o-nhap"><label for="tieu_de">Tên công việc</label><input id="tieu_de" name="tieu_de" type="text" required maxlength="255" value="{{ tieu_de or '' }}" placeholder="VD: Kiểm kê kho keo dán gạch chi nhánh Bình Tân"></div>
   <div class="o-nhap"><label for="mo_ta">Yêu cầu chi tiết</label><textarea id="mo_ta" name="mo_ta" placeholder="Làm gì, ở đâu, cần nộp lại đối chứng gì…">{{ mo_ta or '' }}</textarea>
     <div class="hang-nut" style="margin-top:8px">
@@ -10,6 +10,19 @@
       <button type="button" class="nut nut--phu nut--nho" id="nut-ai-tom-tat">✨ Tóm tắt bằng AI</button>
       <span id="ai-trang-thai" style="font-size:.78rem;color:var(--muc-mo);align-self:center"></span>
     </div>
+    <div class="canh-bao-nho" id="canh-bao-zalo-yeu-cau" style="display:none;margin-top:10px">
+      ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
+      khi bấm link ngay trong khung chat Zalo/Messenger). Quay lại đoạn
+      chat, <strong>nhấn giữ (long-press) vào link này</strong> → chọn
+      <strong>"Mở bằng trình duyệt"</strong> rồi thử lại.
+    </div>
+    <label style="margin-top:10px">Ảnh minh hoạ yêu cầu (không bắt buộc)</label>
+    <input type="file" id="chon-anh-yeu-cau" multiple accept="image/*">
+    <input type="file" name="anh_yeu_cau" id="anh-yeu-cau-an" multiple style="display:none">
+    <div id="xem-truoc-yeu-cau" class="luoi-tep" style="margin-top:8px"></div>
+    <div class="goi-y">Chụp/chọn ảnh mẫu, sơ đồ, vị trí cần làm… để nhân viên hình dung rõ hơn.
+      Chọn nhiều ảnh cùng lúc hoặc bấm chọn thêm nhiều lần, bấm ✕ trên ảnh để bỏ bớt, hoặc
+      dán ảnh bằng <strong>Ctrl+V</strong> (Mac: <strong>Cmd+V</strong>).</div>
   </div>
   <div class="o-nhap"><label>Giao cho</label><div class="chon-nhieu">
     {% for n in nhan_vien %}
@@ -288,5 +301,8 @@
     ganLaiNhanSoThuTu();
   });
 })();
+
+khoiTaoDanhGia('form-giao-viec', 'chon-anh-yeu-cau', 'anh-yeu-cau-an',
+              'xem-truoc-yeu-cau', 'canh-bao-zalo-yeu-cau');
 </script>
 {% endblock %}

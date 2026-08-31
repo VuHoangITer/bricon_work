@@ -10,7 +10,7 @@ from sqlalchemy import case
 import dich_vu_ai
 import services
 from extensions import db
-from models import (AnhDanhGia, CongViec, DanhGia, DinhKem, DoUuTien, GhiChuNop,
+from models import (AnhDanhGia, AnhYeuCau, CongViec, DanhGia, DinhKem, DoUuTien, GhiChuNop,
                     LoaiDinhKem, NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai,
                     ngay_vn_hien_tai)
 
@@ -330,6 +330,20 @@ def giao_viec():
                     return loi("Ngày bắt đầu phải trước hoặc bằng ngày của hạn hoàn thành.")
             danh_sach_han = [han]
 
+        # Ảnh minh hoạ đính kèm "Yêu cầu chi tiết" (không bắt buộc) — chỉ áp
+        # dụng cho việc CHÍNH ở khối trên cùng, đọc bytes 1 lần ở đây vì
+        # FileStorage chỉ đọc/lưu được 1 lần, trong khi việc chính có thể bị
+        # nhân bản thành nhiều CongViec (nhiều người nhận, hoặc nhiều ngày
+        # nếu là Hằng ngày) — mỗi việc cần 1 bản lưu file riêng.
+        anh_yeu_cau_bytes: list[tuple[str, bytes]] = []
+        for f in request.files.getlist("anh_yeu_cau"):
+            if not f or not f.filename:
+                continue
+            if services.phan_loai(f.filename, f.mimetype) != LoaiDinhKem.ANH:
+                flash(f"Bỏ qua tệp không phải ảnh: {f.filename}", "error")
+                continue
+            anh_yeu_cau_bytes.append((f.filename, f.read()))
+
         tao = []
         for nid in nguoi_nhan_ids:
             nv = db.session.get(NguoiDung, int(nid))
@@ -409,6 +423,13 @@ def giao_viec():
         db.session.flush()          # lấy id
         for v in tat_ca:
             services.gan_ma(v)
+
+        if anh_yeu_cau_bytes:
+            for v in tao:  # chỉ việc CHÍNH, không áp dụng cho các khối "Việc thêm"
+                for ten_goc, du_lieu in anh_yeu_cau_bytes:
+                    duong_dan, _ = services.luu_bytes(du_lieu, ten_goc, "yeu-cau")
+                    v.anh_yeu_cau.append(AnhYeuCau(duong_dan=duong_dan, ten_goc=ten_goc[:255]))
+
         db.session.commit()
 
         # Hằng ngày (của khối chính): gộp thành 1 tin Zalo mỗi nhân viên.

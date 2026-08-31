@@ -63,8 +63,50 @@ def gui_zalo(chat_id: str, noi_dung: str, nguoi_dung: NguoiDung | None = None,
     return log.thanh_cong
 
 
+def gui_zalo_anh(chat_id: str, url_anh: str, caption: str = "",
+                  nguoi_dung: NguoiDung | None = None,
+                  cong_viec: CongViec | None = None, token_ghi_de: str | None = None) -> bool:
+    """Gửi 1 ẢNH THẬT vào khung chat Zalo (API sendPhoto) — khác gui_zalo
+    (chỉ gửi text/link). Luôn ghi log, không bao giờ raise.
+
+    url_anh BẮT BUỘC là URL công khai (Zalo tự GET để tải ảnh về, không có
+    phiên đăng nhập của ai) — dùng đúng route /media-cong-khai/..., KHÔNG
+    dùng /media/... (route đó yêu cầu đăng nhập, Zalo sẽ tải thất bại).
+    """
+    log = LogZalo(
+        nguoi_dung_id=nguoi_dung.id if nguoi_dung else None,
+        cong_viec_id=cong_viec.id if cong_viec else None,
+        chat_id=chat_id,
+        noi_dung=f"[ẢNH] {caption or url_anh}",
+    )
+    token = token_ghi_de or _bot_token(nguoi_dung)
+    if not chat_id or not token:
+        log.phan_hoi = "Thiếu chat_id hoặc bot token"
+        db.session.add(log)
+        return False
+
+    url = f"{current_app.config['ZALO_API_BASE']}{token}/sendPhoto"
+    du_lieu = {"chat_id": chat_id, "photo": url_anh}
+    if caption:
+        du_lieu["caption"] = caption[:2000]
+    try:
+        r = requests.post(url, json=du_lieu, timeout=15)
+        log.thanh_cong = r.ok
+        log.phan_hoi = r.text[:1000]
+    except Exception as e:  # noqa: BLE001
+        log.thanh_cong = False
+        log.phan_hoi = f"{type(e).__name__}: {e}"[:1000]
+    db.session.add(log)
+    return log.thanh_cong
+
+
 def gui_cho_nhan_vien(nv: NguoiDung, noi_dung: str, cong_viec: CongViec | None = None) -> bool:
     return gui_zalo(nv.zalo_group_id, noi_dung, nguoi_dung=nv, cong_viec=cong_viec)
+
+
+def gui_anh_cho_nhan_vien(nv: NguoiDung, url_anh: str, caption: str = "",
+                          cong_viec: CongViec | None = None) -> bool:
+    return gui_zalo_anh(nv.zalo_group_id, url_anh, caption, nguoi_dung=nv, cong_viec=cong_viec)
 
 
 def gui_nhom_ql(noi_dung: str, cong_viec: CongViec | None = None) -> bool:
@@ -109,6 +151,20 @@ def bao_xin_nghi(nguoi_dung: NguoiDung, ngay_dau, ngay_cuoi, buoi: str,
         nd += f"\nBàn giao công việc cho: {ban_giao_cho.ho_ten}"
     nd += f"\n\nXem đơn (PDF):\n{current_app.config['BASE_URL']}/media/{duong_dan_pdf}"
     gui_nhom_ql(nd)
+
+
+def bao_tu_choi_xin_nghi(xn: "XinNghi", nguoi_xoa: NguoiDung):
+    """Báo cho nhân viên khi Admin/Sếp xoá (từ chối) 1 ngày nghỉ phép đã
+    được hệ thống tự động duyệt trước đó — họ cần biết để còn đi làm lại
+    đúng ngày, không âm thầm xoá."""
+    nd = (
+        f"🚫 Đơn xin nghỉ phép của bạn KHÔNG được duyệt\n\n"
+        f"Ngày {xn.ngay:%d/%m/%Y} — {xn.ten_buoi}\n"
+        f"Lý do đã xin: {xn.ghi_chu or '—'}\n"
+        f"Người từ chối: {nguoi_xoa.ho_ten}\n\n"
+        f"Bạn cần đi làm bình thường vào ngày trên. Liên hệ lại nếu cần trao đổi thêm."
+    )
+    gui_cho_nhan_vien(xn.nguoi_dung, nd)
 
 
 def _dang_ky_font_unicode():
@@ -484,15 +540,31 @@ def _han_str(viec: CongViec) -> str:
     return viec.han.strftime("%H:%M %d/%m/%Y") if viec.han else "không đặt hạn"
 
 
+_DO_DAI_MO_TA_TOI_DA_ZALO = 500  # Zalo giới hạn độ dài tin — cắt bớt mô tả quá dài, đủ đọc lướt
+
+
 def bao_giao_viec(viec: CongViec):
+    mo_ta = (viec.mo_ta or "").strip()
+    dong_mo_ta = ""
+    if mo_ta:
+        rut_gon = mo_ta if len(mo_ta) <= _DO_DAI_MO_TA_TOI_DA_ZALO else mo_ta[:_DO_DAI_MO_TA_TOI_DA_ZALO] + "…"
+        dong_mo_ta = f"\nYêu cầu chi tiết: {rut_gon}\n"
     nd = (
         f"📌 Bạn có 1 công việc mới: {viec.ten_uu_tien}\n\n"
         f"[{viec.ma}] {viec.tieu_de}\n"
         f"Người giao: {viec.nguoi_giao.ho_ten}\n"
-        f"Hạn: {_han_str(viec)}\n\n"
+        f"Hạn: {_han_str(viec)}\n"
+        f"{dong_mo_ta}\n"
         f"Bấm vào xem chi tiết và gửi đối chứng:\n{viec.link}"
     )
     gui_cho_nhan_vien(viec.nguoi_nhan, nd, viec)
+
+    # Gửi kèm luôn ẢNH THẬT qua Zalo (sendPhoto) ngay sau tin nhắn chính,
+    # thay vì chỉ nhắc "xem trong link" — giới hạn 5 ảnh/lần giao để tránh
+    # dội quá nhiều tin nhắn liên tiếp nếu ai đó lỡ đính kèm rất nhiều ảnh.
+    base = current_app.config["BASE_URL"]
+    for a in viec.anh_yeu_cau[:5]:
+        gui_anh_cho_nhan_vien(viec.nguoi_nhan, f"{base}/media-cong-khai/{a.duong_dan}", cong_viec=viec)
 
 
 def bao_giao_viec_hang_ngay(nguoi_nhan: NguoiDung, tieu_de: str, ngay_dau, ngay_cuoi,
@@ -998,6 +1070,17 @@ def luu_file(file_storage, thu_muc: str = "doi-chung") -> tuple[str, int]:
     return tuong_doi, os.path.getsize(tuyet_doi)
 
 
+def luu_bytes(du_lieu: bytes, ten_goc: str, thu_muc: str = "doi-chung") -> tuple[str, int]:
+    """Lưu 1 chuỗi bytes đã đọc sẵn ra 1 đường dẫn MỚI mỗi lần gọi — dùng khi
+    cần lưu CÙNG 1 nội dung (VD ảnh yêu cầu) thành nhiều bản riêng cho nhiều
+    công việc khác nhau (nhân bản theo người nhận/theo ngày), vì FileStorage
+    gốc chỉ đọc/save được 1 lần."""
+    tuong_doi, tuyet_doi = _duong_dan_moi(ten_goc, thu_muc)
+    with open(tuyet_doi, "wb") as f:
+        f.write(du_lieu)
+    return tuong_doi, len(du_lieu)
+
+
 # ---------------------------------------------------------------------------
 # ĐỊNH VỊ
 # ---------------------------------------------------------------------------
@@ -1321,9 +1404,9 @@ def go_lien_ket_log_zalo_cho_viec(viec: CongViec):
 
 
 def xoa_file_dinh_kem(viec: CongViec):
-    """Xoá vật lý các tệp đối chứng của 1 công việc trên ổ đĩa, gọi trước khi
-    xoá bản ghi CongViec để không để lại file mồ côi."""
-    for d in viec.dinh_kem:
+    """Xoá vật lý các tệp đối chứng + ảnh yêu cầu của 1 công việc trên ổ
+    đĩa, gọi trước khi xoá bản ghi CongViec để không để lại file mồ côi."""
+    for d in list(viec.dinh_kem) + list(viec.anh_yeu_cau):
         duong_dan = os.path.join(current_app.config["UPLOAD_ROOT"], *d.duong_dan.split("/"))
         try:
             os.remove(duong_dan)
