@@ -1,18 +1,19 @@
+import math
 import os
 import re
 from datetime import datetime, date, timedelta
 
 from flask import (Blueprint, abort, current_app, flash, jsonify, redirect,
-                   render_template, request, url_for)
+                   render_template, request, send_from_directory, url_for)
 from flask_login import current_user, login_required
 from sqlalchemy import case
 
 import dich_vu_ai
 import services
 from extensions import db
-from models import (AnhDanhGia, AnhYeuCau, CongViec, DanhGia, DinhKem, DoUuTien, GhiChuNop,
-                    LoaiDinhKem, NguoiDung, TrangThai, VaiTro, gio_vn_hien_tai,
-                    ngay_vn_hien_tai)
+from models import (AnhDanhGia, AnhSanPhamAI, AnhYeuCau, ChucVu, CongViec, DanhGia, DinhKem,
+                    DoUuTien, GhiChuNop, LoaiDinhKem, NguoiDung, TrangThai, VaiTro, XinNghi,
+                    gio_vn_hien_tai, ngay_vn_hien_tai)
 
 bp = Blueprint("tasks", __name__)
 
@@ -763,50 +764,407 @@ def kpi():
     return render_template("kpi.html", bang=bang, tu_ngay=tu_ngay, den_ngay=den_ngay)
 
 
-@bp.route("/thu-vien")
-@login_required
-def thu_vien():
-    """Xem toàn bộ đối chứng đã nộp — phạm vi theo đúng quyền xem việc sẵn
-    có (nhân viên chỉ thấy việc liên quan tới mình, quản lý thấy trong bộ
-    phận, admin/sếp thấy toàn công ty)."""
-    trang = request.args.get("trang", 1, type=int)
-    nguoi = request.args.get("nguoi", type=int)
-    loai = request.args.get("loai", "")
-    tim = (request.args.get("q") or "").strip()
-    tu_ngay_raw = request.args.get("tu_ngay") or ""
-    den_ngay_raw = request.args.get("den_ngay") or ""
+NGUON_THU_VIEN = {
+    "doi_chung": "Đối chứng",
+    "danh_gia": "Ảnh đánh giá",
+    "yeu_cau": "Ảnh yêu cầu",
+    "xin_nghi": "Đơn xin nghỉ",
+    "chuc_vu": "Ảnh chức vụ",
+    "san_pham": "Ảnh sản phẩm",
+    "mo_coi": "Không rõ nguồn gốc",
+}
 
+
+class _PhanTrangDon:
+    """Giả lập tối thiểu Flask-SQLAlchemy Pagination cho danh sách Python
+    thường (không phải 1 query đơn) — để dùng lại nguyên khối HTML phân
+    trang đã có trong template, không cần viết thêm 1 kiểu phân trang khác."""
+
+    def __init__(self, items, page, per_page, total):
+        self.items = items
+        self.page = page
+        self.per_page = per_page
+        self.total = total
+        self.pages = max(1, math.ceil(total / per_page))
+        self.has_prev = page > 1
+        self.has_next = page < self.pages
+        self.prev_num = page - 1
+        self.next_num = page + 1
+
+
+def _khop_tim(tim: str, *chuoi) -> bool:
+    if not tim:
+        return True
+    tim_thuong = tim.lower()
+    return any(tim_thuong in (c or "").lower() for c in chuoi)
+
+
+def _trong_khoang_ngay(tao_luc, tu_ngay, den_ngay) -> bool:
+    if tu_ngay and tao_luc.date() < tu_ngay:
+        return False
+    if den_ngay and tao_luc.date() > den_ngay:
+        return False
+    return True
+
+
+def _muc_doi_chung(nguoi, tim, tu_ngay, den_ngay):
+    """Đối chứng — phạm vi theo đúng quyền xem việc (như trước giờ)."""
     viec_ids = _viec_lien_quan().with_entities(CongViec.id)
     q = DinhKem.query.join(CongViec, DinhKem.cong_viec_id == CongViec.id).filter(
         DinhKem.cong_viec_id.in_(viec_ids)
     )
     if nguoi:
         q = q.filter(DinhKem.nguoi_tai_len_id == nguoi)
-    if loai:
-        q = q.filter(DinhKem.loai == loai)
-    if tim:
-        like = f"%{tim}%"
-        q = q.filter(db.or_(CongViec.tieu_de.ilike(like), CongViec.ma.ilike(like)))
+    ds = []
+    for dk in q.all():
+        if not _trong_khoang_ngay(dk.tao_luc, tu_ngay, den_ngay):
+            continue
+        if not _khop_tim(tim, dk.cong_viec.ma, dk.cong_viec.tieu_de, dk.ten_goc):
+            continue
+        ds.append({
+            "loai_nguon": "doi_chung", "ten_loai_nguon": NGUON_THU_VIEN["doi_chung"],
+            "duong_dan": dk.duong_dan, "loai": dk.loai,
+            "ten_file": dk.ten_goc or dk.duong_dan,
+            "dong_1": f"[{dk.cong_viec.ma}] {dk.cong_viec.tieu_de}",
+            "dong_1_link": url_for("tasks.chi_tiet", viec_id=dk.cong_viec_id),
+            "nguoi_ten": dk.nguoi_tai_len.ho_ten if dk.nguoi_tai_len else None,
+            "phu": f"lần {dk.lan_gui}" if dk.lan_gui > 1 else None,
+            "tao_luc": dk.tao_luc,
+            "co_the_xoa": current_user.la_admin_sep,
+            "xoa_action": url_for("tasks.xoa_dinh_kem", id=dk.id),
+            "xoa_xac_nhan": (f"Xoá vĩnh viễn đối chứng này? Không ảnh hưởng đánh giá đã "
+                            f"chấm cho việc [{dk.cong_viec.ma}], chỉ mất file."),
+        })
+    return ds
+
+
+def _muc_anh_danh_gia(nguoi, tim, tu_ngay, den_ngay):
+    q = AnhDanhGia.query.join(DanhGia, AnhDanhGia.danh_gia_id == DanhGia.id).join(
+        CongViec, DanhGia.cong_viec_id == CongViec.id)
+    if nguoi:
+        q = q.filter(DanhGia.nguoi_danh_gia_id == nguoi)
+    ds = []
+    for adg in q.all():
+        if not _trong_khoang_ngay(adg.tao_luc, tu_ngay, den_ngay):
+            continue
+        viec = adg.danh_gia.cong_viec
+        if not _khop_tim(tim, viec.ma, viec.tieu_de, adg.ten_goc):
+            continue
+        ds.append({
+            "loai_nguon": "danh_gia", "ten_loai_nguon": NGUON_THU_VIEN["danh_gia"],
+            "duong_dan": adg.duong_dan, "loai": LoaiDinhKem.ANH,
+            "ten_file": adg.ten_goc or adg.duong_dan,
+            "dong_1": f"[{viec.ma}] {viec.tieu_de}",
+            "dong_1_link": url_for("tasks.chi_tiet", viec_id=viec.id),
+            "nguoi_ten": adg.danh_gia.nguoi_danh_gia.ho_ten if adg.danh_gia.nguoi_danh_gia else None,
+            "phu": None, "tao_luc": adg.tao_luc,
+            "co_the_xoa": current_user.la_admin_sep,
+            "xoa_action": url_for("tasks.xoa_anh_danh_gia", id=adg.id),
+            "xoa_xac_nhan": f"Xoá vĩnh viễn ảnh đánh giá này của việc [{viec.ma}]?",
+        })
+    return ds
+
+
+def _muc_anh_yeu_cau(nguoi, tim, tu_ngay, den_ngay):
+    q = AnhYeuCau.query.join(CongViec, AnhYeuCau.cong_viec_id == CongViec.id)
+    if nguoi:
+        q = q.filter(CongViec.nguoi_giao_id == nguoi)
+    ds = []
+    for ayc in q.all():
+        if not _trong_khoang_ngay(ayc.tao_luc, tu_ngay, den_ngay):
+            continue
+        viec = ayc.cong_viec
+        if not _khop_tim(tim, viec.ma, viec.tieu_de, ayc.ten_goc):
+            continue
+        ds.append({
+            "loai_nguon": "yeu_cau", "ten_loai_nguon": NGUON_THU_VIEN["yeu_cau"],
+            "duong_dan": ayc.duong_dan, "loai": LoaiDinhKem.ANH,
+            "ten_file": ayc.ten_goc or ayc.duong_dan,
+            "dong_1": f"[{viec.ma}] {viec.tieu_de}",
+            "dong_1_link": url_for("tasks.chi_tiet", viec_id=viec.id),
+            "nguoi_ten": viec.nguoi_giao.ho_ten if viec.nguoi_giao else None,
+            "phu": None, "tao_luc": ayc.tao_luc,
+            "co_the_xoa": current_user.la_admin_sep,
+            "xoa_action": url_for("tasks.xoa_anh_yeu_cau", id=ayc.id),
+            "xoa_xac_nhan": f"Xoá vĩnh viễn ảnh yêu cầu này của việc [{viec.ma}]?",
+        })
+    return ds
+
+
+def _muc_xin_nghi(nguoi, tim, tu_ngay, den_ngay):
+    """1 đơn nghỉ nhiều ngày tạo nhiều dòng XinNghi nhưng dùng CHUNG 1 file
+    — gộp lại thành 1 mục duy nhất theo đường dẫn, tránh hiện trùng lặp."""
+    q = XinNghi.query
+    if nguoi:
+        q = q.filter(XinNghi.nguoi_dung_id == nguoi)
+    theo_file: dict[str, list] = {}
+    for xn in q.order_by(XinNghi.ngay).all():
+        theo_file.setdefault(xn.anh_minh_chung, []).append(xn)
+
+    ds = []
+    for duong_dan, nhom in theo_file.items():
+        dau, cuoi = nhom[0], nhom[-1]
+        tao_luc = dau.tao_luc or gio_vn_hien_tai()
+        if not _trong_khoang_ngay(tao_luc, tu_ngay, den_ngay):
+            continue
+        ten_nv = dau.nguoi_dung.ho_ten if dau.nguoi_dung else "—"
+        khoang_ngay = (f"ngày {dau.ngay:%d/%m/%Y}" if dau.ngay == cuoi.ngay
+                      else f"{dau.ngay:%d/%m}–{cuoi.ngay:%d/%m/%Y}")
+        if not _khop_tim(tim, ten_nv, khoang_ngay):
+            continue
+        ds.append({
+            "loai_nguon": "xin_nghi", "ten_loai_nguon": NGUON_THU_VIEN["xin_nghi"],
+            "duong_dan": duong_dan, "loai": LoaiDinhKem.FILE,
+            "ten_file": f"Đơn nghỉ {khoang_ngay}",
+            "dong_1": f"Đơn nghỉ phép — {khoang_ngay}",
+            "dong_1_link": None,
+            "nguoi_ten": ten_nv, "phu": None, "tao_luc": tao_luc,
+            "co_the_xoa": False,  # xoá tại trang Bảng công (có xử lý dùng-chung-file riêng)
+            "xoa_action": None, "xoa_xac_nhan": None,
+        })
+    return ds
+
+
+def _muc_chuc_vu(nguoi, tim, tu_ngay, den_ngay):
+    ds = []
+    for cv in ChucVu.query.filter(ChucVu.anh.isnot(None)).all():
+        if not _trong_khoang_ngay(cv.tao_luc or gio_vn_hien_tai(), tu_ngay, den_ngay):
+            continue
+        if not _khop_tim(tim, cv.ten):
+            continue
+        ds.append({
+            "loai_nguon": "chuc_vu", "ten_loai_nguon": NGUON_THU_VIEN["chuc_vu"],
+            "duong_dan": cv.anh, "loai": LoaiDinhKem.ANH,
+            "ten_file": cv.ten,
+            "dong_1": f"Chức vụ: {cv.ten}", "dong_1_link": url_for("admin.info_ai"),
+            "nguoi_ten": None, "phu": None, "tao_luc": cv.tao_luc or gio_vn_hien_tai(),
+            "co_the_xoa": False,  # xoá tại trang Quản trị > Chức vụ
+            "xoa_action": None, "xoa_xac_nhan": None,
+        })
+    return ds
+
+
+def _muc_san_pham(nguoi, tim, tu_ngay, den_ngay):
+    from models import SanPhamAI
+    ds = []
+    q = AnhSanPhamAI.query.join(SanPhamAI, AnhSanPhamAI.san_pham_id == SanPhamAI.id)
+    for asp in q.all():
+        tao_luc = asp.san_pham.tao_luc or gio_vn_hien_tai()
+        if not _trong_khoang_ngay(tao_luc, tu_ngay, den_ngay):
+            continue
+        if not _khop_tim(tim, asp.san_pham.ten, asp.nhan):
+            continue
+        ds.append({
+            "loai_nguon": "san_pham", "ten_loai_nguon": NGUON_THU_VIEN["san_pham"],
+            "duong_dan": asp.duong_dan, "loai": LoaiDinhKem.ANH,
+            "ten_file": asp.nhan or asp.san_pham.ten,
+            "dong_1": f"Sản phẩm: {asp.san_pham.ten}" + (f" · {asp.nhan}" if asp.nhan else ""),
+            "dong_1_link": url_for("admin.info_ai"),
+            "nguoi_ten": None, "phu": None, "tao_luc": tao_luc,
+            "co_the_xoa": False,  # xoá tại trang Quản trị > Info AI
+            "xoa_action": None, "xoa_xac_nhan": None,
+        })
+    return ds
+
+
+def _muc_mo_coi(tim, tu_ngay, den_ngay):
+    """Quét toàn bộ thư mục upload, tìm file KHÔNG có bản ghi nào (ở bất kỳ
+    bảng nào) trỏ tới — dấu vết của lỗi cũ hoặc xoá dữ liệu chưa dọn hết.
+    Chỉ Admin/Sếp mới quét được vì phải duyệt qua toàn bộ ổ đĩa upload."""
+    goc = current_app.config["UPLOAD_ROOT"]
+    tren_dia = set()
+    for thu_muc_goc, _, cac_file in os.walk(goc):
+        for ten in cac_file:
+            duong_dan_tuyet_doi = os.path.join(thu_muc_goc, ten)
+            tren_dia.add(os.path.relpath(duong_dan_tuyet_doi, goc).replace(os.sep, "/"))
+
+    da_biet = set()
+    da_biet.update(r[0] for r in db.session.query(DinhKem.duong_dan).all())
+    da_biet.update(r[0] for r in db.session.query(AnhDanhGia.duong_dan).all())
+    da_biet.update(r[0] for r in db.session.query(AnhYeuCau.duong_dan).all())
+    da_biet.update(r[0] for r in db.session.query(XinNghi.anh_minh_chung).all())
+    da_biet.update(r[0] for r in db.session.query(ChucVu.anh).filter(ChucVu.anh.isnot(None)).all())
+    da_biet.update(r[0] for r in db.session.query(AnhSanPhamAI.duong_dan).all())
+
+    ds = []
+    for duong_dan in sorted(tren_dia - da_biet):
+        duong_dan_tuyet_doi = os.path.join(goc, *duong_dan.split("/"))
+        try:
+            thong_ke = os.stat(duong_dan_tuyet_doi)
+            tao_luc = datetime.fromtimestamp(thong_ke.st_mtime)
+        except OSError:
+            tao_luc = gio_vn_hien_tai()
+        if not _trong_khoang_ngay(tao_luc, tu_ngay, den_ngay):
+            continue
+        ten_file = os.path.basename(duong_dan)
+        if not _khop_tim(tim, ten_file, duong_dan):
+            continue
+        ds.append({
+            "loai_nguon": "mo_coi", "ten_loai_nguon": NGUON_THU_VIEN["mo_coi"],
+            "duong_dan": duong_dan, "loai": services.phan_loai(ten_file) or LoaiDinhKem.FILE,
+            "ten_file": ten_file,
+            "dong_1": f"⚠️ {ten_file}", "dong_1_link": None,
+            "nguoi_ten": None, "phu": "không rõ nguồn gốc — có thể xoá an toàn",
+            "tao_luc": tao_luc,
+            "co_the_xoa": True,
+            "xoa_action": url_for("tasks.xoa_file_mo_coi"),
+            "xoa_xac_nhan": f"Xoá vĩnh viễn file mồ côi \"{ten_file}\"? Không có gì tham chiếu tới file này.",
+            "xoa_duong_dan": duong_dan,  # form ẩn cần gửi kèm để backend biết xoá file nào
+        })
+    return ds
+
+
+@bp.route("/thu-vien")
+@login_required
+def thu_vien():
+    """Thư viện file. Mặc định (nhân viên/quản lý): chỉ đối chứng, đúng
+    phạm vi quyền xem việc như trước giờ. Admin/Sếp có thêm bộ lọc "Nguồn"
+    để xem MỌI loại file từng lưu trong thư mục upload — ảnh đánh giá, ảnh
+    yêu cầu, đơn xin nghỉ, ảnh chức vụ, ảnh sản phẩm, và cả file mồ côi."""
+    trang = request.args.get("trang", 1, type=int)
+    nguoi = request.args.get("nguoi", type=int)
+    tim = (request.args.get("q") or "").strip()
+    tu_ngay_raw = request.args.get("tu_ngay") or ""
+    den_ngay_raw = request.args.get("den_ngay") or ""
+    nguon = request.args.get("nguon") or "doi_chung"
+    if not current_user.la_admin_sep:
+        nguon = "doi_chung"  # nhân viên/quản lý luôn chỉ thấy đối chứng, bất kể query có gì
+
+    tu_ngay = den_ngay = None
     if tu_ngay_raw:
         try:
-            q = q.filter(DinhKem.tao_luc >= datetime.combine(date.fromisoformat(tu_ngay_raw), datetime.min.time()))
+            tu_ngay = date.fromisoformat(tu_ngay_raw)
         except ValueError:
             tu_ngay_raw = ""
     if den_ngay_raw:
         try:
-            q = q.filter(DinhKem.tao_luc <= datetime.combine(date.fromisoformat(den_ngay_raw), datetime.max.time()))
+            den_ngay = date.fromisoformat(den_ngay_raw)
         except ValueError:
             den_ngay_raw = ""
 
-    q = q.order_by(DinhKem.tao_luc.desc())
-    phan_trang = q.paginate(page=trang, per_page=24, error_out=False)
+    ham_theo_nguon = {
+        "doi_chung": lambda: _muc_doi_chung(nguoi, tim, tu_ngay, den_ngay),
+        "danh_gia": lambda: _muc_anh_danh_gia(nguoi, tim, tu_ngay, den_ngay),
+        "yeu_cau": lambda: _muc_anh_yeu_cau(nguoi, tim, tu_ngay, den_ngay),
+        "xin_nghi": lambda: _muc_xin_nghi(nguoi, tim, tu_ngay, den_ngay),
+        "chuc_vu": lambda: _muc_chuc_vu(nguoi, tim, tu_ngay, den_ngay),
+        "san_pham": lambda: _muc_san_pham(nguoi, tim, tu_ngay, den_ngay),
+        "mo_coi": lambda: _muc_mo_coi(tim, tu_ngay, den_ngay),
+    }
+    if nguon == "tat_ca":
+        ds = [m for key in ham_theo_nguon if key != "mo_coi" for m in ham_theo_nguon[key]()]
+    else:
+        ds = ham_theo_nguon.get(nguon, ham_theo_nguon["doi_chung"])()
+
+    ds.sort(key=lambda d: d["tao_luc"], reverse=True)
+
+    MOI_TRANG = 24
+    tong = len(ds)
+    tong_trang = max(1, math.ceil(tong / MOI_TRANG))
+    trang = min(max(1, trang), tong_trang)
+    ds_trang = ds[(trang - 1) * MOI_TRANG: trang * MOI_TRANG]
+    phan_trang = _PhanTrangDon(ds_trang, trang, MOI_TRANG, tong)
 
     return render_template(
         "thu_vien.html",
-        phan_trang=phan_trang, ds=phan_trang.items,
+        phan_trang=phan_trang, ds=ds_trang,
         nhan_vien=_nhan_vien_duoc_giao() if current_user.la_quan_ly else [],
-        f_nguoi=nguoi, f_loai=loai, f_q=tim, f_tu_ngay=tu_ngay_raw, f_den_ngay=den_ngay_raw,
+        f_nguoi=nguoi, f_q=tim, f_tu_ngay=tu_ngay_raw, f_den_ngay=den_ngay_raw,
+        f_nguon=nguon, NGUON_THU_VIEN=NGUON_THU_VIEN,
     )
+
+
+@bp.route("/thu-vien/xem-mo-coi/<path:duong_dan>")
+@login_required
+def xem_file_mo_coi(duong_dan):
+    """Chỉ Admin/Sếp — xem trước 1 file mồ côi trước khi quyết định xoá.
+    Route /media thường không nhận diện được file loại này (đúng nghĩa mồ
+    côi là không bảng nào tham chiếu tới), nên cần route riêng — chỉ phục
+    vụ đúng file thực sự nằm trong UPLOAD_ROOT, chặn path traversal."""
+    if not current_user.la_admin_sep:
+        abort(403)
+    goc_that = os.path.realpath(current_app.config["UPLOAD_ROOT"])
+    duong_dan_that = os.path.realpath(os.path.join(goc_that, *duong_dan.split("/")))
+    if not (duong_dan_that == goc_that or duong_dan_that.startswith(goc_that + os.sep)):
+        abort(400)
+    if not os.path.isfile(duong_dan_that):
+        abort(404)
+    return send_from_directory(current_app.config["UPLOAD_ROOT"], duong_dan)
+
+
+@bp.route("/thu-vien/xoa-mo-coi", methods=["POST"])
+@login_required
+def xoa_file_mo_coi():
+    """Chỉ Admin/Sếp — xoá 1 file mồ côi. Kiểm tra lại NGAY LÚC XOÁ là thực
+    sự không còn bảng nào tham chiếu (không tin dữ liệu cũ lúc hiện trang),
+    và chặn path traversal — chỉ xoá file thực sự nằm trong UPLOAD_ROOT."""
+    if not current_user.la_admin_sep:
+        abort(403)
+    duong_dan = (request.form.get("duong_dan") or "").strip()
+    if not duong_dan:
+        abort(400)
+
+    con_dung = (
+        DinhKem.query.filter_by(duong_dan=duong_dan).first()
+        or AnhDanhGia.query.filter_by(duong_dan=duong_dan).first()
+        or AnhYeuCau.query.filter_by(duong_dan=duong_dan).first()
+        or XinNghi.query.filter_by(anh_minh_chung=duong_dan).first()
+        or ChucVu.query.filter_by(anh=duong_dan).first()
+        or AnhSanPhamAI.query.filter_by(duong_dan=duong_dan).first()
+    )
+    if con_dung:
+        flash("File này thực ra vẫn đang được dùng, không xoá.", "error")
+        return redirect(url_for("tasks.thu_vien", nguon="mo_coi"))
+
+    goc_that = os.path.realpath(current_app.config["UPLOAD_ROOT"])
+    duong_dan_that = os.path.realpath(os.path.join(goc_that, *duong_dan.split("/")))
+    if not (duong_dan_that == goc_that or duong_dan_that.startswith(goc_that + os.sep)):
+        abort(400)
+    try:
+        os.remove(duong_dan_that)
+        flash("Đã xoá vĩnh viễn file mồ côi.", "success")
+    except OSError:
+        flash("Không tìm thấy file (có thể đã bị xoá trước đó).", "info")
+    return redirect(url_for("tasks.thu_vien", nguon="mo_coi"))
+
+
+@bp.route("/thu-vien/xoa-anh-danh-gia/<int:id>", methods=["POST"])
+@login_required
+def xoa_anh_danh_gia(id):
+    """Chỉ Admin/Sếp — xoá 1 ảnh đánh giá, kể cả file vật lý. Không ảnh
+    hưởng tới nội dung/số sao đã chấm, chỉ mất ảnh minh hoạ đi kèm."""
+    if not current_user.la_admin_sep:
+        abort(403)
+    adg = db.session.get(AnhDanhGia, id) or abort(404)
+    duong_dan = os.path.join(current_app.config["UPLOAD_ROOT"], *adg.duong_dan.split("/"))
+    try:
+        os.remove(duong_dan)
+    except OSError:
+        pass
+    ma_viec = adg.danh_gia.cong_viec.ma
+    db.session.delete(adg)
+    db.session.commit()
+    flash(f"Đã xoá ảnh đánh giá của việc {ma_viec}.", "success")
+    return redirect(request.referrer or url_for("tasks.thu_vien", nguon="danh_gia"))
+
+
+@bp.route("/thu-vien/xoa-anh-yeu-cau/<int:id>", methods=["POST"])
+@login_required
+def xoa_anh_yeu_cau(id):
+    """Chỉ Admin/Sếp — xoá 1 ảnh yêu cầu, kể cả file vật lý."""
+    if not current_user.la_admin_sep:
+        abort(403)
+    ayc = db.session.get(AnhYeuCau, id) or abort(404)
+    duong_dan = os.path.join(current_app.config["UPLOAD_ROOT"], *ayc.duong_dan.split("/"))
+    try:
+        os.remove(duong_dan)
+    except OSError:
+        pass
+    ma_viec = ayc.cong_viec.ma
+    db.session.delete(ayc)
+    db.session.commit()
+    flash(f"Đã xoá ảnh yêu cầu của việc {ma_viec}.", "success")
+    return redirect(request.referrer or url_for("tasks.thu_vien", nguon="yeu_cau"))
 
 
 @bp.route("/thu-vien/<int:id>/xoa", methods=["POST"])
