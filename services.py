@@ -554,7 +554,7 @@ def _tra_loi_viec_hom_nay(chat_id: str) -> str:
     viec_hom_nay = (
         CongViec.query.filter(
             CongViec.nguoi_nhan_id == nv.id,
-            CongViec.trang_thai.in_(TrangThai.DANG_MO),
+            CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
             dieu_kien_viec_trong_ngay(hom_nay),
         )
         .order_by(CongViec.han)
