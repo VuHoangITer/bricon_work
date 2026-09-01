@@ -578,7 +578,7 @@ def _tra_loi_viec_hom_nay(chat_id: str) -> str:
     if viec_hom_nay:
         for v in viec_hom_nay:
             gio = v.han.strftime("%H:%M") if v.han else "—"
-            dong.append(f"- [{v.ma}] {v.tieu_de} (hạn {gio})")
+            dong.append(f"- [{v.ma}] {v.tieu_de} (hạn {gio})\n  {v.link}")
     else:
         dong.append("- Không có việc nào tới hạn hôm nay.")
 
@@ -586,7 +586,7 @@ def _tra_loi_viec_hom_nay(chat_id: str) -> str:
         dong.append("")
         dong.append("🔴 Việc bị 0 sao hôm nay")
         for v in viec_0_sao:
-            dong.append(f"- [{v.ma}] {v.tieu_de}")
+            dong.append(f"- [{v.ma}] {v.tieu_de}\n  {v.link}")
 
     return "\n".join(dong)
 
