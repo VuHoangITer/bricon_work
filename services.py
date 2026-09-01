@@ -494,6 +494,8 @@ def xu_ly_webhook_zalo(bot: "BotZalo", du_lieu: dict):
     - "/id": trả zalo_group_id + zalo_user_id (dò nhóm khi thiết lập).
     - Tag bot + có chữ "giao việc": trả link trang Giao việc mới.
     - Tag bot + có chữ "kpi": trả link trang KPI.
+    - Tag bot + có chữ "xem việc": trả danh sách việc hạn hôm nay + việc bị
+      0 sao hôm nay của chính người nhắn (theo zalo_group_id).
     - Tag bot, còn lại: trả link trang chủ hệ thống.
 
     Zalo không công bố rõ trường "đã tag bot" trong webhook, nên nhận diện
@@ -530,9 +532,63 @@ def xu_ly_webhook_zalo(bot: "BotZalo", du_lieu: dict):
         nd = f"📌 Vào đây để giao việc mới:\n{base}/viec/moi"
     elif "kpi" in text_thuong:
         nd = f"📊 Vào đây để xem KPI:\n{base}/kpi"
+    elif "xem việc" in text_thuong or "xem viec" in text_thuong:
+        nd = _tra_loi_viec_hom_nay(str(chat_id))
     else:
         nd = f"👋 Vào hệ thống BRICON WORK tại đây:\n{base}/"
     gui_zalo(chat_id, nd, token_ghi_de=bot.token)
+
+
+def _tra_loi_viec_hom_nay(chat_id: str) -> str:
+    """Soạn tin trả lời khi tag bot gõ "xem việc" — dùng đúng điều kiện lọc
+    với Dashboard/Trợ lý AI (dieu_kien_viec_trong_ngay) để không lệch số
+    liệu giữa web và Zalo. Việc 0 sao tách hẳn thành đoạn riêng, có dòng
+    trống ngăn cách, mỗi việc 1 dòng bắt đầu bằng "- "."""
+    nv = NguoiDung.query.filter_by(zalo_group_id=chat_id).first()
+    if not nv:
+        return "Không tìm thấy tài khoản nào gắn với nhóm Zalo này."
+    if nv.la_admin_sep:
+        return "Vai trò này không được giao việc trực tiếp nên không có việc hạn hôm nay."
+
+    hom_nay = ngay_vn_hien_tai()
+    viec_hom_nay = (
+        CongViec.query.filter(
+            CongViec.nguoi_nhan_id == nv.id,
+            CongViec.trang_thai.in_(TrangThai.DANG_MO),
+            dieu_kien_viec_trong_ngay(hom_nay),
+        )
+        .order_by(CongViec.han)
+        .all()
+    )
+
+    dau_ngay = datetime.combine(hom_nay, datetime.min.time())
+    cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
+    viec_0_sao = (
+        CongViec.query.filter(
+            CongViec.nguoi_nhan_id == nv.id,
+            CongViec.so_sao_cuoi == 0,
+            CongViec.hoan_thanh_luc >= dau_ngay,
+            CongViec.hoan_thanh_luc <= cuoi_ngay,
+        )
+        .order_by(CongViec.hoan_thanh_luc.desc())
+        .all()
+    )
+
+    dong = [f"📋 Việc hạn hôm nay ({hom_nay:%d/%m/%Y})"]
+    if viec_hom_nay:
+        for v in viec_hom_nay:
+            gio = v.han.strftime("%H:%M") if v.han else "—"
+            dong.append(f"- [{v.ma}] {v.tieu_de} (hạn {gio})")
+    else:
+        dong.append("- Không có việc nào tới hạn hôm nay.")
+
+    if viec_0_sao:
+        dong.append("")
+        dong.append("🔴 Việc bị 0 sao hôm nay")
+        for v in viec_0_sao:
+            dong.append(f"- [{v.ma}] {v.tieu_de}")
+
+    return "\n".join(dong)
 
 
 # ---- Nội dung tin nhắn ------------------------------------------------------
