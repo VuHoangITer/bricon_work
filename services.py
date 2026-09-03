@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 
 from extensions import db
 from models import (BuoiNghi, ChamCong, CongViec, DanhGia, DiemChamCong, DoUuTien,
-                    GhiChuNop, LogZalo, LoaiDinhKem, MucSao, NguoiDung, TrangThai,
+                    GhiChuNop, LogZalo, LoaiDinhKem, MucSao, NguoiDung, ThongBao, TrangThai,
                     VaiTro, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 # ---------------------------------------------------------------------------
@@ -775,6 +775,18 @@ def nhac_viec_hom_nay() -> int:
         return 0
     base = current_app.config["BASE_URL"]
     nd = f"📋 Xem công việc hôm nay của bạn:\n\n{base}/viec"
+    ds = _nhan_vien_khong_phai_admin_sep()
+    for nv in ds:
+        gui_cho_nhan_vien(nv, nd)
+    return len(ds)
+
+
+def gui_thong_bao(tb: "ThongBao") -> int:
+    """Gửi 1 ThongBao (do sếp/quản lý soạn) tới toàn bộ nhân viên đang hoạt
+    động qua Zalo — trừ Sếp/Admin (họ là người tạo, không cần tự nhận lại).
+    Không lọc theo bộ phận: đúng yêu cầu "tất cả nhân viên đều nhận được".
+    Trả về số người đã gửi, để lưu vào ThongBao.so_nguoi_nhan."""
+    nd = f"Thông Báo Toàn Bộ Nhân Viên Công Ty Bricon\n\n{tb.noi_dung}"
     ds = _nhan_vien_khong_phai_admin_sep()
     for nv in ds:
         gui_cho_nhan_vien(nv, nd)

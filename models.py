@@ -517,6 +517,25 @@ class NgayNghiLe(db.Model):
         return f"<NgayNghiLe {self.ngay} {self.ten}>"
 
 
+class ThongBao(db.Model):
+    """Thông báo do sếp/quản lý CHỦ ĐỘNG soạn và gửi tới toàn bộ nhân viên
+    qua Zalo (VD: báo lương trễ, nghỉ đột xuất...) — khác hẳn các tin Zalo
+    do hệ thống TỰ ĐỘNG gửi (nhắc việc, kết quả duyệt...): đây là nội dung
+    tự do do người quản lý gõ ra, không gắn với 1 công việc cụ thể nào."""
+    __tablename__ = "thong_bao"
+
+    id = db.Column(db.Integer, primary_key=True)
+    noi_dung = db.Column(db.Text, nullable=False)
+    nguoi_dang_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False)
+    so_nguoi_nhan = db.Column(db.Integer, default=0)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    nguoi_dang = db.relationship("NguoiDung")
+
+    def __repr__(self):
+        return f"<ThongBao {self.id} boi={self.nguoi_dang_id}>"
+
+
 class DiemChamCong(db.Model):
     __tablename__ = "diem_cham_cong"
 

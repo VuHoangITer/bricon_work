@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Thông báo · BRICON{% endblock %}
+
+{% block content %}
+<h1>Thông báo</h1>
+
+{% if current_user.la_quan_ly %}
+<form class="the" method="post" action="{{ url_for('thong_bao.tao_moi') }}">
+  <div class="o-nhap">
+    <label for="noi_dung">Nội dung thông báo</label>
+    <textarea id="noi_dung" name="noi_dung" rows="4" required
+              placeholder="VD: Lương tháng này sẽ trả trễ 1 ngày, dự kiến chuyển vào ngày 06 thay vì ngày 05 như thường lệ."></textarea>
+  </div>
+  <div class="goi-y" style="margin-bottom:10px">Gửi Zalo ngay lập tức tới toàn bộ nhân viên đang hoạt động (trừ Sếp/Admin).</div>
+  <button class="nut nut--rong" type="submit">Gửi thông báo</button>
+</form>
+{% endif %}
+
+<div class="tieu-khu"><h2>Lịch sử thông báo</h2><span class="dem">{{ danh_sach|length }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Thời gian</th><th>Người gửi</th><th>Nội dung</th><th>Số người nhận</th></tr></thead>
+    <tbody>
+    {% for tb in danh_sach %}
+      <tr>
+        <td>{{ tb.tao_luc.strftime('%H:%M %d/%m/%Y') }}</td>
+        <td>{{ tb.nguoi_dang.ho_ten if tb.nguoi_dang else '—' }}</td>
+        <td style="white-space:pre-wrap">{{ tb.noi_dung }}</td>
+        <td>{{ tb.so_nguoi_nhan }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có thông báo nào.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

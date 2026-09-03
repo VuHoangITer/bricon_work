@@ -26,10 +26,12 @@ def create_app(config_class=Config):
     from views.attendance import bp as attendance_bp
     from views.auth import bp as auth_bp
     from views.tasks import bp as tasks_bp
+    from views.thong_bao import bp as thong_bao_bp
     from views.tro_ly import bp as tro_ly_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(tasks_bp)
+    app.register_blueprint(thong_bao_bp)
     app.register_blueprint(attendance_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
