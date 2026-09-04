@@ -50,10 +50,18 @@ def _tu_dong_dong_viec_qua_han():
 
 
 # ---------------------------------------------------------------------------
+def _vai_tro_khong_duoc_giao() -> tuple[str, ...]:
+    """Vai trò KHÔNG được chọn làm người nhận việc. Admin luôn bị loại (role
+    hệ thống, không phải nhân sự thực). Sếp chỉ bị loại khi người đang giao
+    KHÔNG PHẢI Sếp — tức chỉ Sếp mới giao việc được cho Sếp khác."""
+    if current_user.vai_tro == VaiTro.SEP:
+        return (VaiTro.ADMIN,)
+    return (VaiTro.ADMIN, VaiTro.SEP)
+
+
 def _nhan_vien_duoc_giao() -> list[NguoiDung]:
-    # Sếp/Quản trị không thể bị giao việc — loại khỏi danh sách chọn.
     q = NguoiDung.query.filter_by(dang_hoat_dong=True).filter(
-        NguoiDung.vai_tro.notin_((VaiTro.ADMIN, VaiTro.SEP))
+        NguoiDung.vai_tro.notin_(_vai_tro_khong_duoc_giao())
     )
     if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
         q = q.filter(NguoiDung.bo_phan_id == current_user.bo_phan_id)
@@ -399,7 +407,7 @@ def giao_viec():
         tao = []
         for nid in nguoi_nhan_ids:
             nv = db.session.get(NguoiDung, int(nid))
-            if not nv or not nv.dang_hoat_dong or nv.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
+            if not nv or not nv.dang_hoat_dong or nv.vai_tro in _vai_tro_khong_duoc_giao():
                 continue
             for h in danh_sach_han:
                 v = CongViec(
@@ -455,7 +463,7 @@ def giao_viec():
             tao_i = []
             for nid in nguoi_nhan_ids_i:
                 nv = db.session.get(NguoiDung, int(nid))
-                if not nv or not nv.dang_hoat_dong or nv.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
+                if not nv or not nv.dang_hoat_dong or nv.vai_tro in _vai_tro_khong_duoc_giao():
                     continue
                 v = CongViec(
                     tieu_de=tieu_de_i, mo_ta=mo_ta_i, han=han_i,

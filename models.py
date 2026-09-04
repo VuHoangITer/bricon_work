@@ -270,7 +270,10 @@ class NguoiDung(UserMixin, db.Model):
 
     def duoc_duyet_viec(self, viec: "CongViec") -> bool:
         if self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
-            return True
+            # Không tự duyệt việc của chính mình — chỉ nảy sinh từ khi Sếp
+            # có thể được giao việc bởi Sếp khác; Admin/Sếp khác vẫn duyệt
+            # được bình thường.
+            return viec.nguoi_nhan_id != self.id
         if viec.nguoi_giao_id == self.id:
             return True
         if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
