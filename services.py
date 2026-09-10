@@ -793,7 +793,7 @@ def gui_thong_bao(tb: "ThongBao", nguoi_nhan: list[NguoiDung]) -> int:
     nguoi_nhan được truyền vào (đã lọc/validate ở route) — có thể là toàn
     bộ hoặc chỉ 1 số người được chọn. Trả về số người đã gửi, để lưu vào
     ThongBao.so_nguoi_nhan."""
-    nd = f"Thông Báo Toàn Bộ Nhân Viên Công Ty Bricon\n\n{tb.noi_dung}"
+    nd = f"THÔNG BÁO NỘI BỘ – CÔNG TY BRICON\n\n{tb.noi_dung}"
     for nv in nguoi_nhan:
         gui_cho_nhan_vien(nv, nd)
     return len(nguoi_nhan)
