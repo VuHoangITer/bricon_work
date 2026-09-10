@@ -11,7 +11,24 @@
     <textarea id="noi_dung" name="noi_dung" rows="4" required
               placeholder="VD: Lương tháng này sẽ trả trễ 1 ngày, dự kiến chuyển vào ngày 06 thay vì ngày 05 như thường lệ."></textarea>
   </div>
-  <div class="goi-y" style="margin-bottom:10px">Gửi Zalo ngay lập tức tới toàn bộ nhân viên đang hoạt động (trừ Sếp/Admin).</div>
+
+  <div class="o-nhap">
+    <label><input type="checkbox" id="gui-tat-ca" name="gui_tat_ca" value="1" checked
+      onchange="document.getElementById('chon-nguoi-nhan').style.display = this.checked ? 'none' : 'block'">
+      Gửi cho tất cả nhân viên</label>
+  </div>
+
+  <div id="chon-nguoi-nhan" class="o-nhap" style="display:none">
+    <label>Chọn người nhận</label>
+    <div class="chon-nhieu">
+      {% for n in nhan_vien %}
+      <label><input type="checkbox" name="nguoi_nhan_id" value="{{ n.id }}"><span>{{ n.ho_ten }}
+        <span style="color:var(--muc-nhat);font-size:.76rem">· {{ n.ma_dinh_danh }}{% if not n.zalo_group_id %} · chưa có Zalo{% endif %}</span></span></label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="goi-y" style="margin-bottom:10px">Gửi Zalo ngay lập tức tới những người được chọn.</div>
   <button class="nut nut--rong" type="submit">Gửi thông báo</button>
 </form>
 {% endif %}

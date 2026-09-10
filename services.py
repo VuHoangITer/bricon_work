@@ -781,16 +781,22 @@ def nhac_viec_hom_nay() -> int:
     return len(ds)
 
 
-def gui_thong_bao(tb: "ThongBao") -> int:
-    """Gửi 1 ThongBao (do sếp/quản lý soạn) tới toàn bộ nhân viên đang hoạt
-    động qua Zalo — trừ Sếp/Admin (họ là người tạo, không cần tự nhận lại).
-    Không lọc theo bộ phận: đúng yêu cầu "tất cả nhân viên đều nhận được".
-    Trả về số người đã gửi, để lưu vào ThongBao.so_nguoi_nhan."""
+def danh_sach_nhan_vien_nhan_thong_bao() -> list[NguoiDung]:
+    """Danh sách nhân viên đủ điều kiện nhận Thông báo (đang hoạt động, trừ
+    Admin/Sếp) — dùng để hiện ô chọn người nhận trên form và để validate
+    lựa chọn khi gửi."""
+    return _nhan_vien_khong_phai_admin_sep()
+
+
+def gui_thong_bao(tb: "ThongBao", nguoi_nhan: list[NguoiDung]) -> int:
+    """Gửi 1 ThongBao (do sếp/quản lý soạn) qua Zalo tới đúng danh sách
+    nguoi_nhan được truyền vào (đã lọc/validate ở route) — có thể là toàn
+    bộ hoặc chỉ 1 số người được chọn. Trả về số người đã gửi, để lưu vào
+    ThongBao.so_nguoi_nhan."""
     nd = f"Thông Báo Toàn Bộ Nhân Viên Công Ty Bricon\n\n{tb.noi_dung}"
-    ds = _nhan_vien_khong_phai_admin_sep()
-    for nv in ds:
+    for nv in nguoi_nhan:
         gui_cho_nhan_vien(nv, nd)
-    return len(ds)
+    return len(nguoi_nhan)
 
 
 def bao_cao_sang_cho_sep():
