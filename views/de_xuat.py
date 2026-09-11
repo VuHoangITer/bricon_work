@@ -1,7 +1,8 @@
 import base64
 import binascii
+import os
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 import services
@@ -128,7 +129,8 @@ def chi_tiet(id):
     if not _duoc_xem(dx):
         abort(403)
     duoc_duyet = current_user.duoc_duyet_de_xuat(dx) and dx.trang_thai == TrangThaiDeXuat.CHO_DUYET
-    return render_template("de_xuat_detail.html", dx=dx, duoc_duyet=duoc_duyet)
+    duoc_xoa = current_user.vai_tro == VaiTro.ADMIN
+    return render_template("de_xuat_detail.html", dx=dx, duoc_duyet=duoc_duyet, duoc_xoa=duoc_xoa)
 
 
 @bp.route("/<int:id>/duyet", methods=["POST"])
@@ -167,3 +169,27 @@ def duyet(id):
 
     flash("Đã lưu kết quả duyệt.", "success")
     return redirect(url_for("de_xuat.chi_tiet", id=dx.id))
+
+
+@bp.route("/<int:id>/xoa", methods=["POST"])
+@login_required
+def xoa(id):
+    """Xoá vĩnh viễn 1 đề xuất — CHỈ Admin (không phải Sếp/Quản lý bộ
+    phận, dù họ vẫn có quyền duyệt). Xoá cả 3 file liên quan trên đĩa
+    (PDF + 2 ảnh chữ ký) để không để lại rác, không chỉ xoá dòng DB."""
+    if current_user.vai_tro != VaiTro.ADMIN:
+        abort(403)
+    dx = db.session.get(DeXuat, id) or abort(404)
+
+    for duong_dan in (dx.duong_dan_pdf, dx.duong_dan_chu_ky_de_xuat, dx.duong_dan_chu_ky_duyet):
+        if not duong_dan:
+            continue
+        duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *duong_dan.split("/"))
+        if os.path.isfile(duong_dan_tuyet_doi):
+            os.remove(duong_dan_tuyet_doi)
+
+    db.session.delete(dx)
+    db.session.commit()
+
+    flash("Đã xoá vĩnh viễn đề xuất.", "success")
+    return redirect(url_for("de_xuat.danh_sach"))

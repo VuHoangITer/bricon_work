@@ -62,6 +62,15 @@
   </div>
 </div>
 {% endif %}
+
+{% if duoc_xoa %}
+<div class="hang-nut" style="margin-top:14px">
+  <form method="post" action="{{ url_for('de_xuat.xoa', id=dx.id) }}"
+        onsubmit="return confirm('Xoá VĨNH VIỄN đề xuất này? Không thể hoàn tác, kể cả file PDF/chữ ký đã ký.');">
+    <button type="submit" class="nut nut--do nut--nho">🗑 Xoá vĩnh viễn</button>
+  </form>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
