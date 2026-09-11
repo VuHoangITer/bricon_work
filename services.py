@@ -722,6 +722,9 @@ def xu_ly_webhook_zalo(bot: "BotZalo", du_lieu: dict):
     - Tag bot + có chữ "kpi": trả link trang KPI.
     - Tag bot + có chữ "xem việc": trả danh sách việc hạn hôm nay + việc bị
       0 sao hôm nay của chính người nhắn (theo zalo_group_id).
+    - Tag bot + có chữ "đề xuất tạm ứng"/"đề xuất công việc": trả link
+      trang nộp đúng loại đề xuất đó; chỉ "đề xuất" (không rõ loại) thì
+      trả link trang danh sách đề xuất chung.
     - Tag bot, còn lại: trả link trang chủ hệ thống.
 
     Zalo không công bố rõ trường "đã tag bot" trong webhook, nên nhận diện
@@ -760,6 +763,12 @@ def xu_ly_webhook_zalo(bot: "BotZalo", du_lieu: dict):
         nd = f"📊 Vào đây để xem KPI:\n{base}/kpi"
     elif "xem việc" in text_thuong or "xem viec" in text_thuong:
         nd = _tra_loi_viec_hom_nay(str(chat_id))
+    elif "đề xuất tạm ứng" in text_thuong or "de xuat tam ung" in text_thuong:
+        nd = f"💰 Vào đây để gửi đề xuất tạm ứng:\n{base}/de-xuat/moi/tam_ung"
+    elif "đề xuất công việc" in text_thuong or "de xuat cong viec" in text_thuong:
+        nd = f"🛠 Vào đây để gửi đề xuất công việc:\n{base}/de-xuat/moi/cong_viec"
+    elif "đề xuất" in text_thuong or "de xuat" in text_thuong:
+        nd = f"📝 Vào đây để gửi đề xuất:\n{base}/de-xuat"
     else:
         nd = f"👋 Vào hệ thống BRICON WORK tại đây:\n{base}/"
     gui_zalo(chat_id, nd, token_ghi_de=bot.token)
