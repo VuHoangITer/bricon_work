@@ -6,7 +6,7 @@ from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import DeXuat, LoaiDeXuat, NguoiDung, TrangThaiDeXuat
+from models import DeXuat, LoaiDeXuat, NguoiDung, TrangThaiDeXuat, VaiTro
 
 bp = Blueprint("de_xuat", __name__, url_prefix="/de-xuat")
 
@@ -18,6 +18,23 @@ def _de_xuat_can_duyet():
         return []
     ds = DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET).order_by(DeXuat.tao_luc).all()
     return [dx for dx in ds if current_user.duoc_duyet_de_xuat(dx)]
+
+
+def _de_xuat_giam_sat():
+    """Đề xuất ĐÃ XỬ LÝ (đã duyệt/từ chối) trong phạm vi current_user được
+    xem — Admin/Sếp: toàn công ty; Quản lý bộ phận: của nhân viên trong bộ
+    phận mình. Tách riêng khỏi _de_xuat_can_duyet (chỉ đang chờ) để Sếp còn
+    xem lại lịch sử đã duyệt, không chỉ việc cần hành động."""
+    if current_user.la_admin_sep:
+        q = DeXuat.query
+    elif current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
+        q = DeXuat.query.join(NguoiDung, DeXuat.nguoi_de_xuat_id == NguoiDung.id).filter(
+            NguoiDung.bo_phan_id == current_user.bo_phan_id
+        )
+    else:
+        return []
+    return q.filter(DeXuat.trang_thai != TrangThaiDeXuat.CHO_DUYET) \
+        .order_by(DeXuat.tao_luc.desc()).limit(100).all()
 
 
 def _duoc_xem(dx: DeXuat) -> bool:
@@ -49,7 +66,8 @@ def _doc_chu_ky(ten_truong: str) -> bytes | None:
 def danh_sach():
     cua_toi = DeXuat.query.filter_by(nguoi_de_xuat_id=current_user.id).order_by(DeXuat.tao_luc.desc()).all()
     can_duyet = _de_xuat_can_duyet()
-    return render_template("de_xuat_list.html", cua_toi=cua_toi, can_duyet=can_duyet)
+    giam_sat = _de_xuat_giam_sat()
+    return render_template("de_xuat_list.html", cua_toi=cua_toi, can_duyet=can_duyet, giam_sat=giam_sat)
 
 
 @bp.route("/moi/<loai>", methods=["GET", "POST"])

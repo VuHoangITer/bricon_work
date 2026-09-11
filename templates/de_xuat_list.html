@@ -43,6 +43,26 @@
 </div>
 {% endif %}
 
+{% if giam_sat %}
+<div class="tieu-khu"><h2>Lịch sử đề xuất</h2><span class="dem">{{ giam_sat|length }}</span></div>
+<div class="the the--khong-dem bang-cuon" style="margin-bottom:18px">
+  <table>
+    <thead><tr><th>Loại</th><th>Người đề xuất</th><th>Nội dung</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+    {% for dx in giam_sat %}
+      <tr onclick="location.href='{{ url_for('de_xuat.chi_tiet', id=dx.id) }}'" style="cursor:pointer">
+        <td>{{ dx.ten_loai }}</td>
+        <td>{{ dx.nguoi_de_xuat.ho_ten }}</td>
+        <td style="max-width:320px;white-space:pre-wrap">{{ dx.noi_dung }}</td>
+        <td>{{ dx.tao_luc.strftime('%H:%M %d/%m') }}</td>
+        <td><span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 <div class="tieu-khu"><h2>Đề xuất của tôi</h2><span class="dem">{{ cua_toi|length }}</span></div>
 <div class="the the--khong-dem bang-cuon">
   <table>

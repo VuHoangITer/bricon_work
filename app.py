@@ -8,7 +8,7 @@ from flask_login import current_user, login_required
 from config import Config
 from extensions import db, login_manager, migrate
 from models import (AnhDanhGia, AnhSanPhamAI, AnhYeuCau, BotZalo, BuoiNghi, ChamCong, ChucVu,
-                    CongViec, DinhKem, DoUuTien, LoaiDinhKem, MucSao, NguoiDung, TrangThai,
+                    CongViec, DeXuat, DinhKem, DoUuTien, LoaiDinhKem, MucSao, NguoiDung, TrangThai,
                     VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 
@@ -65,6 +65,17 @@ def create_app(config_class=Config):
         xn = XinNghi.query.filter_by(anh_minh_chung=duong_dan).first()
         if xn:
             if xn.nguoi_dung_id != current_user.id and not current_user.la_quan_ly:
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        dx = DeXuat.query.filter(
+            (DeXuat.duong_dan_pdf == duong_dan)
+            | (DeXuat.duong_dan_chu_ky_de_xuat == duong_dan)
+            | (DeXuat.duong_dan_chu_ky_duyet == duong_dan)
+        ).first()
+        if dx:
+            if not (current_user.id == dx.nguoi_de_xuat_id or current_user.la_admin_sep
+                    or current_user.duoc_duyet_de_xuat(dx)):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
