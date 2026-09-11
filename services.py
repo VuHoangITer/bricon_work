@@ -582,6 +582,13 @@ def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
         ]))
         return bang_anh_ky
 
+    if dx.duyet_luc:
+        dong_ngay_duyet = f"TP.HCM, ngày {dx.duyet_luc:%d} tháng {dx.duyet_luc:%m} năm {dx.duyet_luc:%Y}"
+    else:
+        dong_ngay_duyet = "TP.HCM, ngày ..... tháng ..... năm ........."
+    noi_dung_pdf.append(Paragraph(dong_ngay_duyet, kieu_phai))
+    noi_dung_pdf.append(Spacer(1, 4))
+
     o_de_xuat = [
         Paragraph("NGƯỜI ĐỀ XUẤT", kieu_trai_dam),
         Paragraph("(ký, ghi rõ họ tên)", kieu_trai_nho),
@@ -589,12 +596,7 @@ def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
         _o_anh_ky(dx.duong_dan_chu_ky_de_xuat),
         Paragraph(nv.ho_ten, kieu_trai_dam),
     ]
-    if dx.duyet_luc:
-        dong_ngay_duyet = f"TP.HCM, ngày {dx.duyet_luc:%d} tháng {dx.duyet_luc:%m} năm {dx.duyet_luc:%Y}"
-    else:
-        dong_ngay_duyet = "TP.HCM, ngày ..... tháng ..... năm ........."
     o_duyet = [
-        Paragraph(dong_ngay_duyet, kieu_phai),
         Paragraph("NGƯỜI DUYỆT", kieu_phai_dam),
         Paragraph("(ký, ghi rõ họ tên)", kieu_phai_nho),
         Spacer(1, 6),
