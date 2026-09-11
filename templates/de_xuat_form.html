@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Đề xuất {{ ten_loai }} · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px">
+  <a href="{{ url_for('de_xuat.danh_sach') }}" style="font-size:.85rem">‹ Đề xuất</a>
+</div>
+<h1>Đề xuất {{ ten_loai|lower }}</h1>
+
+<form class="the" method="post" id="form-de-xuat">
+  <div class="o-nhap">
+    <label for="noi_dung">Nội dung đề xuất</label>
+    <textarea id="noi_dung" name="noi_dung" rows="5" required
+      placeholder="{% if loai == 'tam_ung' %}VD: Xin tạm ứng lương tháng 9 do có việc gia đình đột xuất...{% else %}VD: Đề xuất mua thêm 1 máy in cho bộ phận kế toán...{% endif %}"></textarea>
+  </div>
+
+  <div class="o-nhap">
+    <label for="chi_phi_du_kien">Chi phí dự kiến (đ) — không bắt buộc</label>
+    <input id="chi_phi_du_kien" type="text" inputmode="numeric" name="chi_phi_du_kien" placeholder="VD: 3.000.000">
+  </div>
+
+  <input type="hidden" name="chu_ky" id="chu_ky">
+  <div class="goi-y" style="margin-bottom:10px">Bấm "Gửi đề xuất" để ký tên điện tử — hệ thống sẽ tạo đơn đề xuất (PDF) và báo cho người có thẩm quyền duyệt.</div>
+  <button class="nut nut--rong" type="submit">Gửi đề xuất</button>
+</form>
+
+<div class="modal-nen" id="modal-ky-ten" hidden>
+  <div class="modal-hop" role="dialog" aria-modal="true" aria-labelledby="modal-ky-ten-tieu-de" style="max-width:520px">
+    <div class="modal-dau">
+      <div>
+        <h2 id="modal-ky-ten-tieu-de">Ký tên xác nhận</h2>
+        <p class="subtle" style="margin:2px 0 0">Dùng ngón tay hoặc chuột để ký vào khung bên dưới.</p>
+      </div>
+      <button type="button" class="modal-dong" id="nut-dong-ky-ten" aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-than">
+      <canvas id="canvas-chu-ky" width="480" height="180"
+              style="width:100%;aspect-ratio:480/180;border:1.5px dashed var(--vien-dam);border-radius:var(--bk-n);background:#fff linear-gradient(to bottom, transparent calc(68% - 1px), #d8d6cf calc(68% - 1px), #d8d6cf 68%, transparent 68%) no-repeat;touch-action:none;cursor:crosshair"></canvas>
+      <div class="goi-y" style="margin-top:4px">Cố ký ngay trên đường kẻ mờ để chữ ký thẳng hàng, chuyên nghiệp hơn khi in ra.</div>
+      <div id="loi-chu-ky" style="color:var(--lam-lai);font-size:.82rem;margin-top:8px"></div>
+      <div class="hang-nut" style="margin-top:14px;justify-content:space-between">
+        <button type="button" class="nut nut--phu nut--nho" id="nut-xoa-ky">Xoá, ký lại</button>
+        <button type="button" class="nut nut--vang" id="nut-xac-nhan-ky">Xác nhận & Gửi</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('form-de-xuat');
+  const modal = document.getElementById('modal-ky-ten');
+  const nutDong = document.getElementById('nut-dong-ky-ten');
+  const nutXoa = document.getElementById('nut-xoa-ky');
+  const nutXacNhan = document.getElementById('nut-xac-nhan-ky');
+  const loiChuKy = document.getElementById('loi-chu-ky');
+  const chuKyInput = document.getElementById('chu_ky');
+  const canvas = document.getElementById('canvas-chu-ky');
+  const ctx = canvas.getContext('2d');
+  let daVe = false;
+  let dangVe = false;
+  let xTruoc = 0, yTruoc = 0;
+
+  function viTri(e) {
+    const rect = canvas.getBoundingClientRect();
+    const ti_le_x = canvas.width / rect.width;
+    const ti_le_y = canvas.height / rect.height;
+    const diem = e.touches && e.touches.length ? e.touches[0] : e;
+    return { x: (diem.clientX - rect.left) * ti_le_x, y: (diem.clientY - rect.top) * ti_le_y };
+  }
+  function batDauVe(e) {
+    e.preventDefault();
+    dangVe = true;
+    const p = viTri(e);
+    xTruoc = p.x; yTruoc = p.y;
+  }
+  function veChu(e) {
+    if (!dangVe) return;
+    e.preventDefault();
+    const p = viTri(e);
+    ctx.beginPath();
+    ctx.moveTo(xTruoc, yTruoc);
+    ctx.lineTo(p.x, p.y);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1c1c1a';
+    ctx.stroke();
+    xTruoc = p.x; yTruoc = p.y;
+    daVe = true;
+  }
+  function ketThucVe() { dangVe = false; }
+
+  canvas.addEventListener('mousedown', batDauVe);
+  canvas.addEventListener('mousemove', veChu);
+  window.addEventListener('mouseup', ketThucVe);
+  canvas.addEventListener('touchstart', batDauVe, { passive: false });
+  canvas.addEventListener('touchmove', veChu, { passive: false });
+  canvas.addEventListener('touchend', ketThucVe);
+
+  function xoaCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    daVe = false;
+    loiChuKy.textContent = '';
+  }
+  function moModal() {
+    xoaCanvas();
+    modal.hidden = false;
+    document.body.classList.add('modal-dang-mo');
+  }
+  function dongModal() {
+    modal.hidden = true;
+    document.body.classList.remove('modal-dang-mo');
+  }
+
+  form.addEventListener('submit', (ev) => {
+    if (form.dataset.daKy === '1') return;
+    ev.preventDefault();
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    moModal();
+  });
+
+  nutDong.addEventListener('click', dongModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) dongModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) dongModal(); });
+  nutXoa.addEventListener('click', xoaCanvas);
+
+  nutXacNhan.addEventListener('click', () => {
+    if (!daVe) {
+      loiChuKy.textContent = 'Bạn cần ký tên vào khung ở trên trước khi gửi.';
+      return;
+    }
+    chuKyInput.value = canvas.toDataURL('image/png');
+    form.dataset.daKy = '1';
+    dongModal();
+    form.requestSubmit();
+  });
+})();
+</script>
+{% endblock %}

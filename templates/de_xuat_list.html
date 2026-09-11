@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Đề xuất · BRICON{% endblock %}
+
+{% block content %}
+<h1>Đề xuất</h1>
+
+{% if not current_user.la_admin_sep %}
+<div class="luoi-chon-loai">
+  <a href="{{ url_for('de_xuat.moi', loai='tam_ung') }}" class="the-chon-loai">
+    <span class="the-chon-loai-icon">💰</span>
+    <span class="the-chon-loai-nd">
+      <h3>Đề xuất tạm ứng</h3>
+      <p>Xin tạm ứng lương hoặc chi phí phát sinh</p>
+    </span>
+  </a>
+  <a href="{{ url_for('de_xuat.moi', loai='cong_viec') }}" class="the-chon-loai">
+    <span class="the-chon-loai-icon">🛠</span>
+    <span class="the-chon-loai-nd">
+      <h3>Đề xuất công việc</h3>
+      <p>Đề xuất ý tưởng, thay đổi, mua sắm...</p>
+    </span>
+  </a>
+</div>
+{% endif %}
+
+{% if can_duyet %}
+<div class="tieu-khu"><h2>Cần tôi duyệt</h2><span class="dem">{{ can_duyet|length }}</span></div>
+<div class="the the--khong-dem bang-cuon" style="margin-bottom:18px">
+  <table>
+    <thead><tr><th>Loại</th><th>Người đề xuất</th><th>Nội dung</th><th>Thời gian</th><th></th></tr></thead>
+    <tbody>
+    {% for dx in can_duyet %}
+      <tr>
+        <td>{{ dx.ten_loai }}</td>
+        <td>{{ dx.nguoi_de_xuat.ho_ten }}</td>
+        <td style="max-width:320px;white-space:pre-wrap">{{ dx.noi_dung }}</td>
+        <td>{{ dx.tao_luc.strftime('%H:%M %d/%m') }}</td>
+        <td><a href="{{ url_for('de_xuat.chi_tiet', id=dx.id) }}" class="nut nut--nho nut--phu">Xem & duyệt</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="tieu-khu"><h2>Đề xuất của tôi</h2><span class="dem">{{ cua_toi|length }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table>
+    <thead><tr><th>Loại</th><th>Nội dung</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+    {% for dx in cua_toi %}
+      <tr onclick="location.href='{{ url_for('de_xuat.chi_tiet', id=dx.id) }}'" style="cursor:pointer">
+        <td>{{ dx.ten_loai }}</td>
+        <td style="max-width:320px;white-space:pre-wrap">{{ dx.noi_dung }}</td>
+        <td>{{ dx.tao_luc.strftime('%H:%M %d/%m/%Y') }}</td>
+        <td><span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có đề xuất nào.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

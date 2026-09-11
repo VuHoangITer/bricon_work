@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Đề xuất {{ dx.ten_loai }} · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px">
+  <a href="{{ url_for('de_xuat.danh_sach') }}" style="font-size:.85rem">‹ Đề xuất</a>
+</div>
+<h1>Đề xuất {{ dx.ten_loai|lower }}
+  <span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span>
+</h1>
+
+<div class="the">
+  <div class="dong-tt"><span>Người đề xuất</span><span>{{ dx.nguoi_de_xuat.ho_ten }}</span></div>
+  <div class="dong-tt"><span>Thời gian đề xuất</span><span>{{ dx.tao_luc.strftime('%H:%M %d/%m/%Y') }}</span></div>
+  <div class="dong-tt" style="align-items:flex-start"><span>Nội dung</span><span style="white-space:pre-wrap;text-align:right">{{ dx.noi_dung }}</span></div>
+  {% if dx.chi_phi_du_kien is not none %}
+  <div class="dong-tt"><span>Chi phí dự kiến</span><span>{{ "{:,}".format(dx.chi_phi_du_kien|int).replace(",", ".") }} đ</span></div>
+  {% endif %}
+  <div class="dong-tt"><span>Đơn (PDF)</span><span><a href="{{ url_for('media', duong_dan=dx.duong_dan_pdf) }}" target="_blank" rel="noopener">Xem / tải</a></span></div>
+
+  {% if dx.trang_thai != 'cho_duyet' %}
+  <div class="dong-tt"><span>Người duyệt</span><span>{{ dx.nguoi_duyet.ho_ten if dx.nguoi_duyet else '—' }}</span></div>
+  <div class="dong-tt"><span>Thời gian duyệt</span><span>{{ dx.duyet_luc.strftime('%H:%M %d/%m/%Y') if dx.duyet_luc else '—' }}</span></div>
+  <div class="dong-tt" style="align-items:flex-start"><span>Ý kiến</span><span style="white-space:pre-wrap;text-align:right">{{ dx.y_kien_duyet or '—' }}</span></div>
+  {% endif %}
+</div>
+
+{% if duoc_duyet %}
+<div class="tieu-khu"><h2>Duyệt đề xuất</h2></div>
+<form class="the" method="post" action="{{ url_for('de_xuat.duyet', id=dx.id) }}" id="form-duyet-de-xuat">
+  <div class="o-nhap">
+    <label for="y_kien_duyet">Ý kiến (không bắt buộc)</label>
+    <textarea id="y_kien_duyet" name="y_kien_duyet" rows="3" placeholder="VD: Đồng ý, tạm ứng tối đa 3 triệu..."></textarea>
+  </div>
+  <input type="hidden" name="ket_qua" id="ket_qua">
+  <input type="hidden" name="chu_ky" id="chu_ky">
+  <div class="hang-nut">
+    <button type="button" class="nut nut--rong" id="nut-dong-y">✅ Đồng ý & Ký</button>
+    <button type="button" class="nut nut--phu" id="nut-tu-choi">🚫 Từ chối & Ký</button>
+  </div>
+</form>
+
+<div class="modal-nen" id="modal-ky-ten" hidden>
+  <div class="modal-hop" role="dialog" aria-modal="true" aria-labelledby="modal-ky-ten-tieu-de" style="max-width:520px">
+    <div class="modal-dau">
+      <div>
+        <h2 id="modal-ky-ten-tieu-de">Ký tên xác nhận</h2>
+        <p class="subtle" style="margin:2px 0 0">Dùng ngón tay hoặc chuột để ký vào khung bên dưới.</p>
+      </div>
+      <button type="button" class="modal-dong" id="nut-dong-ky-ten" aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-than">
+      <canvas id="canvas-chu-ky" width="480" height="180"
+              style="width:100%;aspect-ratio:480/180;border:1.5px dashed var(--vien-dam);border-radius:var(--bk-n);background:#fff linear-gradient(to bottom, transparent calc(68% - 1px), #d8d6cf calc(68% - 1px), #d8d6cf 68%, transparent 68%) no-repeat;touch-action:none;cursor:crosshair"></canvas>
+      <div class="goi-y" style="margin-top:4px">Cố ký ngay trên đường kẻ mờ để chữ ký thẳng hàng, chuyên nghiệp hơn khi in ra.</div>
+      <div id="loi-chu-ky" style="color:var(--lam-lai);font-size:.82rem;margin-top:8px"></div>
+      <div class="hang-nut" style="margin-top:14px;justify-content:space-between">
+        <button type="button" class="nut nut--phu nut--nho" id="nut-xoa-ky">Xoá, ký lại</button>
+        <button type="button" class="nut nut--vang" id="nut-xac-nhan-ky">Xác nhận & Gửi</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if duoc_duyet %}
+<script>
+(function () {
+  const form = document.getElementById('form-duyet-de-xuat');
+  const ketQuaInput = document.getElementById('ket_qua');
+  const modal = document.getElementById('modal-ky-ten');
+  const nutDong = document.getElementById('nut-dong-ky-ten');
+  const nutXoa = document.getElementById('nut-xoa-ky');
+  const nutXacNhan = document.getElementById('nut-xac-nhan-ky');
+  const loiChuKy = document.getElementById('loi-chu-ky');
+  const chuKyInput = document.getElementById('chu_ky');
+  const canvas = document.getElementById('canvas-chu-ky');
+  const ctx = canvas.getContext('2d');
+  let daVe = false;
+  let dangVe = false;
+  let xTruoc = 0, yTruoc = 0;
+
+  function viTri(e) {
+    const rect = canvas.getBoundingClientRect();
+    const ti_le_x = canvas.width / rect.width;
+    const ti_le_y = canvas.height / rect.height;
+    const diem = e.touches && e.touches.length ? e.touches[0] : e;
+    return { x: (diem.clientX - rect.left) * ti_le_x, y: (diem.clientY - rect.top) * ti_le_y };
+  }
+  function batDauVe(e) {
+    e.preventDefault();
+    dangVe = true;
+    const p = viTri(e);
+    xTruoc = p.x; yTruoc = p.y;
+  }
+  function veChu(e) {
+    if (!dangVe) return;
+    e.preventDefault();
+    const p = viTri(e);
+    ctx.beginPath();
+    ctx.moveTo(xTruoc, yTruoc);
+    ctx.lineTo(p.x, p.y);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1c1c1a';
+    ctx.stroke();
+    xTruoc = p.x; yTruoc = p.y;
+    daVe = true;
+  }
+  function ketThucVe() { dangVe = false; }
+
+  canvas.addEventListener('mousedown', batDauVe);
+  canvas.addEventListener('mousemove', veChu);
+  window.addEventListener('mouseup', ketThucVe);
+  canvas.addEventListener('touchstart', batDauVe, { passive: false });
+  canvas.addEventListener('touchmove', veChu, { passive: false });
+  canvas.addEventListener('touchend', ketThucVe);
+
+  function xoaCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    daVe = false;
+    loiChuKy.textContent = '';
+  }
+  function moModal(ketQua) {
+    ketQuaInput.value = ketQua;
+    xoaCanvas();
+    modal.hidden = false;
+    document.body.classList.add('modal-dang-mo');
+  }
+  function dongModal() {
+    modal.hidden = true;
+    document.body.classList.remove('modal-dang-mo');
+  }
+
+  document.getElementById('nut-dong-y').addEventListener('click', () => moModal('da_duyet'));
+  document.getElementById('nut-tu-choi').addEventListener('click', () => moModal('tu_choi'));
+
+  nutDong.addEventListener('click', dongModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) dongModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) dongModal(); });
+  nutXoa.addEventListener('click', xoaCanvas);
+
+  nutXacNhan.addEventListener('click', () => {
+    if (!daVe) {
+      loiChuKy.textContent = 'Bạn cần ký tên vào khung ở trên trước khi gửi.';
+      return;
+    }
+    chuKyInput.value = canvas.toDataURL('image/png');
+    dongModal();
+    form.requestSubmit();
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

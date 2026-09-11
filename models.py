@@ -111,6 +111,21 @@ class MucSao:
         return MucSao.NHAN.get(so_sao, "")
 
 
+class LoaiDeXuat:
+    TAM_UNG = "tam_ung"
+    CONG_VIEC = "cong_viec"
+
+    NHAN = {TAM_UNG: "Tạm ứng", CONG_VIEC: "Công việc"}
+
+
+class TrangThaiDeXuat:
+    CHO_DUYET = "cho_duyet"
+    DA_DUYET = "da_duyet"
+    TU_CHOI = "tu_choi"
+
+    NHAN = {CHO_DUYET: "Chờ duyệt", DA_DUYET: "Đã duyệt", TU_CHOI: "Từ chối"}
+
+
 # --------------------------------------------------------------------------
 # Bảng
 # --------------------------------------------------------------------------
@@ -278,6 +293,20 @@ class NguoiDung(UserMixin, db.Model):
             return True
         if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
             return viec.nguoi_nhan and viec.nguoi_nhan.bo_phan_id == self.bo_phan_id
+        return False
+
+    def duoc_duyet_de_xuat(self, dx: "DeXuat") -> bool:
+        """Ai duyệt được 1 Đề xuất: Sếp/Admin (trừ đề xuất của chính mình)
+        hoặc Quản lý bộ phận của người đề xuất — cùng công thức với
+        duoc_duyet_viec, chỉ khác là chặn tự duyệt ngay từ đầu vì Đề xuất
+        không có nhánh "nguoi_giao_id == self.id" (không ai tự giao đề
+        xuất cho mình)."""
+        if dx.nguoi_de_xuat_id == self.id:
+            return False
+        if self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
+            return True
+        if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
+            return dx.nguoi_de_xuat and dx.nguoi_de_xuat.bo_phan_id == self.bo_phan_id
         return False
 
     @property
@@ -649,6 +678,45 @@ class XinNghi(db.Model):
 
     def __repr__(self):
         return f"<XinNghi {self.nguoi_dung_id} {self.ngay} {self.buoi}>"
+
+
+class DeXuat(db.Model):
+    """Đề xuất của nhân viên (tạm ứng lương / công việc) — có PDF ký điện
+    tử của CẢ 2 BÊN: người đề xuất ký lúc nộp, người duyệt ghi ý kiến + ký
+    lúc duyệt. Khác XinNghi (nộp là coi như duyệt luôn): đây là quy trình
+    2 bước thật, PDF được sinh lại (tao_pdf_de_xuat) sau khi duyệt để in
+    đủ cả ý kiến + chữ ký người duyệt."""
+    __tablename__ = "de_xuat"
+
+    id = db.Column(db.Integer, primary_key=True)
+    loai = db.Column(db.String(20), nullable=False)
+    nguoi_de_xuat_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    noi_dung = db.Column(db.Text, nullable=False)
+    chi_phi_du_kien = db.Column(db.Numeric(14, 0))  # VNĐ, để trống nếu không có
+    duong_dan_chu_ky_de_xuat = db.Column(db.String(300), nullable=False)  # ảnh chữ ký đã cắt, lưu file riêng để in lại PDF khi duyệt
+    duong_dan_pdf = db.Column(db.String(300), nullable=False)
+
+    trang_thai = db.Column(db.String(20), nullable=False, default=TrangThaiDeXuat.CHO_DUYET)
+    nguoi_duyet_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))
+    y_kien_duyet = db.Column(db.Text)
+    duong_dan_chu_ky_duyet = db.Column(db.String(300))
+    duyet_luc = db.Column(db.DateTime)
+
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    nguoi_de_xuat = db.relationship("NguoiDung", foreign_keys=[nguoi_de_xuat_id])
+    nguoi_duyet = db.relationship("NguoiDung", foreign_keys=[nguoi_duyet_id])
+
+    @property
+    def ten_loai(self):
+        return LoaiDeXuat.NHAN.get(self.loai, self.loai)
+
+    @property
+    def ten_trang_thai(self):
+        return TrangThaiDeXuat.NHAN.get(self.trang_thai, self.trang_thai)
+
+    def __repr__(self):
+        return f"<DeXuat {self.id} {self.loai} boi={self.nguoi_de_xuat_id}>"
 
 
 class TroLySuDung(db.Model):

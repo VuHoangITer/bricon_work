@@ -232,6 +232,15 @@ button.stat-card { appearance:none; -webkit-appearance:none; font:inherit; curso
 .the-thu-vien-file span { font-size:.73rem; padding:0 10px; }
 .the-thu-vien-info { padding:12px; }
 
+/* Lưới chọn loại (VD: chọn loại đề xuất) */
+.luoi-chon-loai { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:22px; }
+.the-chon-loai { display:flex; align-items:center; gap:14px; background:var(--the); border:1px solid var(--vien); border-radius:var(--bk); box-shadow:var(--bong); padding:18px; cursor:pointer; transition:.14s ease; }
+.the-chon-loai:hover { border-color:var(--chinh); box-shadow:0 4px 14px rgba(169,130,42,.14); transform:translateY(-1px); }
+.the-chon-loai-icon { flex:0 0 auto; width:46px; height:46px; border-radius:50%; background:var(--chinh-nhat); display:flex; align-items:center; justify-content:center; font-size:1.3rem; }
+.the-chon-loai-nd { flex:1; min-width:0; }
+.the-chon-loai-nd h3 { margin:0 0 2px; font-size:.95rem; }
+.the-chon-loai-nd p { margin:0; font-size:.8rem; color:var(--muc-mo); }
+
 /* Phân trang */
 .phan-trang { display:flex; align-items:center; justify-content:center; gap:14px; margin:22px 0 6px; }
 .phan-trang-so { font-size:.78rem; color:var(--muc-mo); font-weight:600; }

@@ -413,6 +413,232 @@ def luu_pdf_don_xin_nghi(pdf_bytes: bytes) -> str:
     return tuong_doi
 
 
+# ---------------------------------------------------------------------------
+# ĐỀ XUẤT (tạm ứng / công việc)
+# ---------------------------------------------------------------------------
+
+def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
+    """Sinh (hoặc sinh LẠI) PDF Đề xuất — dùng chung 1 hàm cho cả 2 thời
+    điểm: lúc mới nộp (chỉ có chữ ký người đề xuất, khung phải để "Chưa
+    duyệt") và lúc duyệt xong (in đủ ý kiến + chữ ký người duyệt). Luôn đọc
+    trạng thái/dữ liệu hiện tại trực tiếp từ `dx` (kể cả đọc lại 2 file ảnh
+    chữ ký từ đĩa) để PDF không bao giờ lệch với DB."""
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Image as RLImage
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus.flowables import HRFlowable
+
+    from models import LoaiDeXuat, TrangThaiDeXuat, VaiTro
+
+    _dang_ky_font_unicode()
+
+    VANG_DAM = HexColor("#8A6A1E")
+    XAM = HexColor("#75746E")
+    XAM_VIEN = HexColor("#E8E6E1")
+    DEN = HexColor("#1C1C1A")
+    XANH = HexColor("#3F7D55")
+    XANH_NHAT = HexColor("#EAF3EC")
+    DO = HexColor("#B3402A")
+    DO_NHAT = HexColor("#FBECE8")
+    CAM = HexColor("#B3792A")
+    CAM_NHAT = HexColor("#FBF2E8")
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        topMargin=1.4 * cm, bottomMargin=1.4 * cm, leftMargin=2.3 * cm, rightMargin=2.3 * cm,
+    )
+    rong_trang = A4[0] - 2.3 * cm - 2.3 * cm
+
+    kieu_quoc_hieu = ParagraphStyle("quoc_hieu", fontName="DejaVu-Bold", fontSize=13, alignment=TA_CENTER, leading=16)
+    kieu_tieu_ngu = ParagraphStyle("tieu_ngu", fontName="DejaVu", fontSize=11.5, alignment=TA_CENTER, leading=15)
+    kieu_tieu_de = ParagraphStyle("tieu_de", fontName="DejaVu-Bold", fontSize=16, alignment=TA_CENTER,
+                                  textColor=DEN, spaceBefore=8, spaceAfter=14)
+    kieu_de_muc = ParagraphStyle("de_muc", fontName="DejaVu-Bold", fontSize=10.5, textColor=VANG_DAM,
+                                 spaceBefore=12, spaceAfter=6)
+    kieu_thuong = ParagraphStyle("thuong", fontName="DejaVu", fontSize=10.5, alignment=TA_JUSTIFY,
+                                 leading=15, spaceAfter=6, textColor=DEN)
+    kieu_kinh_gui_nhan = ParagraphStyle("kinh_gui_nhan", fontName="DejaVu-Bold", fontSize=11, textColor=DEN)
+    kieu_kinh_gui_gt = ParagraphStyle("kinh_gui_gt", fontName="DejaVu", fontSize=11, textColor=DEN,
+                                      leading=15, spaceAfter=2)
+    kieu_nhan_tt = ParagraphStyle("nhan_tt", fontName="DejaVu-Bold", fontSize=10, textColor=XAM)
+    kieu_gt_tt = ParagraphStyle("gt_tt", fontName="DejaVu", fontSize=11, textColor=DEN)
+    kieu_phai = ParagraphStyle("phai", fontName="DejaVu", fontSize=10.5, alignment=TA_RIGHT, textColor=DEN)
+    kieu_phai_dam = ParagraphStyle("phai_dam", fontName="DejaVu-Bold", fontSize=11, alignment=TA_RIGHT, textColor=DEN)
+    kieu_phai_nho = ParagraphStyle("phai_nho", fontName="DejaVu", fontSize=9, alignment=TA_RIGHT, textColor=XAM)
+    kieu_trai = ParagraphStyle("trai", fontName="DejaVu", fontSize=10.5, textColor=DEN)
+    kieu_trai_dam = ParagraphStyle("trai_dam", fontName="DejaVu-Bold", fontSize=11, textColor=DEN)
+    kieu_trai_nho = ParagraphStyle("trai_nho", fontName="DejaVu", fontSize=9, textColor=XAM)
+
+    bay_gio = gio_vn_hien_tai()
+    nv = dx.nguoi_de_xuat
+
+    noi_dung_pdf = [
+        Paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", kieu_quoc_hieu),
+        Paragraph("Độc lập - Tự do - Hạnh phúc", kieu_tieu_ngu),
+        HRFlowable(width="32%", thickness=1, color=DEN, hAlign="CENTER", spaceBefore=3, spaceAfter=6),
+        Paragraph(f"ĐỀ XUẤT {dx.ten_loai.upper()}", kieu_tieu_de),
+    ]
+
+    cac_noi_nhan = ["Ban Giám đốc BRICON"]
+    if nv.vai_tro == VaiTro.NHAN_VIEN and nv.bo_phan:
+        cac_noi_nhan.append(f"Quản lý bộ phận {nv.bo_phan.ten}")
+    bang_kinh_gui = Table(
+        [[Paragraph("Kính gửi:", kieu_kinh_gui_nhan),
+          [Paragraph(dong, kieu_kinh_gui_gt) for dong in cac_noi_nhan]]],
+        colWidths=[2.6 * cm, rong_trang - 2.6 * cm],
+    )
+    bang_kinh_gui.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    noi_dung_pdf.append(bang_kinh_gui)
+
+    # ------------------------------------------------ thông tin người đề xuất
+    noi_dung_pdf.append(Paragraph("THÔNG TIN NGƯỜI ĐỀ XUẤT", kieu_de_muc))
+
+    def _hang_tt(nhan, gt):
+        return [Paragraph(nhan, kieu_nhan_tt), Paragraph(gt, kieu_gt_tt)]
+
+    du_lieu_tt = [
+        _hang_tt("Họ và tên", nv.ho_ten),
+        _hang_tt("Mã nhân viên", nv.ma_dinh_danh),
+        _hang_tt("Chức vụ", nv.chuc_vu.ten if nv.chuc_vu else "—"),
+        _hang_tt("Bộ phận", nv.bo_phan.ten if nv.bo_phan else "—"),
+        _hang_tt("Thời gian đề xuất", f"{dx.tao_luc:%H:%M} ngày {dx.tao_luc:%d/%m/%Y}"),
+    ]
+    bang_tt = Table(du_lieu_tt, colWidths=[rong_trang * 0.28, rong_trang * 0.72])
+    bang_tt.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEBELOW", (0, 0), (-1, -2), 0.5, XAM_VIEN),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    noi_dung_pdf.append(bang_tt)
+
+    # ------------------------------------------------ nội dung đề xuất
+    noi_dung_pdf.append(Paragraph("NỘI DUNG ĐỀ XUẤT", kieu_de_muc))
+    noi_dung_pdf.append(Paragraph(dx.noi_dung.replace("\n", "<br/>"), kieu_thuong))
+    if dx.chi_phi_du_kien is not None:
+        noi_dung_pdf.append(Paragraph(
+            f"<b>Chi phí dự kiến:</b> {int(dx.chi_phi_du_kien):,} đ".replace(",", "."), kieu_thuong))
+    noi_dung_pdf.append(Spacer(1, 4))
+
+    # ------------------------------------------------ ý kiến phê duyệt
+    noi_dung_pdf.append(Paragraph("Ý KIẾN PHÊ DUYỆT", kieu_de_muc))
+    if dx.trang_thai == TrangThaiDeXuat.CHO_DUYET:
+        o_mau, o_chu = CAM_NHAT, CAM
+        dong_trang_thai = "⏳ ĐANG CHỜ DUYỆT"
+        dong_noi_dung = "Đề xuất đang chờ người có thẩm quyền xem xét, chưa có ý kiến."
+    elif dx.trang_thai == TrangThaiDeXuat.DA_DUYET:
+        o_mau, o_chu = XANH_NHAT, XANH
+        dong_trang_thai = "✓ ĐÃ DUYỆT"
+        dong_noi_dung = dx.y_kien_duyet or "Đồng ý."
+    else:
+        o_mau, o_chu = DO_NHAT, DO
+        dong_trang_thai = "✗ TỪ CHỐI"
+        dong_noi_dung = dx.y_kien_duyet or "Không đồng ý."
+    kieu_tt_tieu_de = ParagraphStyle("tt_tieu_de", fontName="DejaVu-Bold", fontSize=10, textColor=o_chu)
+    kieu_tt_nd = ParagraphStyle("tt_nd", fontName="DejaVu", fontSize=10, textColor=DEN, leading=14)
+    o_y_kien = Table([[
+        [Paragraph(dong_trang_thai, kieu_tt_tieu_de), Spacer(1, 4), Paragraph(dong_noi_dung, kieu_tt_nd)]
+    ]], colWidths=[rong_trang])
+    o_y_kien.setStyle(TableStyle([
+        ("BOX", (0, 0), (0, 0), 0.75, o_chu),
+        ("BACKGROUND", (0, 0), (0, 0), o_mau),
+        ("TOPPADDING", (0, 0), (0, 0), 8), ("BOTTOMPADDING", (0, 0), (0, 0), 8),
+        ("LEFTPADDING", (0, 0), (0, 0), 10), ("RIGHTPADDING", (0, 0), (0, 0), 10),
+    ]))
+    noi_dung_pdf.append(o_y_kien)
+    noi_dung_pdf.append(Spacer(1, 10))
+
+    # ------------------------------------------------ khung ký tên 2 bên
+    def _o_anh_ky(duong_dan_tuong_doi: str | None):
+        if not duong_dan_tuong_doi:
+            return Paragraph("(chưa ký)", kieu_trai_nho)
+        duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *duong_dan_tuong_doi.split("/"))
+        with open(duong_dan_tuyet_doi, "rb") as f:
+            anh_ky = RLImage(BytesIO(f.read()))
+        ti_le = min(1.0, (5.2 * cm) / anh_ky.imageWidth)
+        anh_ky.drawWidth = anh_ky.imageWidth * ti_le
+        anh_ky.drawHeight = anh_ky.imageHeight * ti_le
+        return anh_ky
+
+    o_de_xuat = [
+        Paragraph(f"Tp. Hồ Chí Minh, ngày {dx.tao_luc:%d} tháng {dx.tao_luc:%m} năm {dx.tao_luc:%Y}", kieu_trai),
+        Paragraph("NGƯỜI ĐỀ XUẤT", kieu_trai_dam),
+        Paragraph("(ký, ghi rõ họ tên)", kieu_trai_nho),
+        Spacer(1, 6),
+        _o_anh_ky(dx.duong_dan_chu_ky_de_xuat),
+        Paragraph(nv.ho_ten, kieu_trai_dam),
+    ]
+    if dx.duyet_luc:
+        dong_ngay_duyet = f"Tp. Hồ Chí Minh, ngày {dx.duyet_luc:%d} tháng {dx.duyet_luc:%m} năm {dx.duyet_luc:%Y}"
+    else:
+        dong_ngay_duyet = "Tp. Hồ Chí Minh, ngày ..... tháng ..... năm ........."
+    o_duyet = [
+        Paragraph(dong_ngay_duyet, kieu_phai),
+        Paragraph("NGƯỜI DUYỆT", kieu_phai_dam),
+        Paragraph("(ký, ghi rõ họ tên)", kieu_phai_nho),
+        Spacer(1, 6),
+        _o_anh_ky(dx.duong_dan_chu_ky_duyet),
+        Paragraph(dx.nguoi_duyet.ho_ten if dx.nguoi_duyet else "..........................", kieu_phai_dam),
+    ]
+    bang_ky = Table([[o_de_xuat, o_duyet]], colWidths=[rong_trang * 0.5, rong_trang * 0.5])
+    bang_ky.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    noi_dung_pdf.append(bang_ky)
+
+    doc.build(noi_dung_pdf)
+    return buf.getvalue()
+
+
+def luu_pdf_de_xuat(pdf_bytes: bytes) -> str:
+    """Lưu PDF Đề xuất (mới nộp hoặc sinh lại sau khi duyệt) — luôn tạo 1
+    file MỚI mỗi lần gọi (không ghi đè), để bản cũ vẫn còn nếu cần đối
+    chiếu; con trỏ DeXuat.duong_dan_pdf trỏ vào bản mới nhất."""
+    tuong_doi, tuyet_doi = _duong_dan_moi("de-xuat.pdf", "de-xuat")
+    with open(tuyet_doi, "wb") as f:
+        f.write(pdf_bytes)
+    return tuong_doi
+
+
+def bao_de_xuat_moi(dx: "DeXuat"):
+    """Báo vào nhóm QL khi có đề xuất mới nộp — để Sếp/Quản lý bộ phận
+    biết mà vào duyệt, không cần tự kiểm tra danh sách."""
+    tien = f"\nChi phí dự kiến: {int(dx.chi_phi_du_kien):,} đ".replace(",", ".") if dx.chi_phi_du_kien is not None else ""
+    nd = (
+        f"📝 Đề xuất {dx.ten_loai.lower()} mới\n\n"
+        f"{dx.nguoi_de_xuat.ho_ten} ({dx.nguoi_de_xuat.ma_dinh_danh})\n"
+        f"{dx.noi_dung}{tien}\n\n"
+        f"Xem & duyệt:\n{current_app.config['BASE_URL']}/de-xuat/{dx.id}"
+    )
+    gui_nhom_ql(nd)
+
+
+def bao_duyet_de_xuat(dx: "DeXuat"):
+    """Báo cho người đề xuất biết kết quả duyệt (đồng ý/từ chối + ý kiến)."""
+    from models import TrangThaiDeXuat
+    if dx.trang_thai == TrangThaiDeXuat.DA_DUYET:
+        nd = f"✅ Đề xuất {dx.ten_loai.lower()} của bạn đã được duyệt"
+    else:
+        nd = f"🚫 Đề xuất {dx.ten_loai.lower()} của bạn KHÔNG được duyệt"
+    nd += (
+        f"\n\n{dx.noi_dung}\n"
+        f"Người duyệt: {dx.nguoi_duyet.ho_ten}\n"
+        f"Ý kiến: {dx.y_kien_duyet or '—'}\n\n"
+        f"Xem đơn (PDF):\n{current_app.config['BASE_URL']}/media/{dx.duong_dan_pdf}"
+    )
+    gui_cho_nhan_vien(dx.nguoi_de_xuat, nd)
+
+
 def lay_cac_chat_gan_day(token: str) -> tuple[list[dict], str | None, str]:
     """Gọi getUpdates để tìm các nhóm/chat bot vừa nhận được tin nhắn — dùng
     để dò chat_id của 1 nhóm mới thêm bot vào.
