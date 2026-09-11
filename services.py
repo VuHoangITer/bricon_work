@@ -481,7 +481,7 @@ def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
         Paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", kieu_quoc_hieu),
         Paragraph("Độc lập - Tự do - Hạnh phúc", kieu_tieu_ngu),
         HRFlowable(width="32%", thickness=1, color=DEN, hAlign="CENTER", spaceBefore=3, spaceAfter=6),
-        Paragraph(f"ĐỀ XUẤT {dx.ten_loai.upper()}", kieu_tieu_de),
+        Paragraph(f"PHIẾU ĐỀ XUẤT {dx.ten_loai.upper()}", kieu_tieu_de),
     ]
 
     cac_noi_nhan = ["Ban Giám đốc BRICON"]
@@ -558,19 +558,31 @@ def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
     noi_dung_pdf.append(Spacer(1, 10))
 
     # ------------------------------------------------ khung ký tên 2 bên
-    def _o_anh_ky(duong_dan_tuong_doi: str | None):
+    def _o_anh_ky(duong_dan_tuong_doi: str | None, can_phai: bool = False):
         if not duong_dan_tuong_doi:
-            return Paragraph("(chưa ký)", kieu_trai_nho)
+            return Paragraph("(chưa ký)", kieu_phai_nho if can_phai else kieu_trai_nho)
         duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *duong_dan_tuong_doi.split("/"))
         with open(duong_dan_tuyet_doi, "rb") as f:
             anh_ky = RLImage(BytesIO(f.read()))
         ti_le = min(1.0, (5.2 * cm) / anh_ky.imageWidth)
         anh_ky.drawWidth = anh_ky.imageWidth * ti_le
         anh_ky.drawHeight = anh_ky.imageHeight * ti_le
-        return anh_ky
+        if not can_phai:
+            return anh_ky
+        # Cột "NGƯỜI DUYỆT" căn phải — Image.hAlign không căn đúng mép phải
+        # thật khi ảnh nằm lồng trong ô Table (y hệt lỗi đã gặp và đã sửa ở
+        # tao_pdf_don_xin_nghi), nên phải bọc vào 1 bảng con dùng ALIGN cấp
+        # ô mới căn đúng, không lệch trái như trước.
+        bang_anh_ky = Table([[anh_ky]], colWidths=[rong_trang * 0.5])
+        bang_anh_ky.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (0, 0), "RIGHT"),
+            ("VALIGN", (0, 0), (0, 0), "TOP"),
+            ("LEFTPADDING", (0, 0), (0, 0), 0), ("RIGHTPADDING", (0, 0), (0, 0), 0),
+            ("TOPPADDING", (0, 0), (0, 0), 0), ("BOTTOMPADDING", (0, 0), (0, 0), 0),
+        ]))
+        return bang_anh_ky
 
     o_de_xuat = [
-        Paragraph(f"Tp. Hồ Chí Minh, ngày {dx.tao_luc:%d} tháng {dx.tao_luc:%m} năm {dx.tao_luc:%Y}", kieu_trai),
         Paragraph("NGƯỜI ĐỀ XUẤT", kieu_trai_dam),
         Paragraph("(ký, ghi rõ họ tên)", kieu_trai_nho),
         Spacer(1, 6),
@@ -578,15 +590,15 @@ def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
         Paragraph(nv.ho_ten, kieu_trai_dam),
     ]
     if dx.duyet_luc:
-        dong_ngay_duyet = f"Tp. Hồ Chí Minh, ngày {dx.duyet_luc:%d} tháng {dx.duyet_luc:%m} năm {dx.duyet_luc:%Y}"
+        dong_ngay_duyet = f"TP.HCM, ngày {dx.duyet_luc:%d} tháng {dx.duyet_luc:%m} năm {dx.duyet_luc:%Y}"
     else:
-        dong_ngay_duyet = "Tp. Hồ Chí Minh, ngày ..... tháng ..... năm ........."
+        dong_ngay_duyet = "TP.HCM, ngày ..... tháng ..... năm ........."
     o_duyet = [
         Paragraph(dong_ngay_duyet, kieu_phai),
         Paragraph("NGƯỜI DUYỆT", kieu_phai_dam),
         Paragraph("(ký, ghi rõ họ tên)", kieu_phai_nho),
         Spacer(1, 6),
-        _o_anh_ky(dx.duong_dan_chu_ky_duyet),
+        _o_anh_ky(dx.duong_dan_chu_ky_duyet, can_phai=True),
         Paragraph(dx.nguoi_duyet.ho_ten if dx.nguoi_duyet else "..........................", kieu_phai_dam),
     ]
     bang_ky = Table([[o_de_xuat, o_duyet]], colWidths=[rong_trang * 0.5, rong_trang * 0.5])
