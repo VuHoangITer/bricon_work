@@ -198,8 +198,9 @@ def ai_tom_tat_mo_ta(noi_dung_tho: str) -> tuple[str | None, str | None]:
 # ---------------------------------------------------------------------------
 _HUONG_DAN_HE_THONG_TRO_LY = (
     "Bạn là trợ lý ảo của BRICON WORK — phần mềm nội bộ quản lý giao việc, "
-    "chấm công, KPI và xin nghỉ phép của công ty BRICON. Trả lời tiếng Việt, "
-    "ngắn gọn, thân thiện, đúng trọng tâm.\n\n"
+    "chấm công, KPI, xin nghỉ phép, thông báo nội bộ và đề xuất (tạm ứng/"
+    "công việc) của công ty BRICON. Trả lời tiếng Việt, ngắn gọn, thân "
+    "thiện, đúng trọng tâm.\n\n"
 
     "ĐỊNH DẠNG tra_loi: nếu câu trả lời có từ 2 ý/mục trở lên (VD: liệt kê "
     "nhiệm vụ 1 chức vụ, liệt kê nhiều việc, nhiều người, các bước làm...), "
@@ -223,7 +224,15 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "- Nộp kết quả việc: vào chi tiết việc → Gửi đối chứng → đính kèm ảnh/"
     "video/tệp/ghi âm. Quá hạn chưa nộp gì sẽ tự đóng 0 sao, chỉ Admin mở "
     "lại được.\n"
-    "- Xem KPI: menu KPI, chọn khoảng ngày, thang điểm 0-5 sao.\n\n"
+    "- Xem KPI: menu KPI, chọn khoảng ngày, thang điểm 0-5 sao.\n"
+    "- Gửi đề xuất (tạm ứng lương hoặc đề xuất công việc): menu Đề xuất → "
+    "chọn loại → nhập nội dung, chi phí dự kiến nếu có, có thể đính kèm "
+    "nhiều ảnh/tệp minh chứng → ký tên điện tử → Gửi. Sếp/Admin hoặc Quản "
+    "lý bộ phận của người gửi sẽ duyệt (cũng ký tên + có thể đính kèm ảnh/"
+    "tệp), kết quả báo lại qua Zalo. Sếp/Quản trị không cần gửi đề xuất.\n"
+    "- Xem/gửi thông báo nội bộ: menu Thông báo — chỉ Sếp/Quản lý mới gửi "
+    "được thông báo tới nhân viên, mọi người đều xem được thông báo đã "
+    "gửi.\n\n"
 
     "DỮ LIỆU: chỉ dùng đúng dữ liệu thật cung cấp bên dưới cho số liệu/tên "
     "việc/lịch sử cụ thể — không bịa. Thiếu dữ liệu để trả lời 1 câu tra cứu "
@@ -243,7 +252,8 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
 
     "GIỚI HẠN THAO TÁC: bạn không tự THỰC HIỆN được thao tác ghi dữ liệu nào "
     "trong hệ thống (không tự tạo việc, không tự xin nghỉ, không tự chấm "
-    "công hộ) — đây là giới hạn của CHÍNH BẠN, không phải giới hạn quyền của "
+    "công hộ, không tự gửi/duyệt đề xuất hộ, không tự gửi thông báo hộ) — "
+    "đây là giới hạn của CHÍNH BẠN, không phải giới hạn quyền của "
     "người hỏi. Muốn thực hiện thao tác gì thì hướng dẫn họ tự bấm trong hệ "
     "thống, đừng suy diễn rằng vai trò họ \"không thể\" làm việc đó trừ khi "
     "dữ liệu bên dưới nói rõ bị cấm (chỉ Sếp/Quản trị không tự NHẬN việc "
@@ -269,6 +279,10 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "- \"/cham-cong/xin-nghi\" — trang xin nghỉ phép\n"
     "- \"/cham-cong/bang-cong\" — bảng công cả công ty (chỉ quản lý/sếp/admin)\n"
     "- \"/kpi\" — trang KPI\n"
+    "- \"/thong-bao/\" — trang thông báo nội bộ\n"
+    "- \"/de-xuat/\" — trang đề xuất (danh sách của mình, cần duyệt, lịch sử)\n"
+    "- \"/de-xuat/moi/tam_ung\" — gửi đề xuất tạm ứng mới\n"
+    "- \"/de-xuat/moi/cong_viec\" — gửi đề xuất công việc mới\n"
     "Nếu câu hỏi không cần gợi ý bấm đi đâu (VD: chỉ hỏi thông tin chung, "
     "chào hỏi), để duong_dan và nhan_nut là null.\n\n"
 
@@ -439,7 +453,7 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
     công ty với Sếp/Admin) — để tra cứu được theo tên bất kỳ ai, không chỉ
     của riêng người đang hỏi.
     """
-    from models import BoPhan, ChamCong, CongViec, TrangThai, XinNghi
+    from models import BoPhan, ChamCong, CongViec, DeXuat, TrangThai, TrangThaiDeXuat, XinNghi
 
     hom_nay = ngay_vn_hien_tai()
     ngay_mai = hom_nay + timedelta(days=1)
@@ -572,6 +586,17 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
         else:
             dong.append("Chưa đăng ký nghỉ phép nào sắp tới.")
 
+        de_xuat_cua_toi = (
+            DeXuat.query.filter_by(nguoi_de_xuat_id=nd.id)
+            .order_by(DeXuat.tao_luc.desc()).limit(5).all()
+        )
+        if de_xuat_cua_toi:
+            dong.append("Đề xuất gần đây của chính người đang hỏi: " + "; ".join(
+                f"{dx.ten_loai} - {dx.ten_trang_thai} (gửi {dx.tao_luc:%d/%m})"
+                for dx in de_xuat_cua_toi))
+        else:
+            dong.append("Người này chưa gửi đề xuất nào.")
+
         if nd.la_quan_ly and nd.bo_phan_id:
             tong_bo_phan = NguoiDung.query.filter_by(
                 bo_phan_id=nd.bo_phan_id, dang_hoat_dong=True).count()
@@ -587,6 +612,11 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
                             "nhân viên trong bộ phận mình quản lý (dùng để trả lời khi "
                             "được hỏi về 1 người cụ thể theo tên, không chỉ về chính "
                             "người đang hỏi) ---\n" + ngu_canh_doi)
+            so_cho_duyet_dx = len([
+                dx for dx in DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET).all()
+                if nd.duoc_duyet_de_xuat(dx)
+            ])
+            dong.append(f"Có {so_cho_duyet_dx} đề xuất đang chờ người này duyệt (xem ở /de-xuat/).")
     else:
         dau_ngay = datetime.combine(hom_nay, datetime.min.time())
         cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
@@ -613,6 +643,9 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
             + (" Theo bộ phận: " + "; ".join(f"{ten}: {sl}" for ten, sl in theo_bo_phan)
                if theo_bo_phan else "")
         )
+        so_cho_duyet_dx = DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET).count()
+        dong.append(f"Có {so_cho_duyet_dx} đề xuất (tạm ứng/công việc) đang chờ duyệt toàn "
+                    f"công ty, Sếp/Admin duyệt được hết (xem ở /de-xuat/).")
         dong.append(
             "QUAN TRỌNG: Vai trò Sếp/Quản trị KHÔNG tự chấm công, không tự xin "
             "nghỉ, và KHÔNG BAO GIỜ tự NHẬN việc nào trong hệ thống này (không "
