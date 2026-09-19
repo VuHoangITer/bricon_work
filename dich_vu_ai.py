@@ -612,11 +612,20 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
                             "nhân viên trong bộ phận mình quản lý (dùng để trả lời khi "
                             "được hỏi về 1 người cụ thể theo tên, không chỉ về chính "
                             "người đang hỏi) ---\n" + ngu_canh_doi)
-            so_cho_duyet_dx = len([
-                dx for dx in DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET).all()
+            cho_duyet_dx = [
+                dx for dx in DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET)
+                .order_by(DeXuat.tao_luc).all()
                 if nd.duoc_duyet_de_xuat(dx)
-            ])
-            dong.append(f"Có {so_cho_duyet_dx} đề xuất đang chờ người này duyệt (xem ở /de-xuat/).")
+            ]
+            if cho_duyet_dx:
+                dong.append(
+                    "--- Đề xuất đang chờ người này duyệt (dùng để trả lời khi được hỏi "
+                    "cụ thể là đề xuất nào/của ai/nội dung gì) ---\n" + "\n".join(
+                        f"[#{dx.id}] {dx.ten_loai} - {dx.nguoi_de_xuat.ho_ten}: "
+                        f"{dx.noi_dung[:150]} (gửi {dx.tao_luc:%d/%m})"
+                        for dx in cho_duyet_dx))
+            else:
+                dong.append("Không có đề xuất nào đang chờ người này duyệt.")
     else:
         dau_ngay = datetime.combine(hom_nay, datetime.min.time())
         cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
@@ -643,9 +652,18 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
             + (" Theo bộ phận: " + "; ".join(f"{ten}: {sl}" for ten, sl in theo_bo_phan)
                if theo_bo_phan else "")
         )
-        so_cho_duyet_dx = DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET).count()
-        dong.append(f"Có {so_cho_duyet_dx} đề xuất (tạm ứng/công việc) đang chờ duyệt toàn "
-                    f"công ty, Sếp/Admin duyệt được hết (xem ở /de-xuat/).")
+        cho_duyet_dx_all = DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET) \
+            .order_by(DeXuat.tao_luc).all()
+        if cho_duyet_dx_all:
+            dong.append(
+                f"--- {len(cho_duyet_dx_all)} đề xuất (tạm ứng/công việc) đang chờ duyệt "
+                f"toàn công ty, Sếp/Admin duyệt được hết (dùng để trả lời khi được hỏi cụ "
+                f"thể là đề xuất nào/của ai/nội dung gì) ---\n" + "\n".join(
+                    f"[#{dx.id}] {dx.ten_loai} - {dx.nguoi_de_xuat.ho_ten}: "
+                    f"{dx.noi_dung[:150]} (gửi {dx.tao_luc:%d/%m})"
+                    for dx in cho_duyet_dx_all))
+        else:
+            dong.append("Không có đề xuất nào đang chờ duyệt toàn công ty.")
         dong.append(
             "QUAN TRỌNG: Vai trò Sếp/Quản trị KHÔNG tự chấm công, không tự xin "
             "nghỉ, và KHÔNG BAO GIỜ tự NHẬN việc nào trong hệ thống này (không "
