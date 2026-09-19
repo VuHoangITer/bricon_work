@@ -117,6 +117,13 @@ def gui_nhom_ql(noi_dung: str, cong_viec: CongViec | None = None) -> bool:
                     cong_viec=cong_viec, token_ghi_de=token)
 
 
+def gui_anh_nhom_ql(url_anh: str, caption: str = "") -> bool:
+    """Gửi ẢNH THẬT vào nhóm Quản Lý (sendPhoto) — dùng cùng token với
+    gui_nhom_ql, giống gui_anh_cho_nhan_vien nhưng cho nhóm QL."""
+    token = current_app.config["ZALO_BOT_TOKEN_QL"] or current_app.config["ZALO_DEFAULT_BOT_TOKEN"]
+    return gui_zalo_anh(current_app.config["ZALO_GROUP_QL"], url_anh, caption, token_ghi_de=token)
+
+
 # ---------------------------------------------------------------------------
 # NGHỈ PHÉP
 # ---------------------------------------------------------------------------
@@ -624,22 +631,47 @@ def luu_pdf_de_xuat(pdf_bytes: bytes) -> str:
     return tuong_doi
 
 
+def _dong_dinh_kem(dinh_kem: list) -> str:
+    """Dòng tóm tắt số ảnh/tệp đính kèm để chèn vào tin nhắn Zalo, VD
+    "Đính kèm: 2 ảnh, 1 tệp khác" — rỗng nếu không có đính kèm nào."""
+    from models import LoaiDinhKem
+    so_anh = sum(1 for d in dinh_kem if d.loai == LoaiDinhKem.ANH)
+    so_khac = len(dinh_kem) - so_anh
+    phan = []
+    if so_anh:
+        phan.append(f"{so_anh} ảnh")
+    if so_khac:
+        phan.append(f"{so_khac} tệp khác")
+    return f"Đính kèm: {', '.join(phan)}\n" if phan else ""
+
+
 def bao_de_xuat_moi(dx: "DeXuat"):
     """Báo vào nhóm QL khi có đề xuất mới nộp — để Sếp/Quản lý bộ phận
     biết mà vào duyệt, không cần tự kiểm tra danh sách."""
+    from models import LoaiDinhKem
     tien = f"\nChi phí dự kiến: {int(dx.chi_phi_du_kien):,} đ".replace(",", ".") if dx.chi_phi_du_kien is not None else ""
     nd = (
         f"📝 Đề xuất {dx.ten_loai.lower()} mới\n\n"
         f"{dx.nguoi_de_xuat.ho_ten} ({dx.nguoi_de_xuat.ma_dinh_danh})\n"
-        f"{dx.noi_dung}{tien}\n\n"
+        f"{dx.noi_dung}{tien}\n"
+        f"{_dong_dinh_kem(dx.dinh_kem_de_xuat)}\n"
         f"Xem & duyệt:\n{current_app.config['BASE_URL']}/de-xuat/{dx.id}"
     )
     gui_nhom_ql(nd)
 
+    # Gửi kèm luôn ẢNH THẬT (sendPhoto) ngay sau tin nhắn chính, giống
+    # bao_giao_viec — chỉ ảnh mới gửi được kiểu này (Zalo Bot API ở đây
+    # chưa hỗ trợ gửi file/PDF), tệp khác vẫn phải bấm link vào xem. Giới
+    # hạn 5 ảnh để tránh dội quá nhiều tin liên tiếp.
+    base = current_app.config["BASE_URL"]
+    anh = [d for d in dx.dinh_kem_de_xuat if d.loai == LoaiDinhKem.ANH]
+    for a in anh[:5]:
+        gui_anh_nhom_ql(f"{base}/media-cong-khai/{a.duong_dan}")
+
 
 def bao_duyet_de_xuat(dx: "DeXuat"):
     """Báo cho người đề xuất biết kết quả duyệt (đồng ý/từ chối + ý kiến)."""
-    from models import TrangThaiDeXuat
+    from models import LoaiDinhKem, TrangThaiDeXuat
     if dx.trang_thai == TrangThaiDeXuat.DA_DUYET:
         nd = f"✅ Đề xuất {dx.ten_loai.lower()} của bạn đã được duyệt"
     else:
@@ -647,10 +679,16 @@ def bao_duyet_de_xuat(dx: "DeXuat"):
     nd += (
         f"\n\n{dx.noi_dung}\n"
         f"Người duyệt: {dx.nguoi_duyet.ho_ten}\n"
-        f"Ý kiến: {dx.y_kien_duyet or '—'}\n\n"
+        f"Ý kiến: {dx.y_kien_duyet or '—'}\n"
+        f"{_dong_dinh_kem(dx.dinh_kem_duyet)}\n"
         f"Xem đề xuất:\n{current_app.config['BASE_URL']}/de-xuat/{dx.id}"
     )
     gui_cho_nhan_vien(dx.nguoi_de_xuat, nd)
+
+    base = current_app.config["BASE_URL"]
+    anh = [d for d in dx.dinh_kem_duyet if d.loai == LoaiDinhKem.ANH]
+    for a in anh[:5]:
+        gui_anh_cho_nhan_vien(dx.nguoi_de_xuat, f"{base}/media-cong-khai/{a.duong_dan}")
 
 
 def lay_cac_chat_gan_day(token: str) -> tuple[list[dict], str | None, str]:

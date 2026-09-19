@@ -106,15 +106,21 @@ def create_app(config_class=Config):
         về khi gọi sendPhoto (server Zalo gọi trực tiếp, không có phiên
         đăng nhập của ai — gọi /media thường sẽ bị chặn ngay ở @login_required).
 
-        CHỈ áp dụng cho ảnh minh hoạ yêu cầu (AnhYeuCau) — tên file là uuid4
-        ngẫu nhiên nên không đoán được, an toàn tương đương kiểu "link chia
-        sẻ" của Google Drive/Dropbox. KHÔNG mở rộng route này cho đối
-        chứng/đánh giá/xin nghỉ — các loại đó vẫn luôn phải qua /media có
-        đăng nhập + kiểm tra quyền xem việc như cũ."""
+        CHỈ áp dụng cho ảnh minh hoạ yêu cầu (AnhYeuCau) và ảnh đính kèm Đề
+        xuất (DinhKemDeXuat, chỉ loại ẢNH) — tên file là uuid4 ngẫu nhiên
+        nên không đoán được, an toàn tương đương kiểu "link chia sẻ" của
+        Google Drive/Dropbox. KHÔNG mở rộng route này cho đối chứng/đánh
+        giá/xin nghỉ — các loại đó vẫn luôn phải qua /media có đăng nhập +
+        kiểm tra quyền xem việc như cũ."""
         ayc = AnhYeuCau.query.filter_by(duong_dan=duong_dan).first()
-        if not ayc:
-            abort(404)
-        return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+        if ayc:
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        dkdx = DinhKemDeXuat.query.filter_by(duong_dan=duong_dan, loai=LoaiDinhKem.ANH).first()
+        if dkdx:
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        abort(404)
 
     # ------------------------------------------------------------- webhook
     @app.route("/webhook/zalo/<int:bot_id>", methods=["POST"])
