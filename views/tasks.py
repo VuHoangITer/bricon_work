@@ -244,13 +244,19 @@ def danh_sach():
     # Hoàn thành / Đã huỷ / hoặc 1 trạng thái cụ thể: giữ kiểu lưới + phân
     # trang như cũ, lọc riêng khỏi chế độ 3 cột bên trên.
     q = q.filter(CongViec.trang_thai == trang_thai)
-    thu_tu_uu_tien = case(
-        (CongViec.do_uu_tien == DoUuTien.CAO, 0),
-        (CongViec.do_uu_tien == DoUuTien.THUONG, 1),
-        (CongViec.do_uu_tien == DoUuTien.THAP, 2),
-        else_=1,
-    )
-    q = q.order_by(thu_tu_uu_tien, CongViec.han.is_(None), CongViec.han)
+    if trang_thai == TrangThai.HOAN_THANH:
+        # Việc đã xong rồi thì ưu tiên (do_uu_tien) không còn ý nghĩa nữa —
+        # cái người dùng cần thấy là việc nào MỚI hoàn thành gần đây nhất,
+        # không phải việc nào có hạn (han) gần nhất trong quá khứ.
+        q = q.order_by(CongViec.hoan_thanh_luc.is_(None), CongViec.hoan_thanh_luc.desc())
+    else:
+        thu_tu_uu_tien = case(
+            (CongViec.do_uu_tien == DoUuTien.CAO, 0),
+            (CongViec.do_uu_tien == DoUuTien.THUONG, 1),
+            (CongViec.do_uu_tien == DoUuTien.THAP, 2),
+            else_=1,
+        )
+        q = q.order_by(thu_tu_uu_tien, CongViec.han.is_(None), CongViec.han)
     phan_trang = q.paginate(page=trang, per_page=KICH_THUOC_TRANG, error_out=False)
     return render_template(
         "task_list.html", che_do_3_cot=False, phan_trang=phan_trang,
