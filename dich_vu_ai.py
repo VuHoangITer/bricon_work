@@ -91,8 +91,8 @@ def ghi_nhan_su_dung_tro_ly(nd: NguoiDung, so_token: int = 0):
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
-def _goi_chatgpt_tho(goi_tin: dict, _da_thu_lai: bool = False,
-                     _bo_nhiet_do: bool = False) -> tuple[dict | None, str | None, int]:
+def _goi_chatgpt_tho(goi_tin: dict, _da_thu_lai: bool = False, _bo_nhiet_do: bool = False,
+                     _bo_reasoning: bool = False) -> tuple[dict | None, str | None, int]:
     """Gọi thẳng OpenAI với 1 payload đã dựng sẵn (model/messages/tools/...),
     tự xử lý rate-limit + model không cho chỉnh temperature. Trả về
     (message THÔ của OpenAI — dict có role/content/tool_calls, lỗi, số
@@ -104,6 +104,14 @@ def _goi_chatgpt_tho(goi_tin: dict, _da_thu_lai: bool = False,
         return None, "Chưa cấu hình OpenAI API key ở trang Thiết lập.", 0
     if not _bo_nhiet_do:
         goi_tin.setdefault("temperature", 0.4)
+    # 1 số model dòng suy luận (VD gpt-5.6-terra) mặc định tự bật sẵn
+    # reasoning_effort khi có "tools" trong payload, và /v1/chat/completions
+    # không cho vừa dùng function tools vừa reasoning_effort khác "none" ->
+    # phải set rõ "none" khi có tools. Model KHÔNG hỗ trợ tham số này (VD
+    # gpt-4o-mini) lại báo lỗi ngược nếu mình tự thêm vào -> có nhánh strip
+    # + gọi lại bên dưới cho trường hợp đó.
+    if goi_tin.get("tools") and not _bo_reasoning:
+        goi_tin.setdefault("reasoning_effort", "none")
     try:
         r = requests.post(
             _OPENAI_URL,
@@ -125,7 +133,8 @@ def _goi_chatgpt_tho(goi_tin: dict, _da_thu_lai: bool = False,
             khop = re.search(r"try again in ([\d.]+)s", thong_diep)
             cho_giay = min(float(khop.group(1)), 25) + 0.5 if khop else 5
             time.sleep(cho_giay)
-            return _goi_chatgpt_tho(goi_tin, _da_thu_lai=True, _bo_nhiet_do=_bo_nhiet_do)
+            return _goi_chatgpt_tho(goi_tin, _da_thu_lai=True, _bo_nhiet_do=_bo_nhiet_do,
+                                    _bo_reasoning=_bo_reasoning)
         if r.status_code == 429:
             return None, "Trợ lý đang có nhiều người hỏi cùng lúc, bạn thử lại sau vài giây nhé.", 0
 
@@ -136,7 +145,16 @@ def _goi_chatgpt_tho(goi_tin: dict, _da_thu_lai: bool = False,
         if not _bo_nhiet_do and (loi.get("param") == "temperature"
                                  or "temperature" in thong_diep.lower()):
             goi_tin.pop("temperature", None)
-            return _goi_chatgpt_tho(goi_tin, _da_thu_lai=_da_thu_lai, _bo_nhiet_do=True)
+            return _goi_chatgpt_tho(goi_tin, _da_thu_lai=_da_thu_lai, _bo_nhiet_do=True,
+                                    _bo_reasoning=_bo_reasoning)
+
+        # Ngược lại: model KHÔNG hỗ trợ tham số reasoning_effort mình vừa tự
+        # thêm ở trên (model cũ, không thuộc dòng suy luận) -> bỏ tham số
+        # rồi gọi lại 1 lần.
+        if "reasoning_effort" in goi_tin and not _bo_reasoning and loi.get("param") == "reasoning_effort":
+            goi_tin.pop("reasoning_effort", None)
+            return _goi_chatgpt_tho(goi_tin, _da_thu_lai=_da_thu_lai, _bo_nhiet_do=_bo_nhiet_do,
+                                    _bo_reasoning=True)
 
         return None, thong_diep, 0
     so_token = int((du_lieu.get("usage") or {}).get("total_tokens") or 0)
