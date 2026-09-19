@@ -91,29 +91,19 @@ def ghi_nhan_su_dung_tro_ly(nd: NguoiDung, so_token: int = 0):
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
-def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: str | None = None,
-                          _da_thu_lai: bool = False, _bo_nhiet_do: bool = False) -> tuple[str | None, str | None, int]:
-    """Gọi OpenAI với danh sách messages đầy đủ — hỗ trợ nhiều lượt hội
-    thoại (dùng cho trợ lý AI), không chỉ 1 cặp system/user đơn.
-    dang_json=True bắt OpenAI trả về đúng 1 object JSON hợp lệ.
-    model=None -> dùng OPENAI_MODEL mặc định (việc đơn giản như gợi ý/tóm
-    tắt mô tả); truyền model cụ thể để override, VD trợ lý chat cần model
-    mạnh hơn để đọc hiểu ngữ cảnh dài mà không bị rối.
-    _da_thu_lai, _bo_nhiet_do: dùng nội bộ, không truyền tay — đánh dấu đã
-    tự thử lại 1 lần khi bị rate limit / đã tự bỏ tham số temperature vì
-    model không cho tuỳ chỉnh (VD dòng gpt-5.6 chỉ nhận đúng mặc định),
-    tránh lặp vô hạn.
-    Trả về thêm số token đã dùng (total_tokens theo OpenAI báo) để nơi gọi
-    ghi nhận vào hạn mức — 0 nếu lỗi/chưa gọi được."""
+def _goi_chatgpt_tho(goi_tin: dict, _da_thu_lai: bool = False,
+                     _bo_nhiet_do: bool = False) -> tuple[dict | None, str | None, int]:
+    """Gọi thẳng OpenAI với 1 payload đã dựng sẵn (model/messages/tools/...),
+    tự xử lý rate-limit + model không cho chỉnh temperature. Trả về
+    (message THÔ của OpenAI — dict có role/content/tool_calls, lỗi, số
+    token) — dùng chung cho cả _goi_chatgpt_tin_nhan (chỉ cần đọc content)
+    và trợ lý AI có gọi tool (cần đọc cả tool_calls, content lúc đó có
+    thể là None)."""
     key = lay_cai_dat("openai_api_key")
     if not key:
         return None, "Chưa cấu hình OpenAI API key ở trang Thiết lập.", 0
-    model = model or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini")
-    goi_tin = {"model": model, "messages": messages}
     if not _bo_nhiet_do:
-        goi_tin["temperature"] = 0.4
-    if dang_json:
-        goi_tin["response_format"] = {"type": "json_object"}
+        goi_tin.setdefault("temperature", 0.4)
     try:
         r = requests.post(
             _OPENAI_URL,
@@ -135,8 +125,7 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: 
             khop = re.search(r"try again in ([\d.]+)s", thong_diep)
             cho_giay = min(float(khop.group(1)), 25) + 0.5 if khop else 5
             time.sleep(cho_giay)
-            return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model,
-                                         _da_thu_lai=True, _bo_nhiet_do=_bo_nhiet_do)
+            return _goi_chatgpt_tho(goi_tin, _da_thu_lai=True, _bo_nhiet_do=_bo_nhiet_do)
         if r.status_code == 429:
             return None, "Trợ lý đang có nhiều người hỏi cùng lúc, bạn thử lại sau vài giây nhé.", 0
 
@@ -146,15 +135,54 @@ def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False, model: 
         # đổi sang model mới loại này.
         if not _bo_nhiet_do and (loi.get("param") == "temperature"
                                  or "temperature" in thong_diep.lower()):
-            return _goi_chatgpt_tin_nhan(messages, dang_json=dang_json, model=model,
-                                         _da_thu_lai=_da_thu_lai, _bo_nhiet_do=True)
+            goi_tin.pop("temperature", None)
+            return _goi_chatgpt_tho(goi_tin, _da_thu_lai=_da_thu_lai, _bo_nhiet_do=True)
 
         return None, thong_diep, 0
     so_token = int((du_lieu.get("usage") or {}).get("total_tokens") or 0)
     try:
-        return du_lieu["choices"][0]["message"]["content"].strip(), None, so_token
+        return du_lieu["choices"][0]["message"], None, so_token
     except (KeyError, IndexError):
         return None, "Phản hồi từ OpenAI không đúng định dạng mong đợi.", so_token
+
+
+def _goi_chatgpt_tin_nhan(messages: list[dict], dang_json: bool = False,
+                          model: str | None = None) -> tuple[str | None, str | None, int]:
+    """Gọi OpenAI với danh sách messages đầy đủ — hỗ trợ nhiều lượt hội
+    thoại (dùng cho trợ lý AI), không chỉ 1 cặp system/user đơn.
+    dang_json=True bắt OpenAI trả về đúng 1 object JSON hợp lệ.
+    model=None -> dùng OPENAI_MODEL mặc định (việc đơn giản như gợi ý/tóm
+    tắt mô tả); truyền model cụ thể để override, VD trợ lý chat cần model
+    mạnh hơn để đọc hiểu ngữ cảnh dài mà không bị rối.
+    Trả về thêm số token đã dùng (total_tokens theo OpenAI báo) để nơi gọi
+    ghi nhận vào hạn mức — 0 nếu lỗi/chưa gọi được."""
+    model = model or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini")
+    goi_tin = {"model": model, "messages": messages}
+    if dang_json:
+        goi_tin["response_format"] = {"type": "json_object"}
+    msg, loi, so_token = _goi_chatgpt_tho(goi_tin)
+    if loi:
+        return None, loi, so_token
+    noi_dung = (msg or {}).get("content")
+    if noi_dung is None:
+        return None, "Phản hồi từ OpenAI không đúng định dạng mong đợi.", so_token
+    return noi_dung.strip(), None, so_token
+
+
+def _goi_chatgpt_voi_cong_cu(messages: list[dict], tools: list[dict], dang_json: bool = False,
+                             model: str | None = None) -> tuple[dict | None, str | None, int]:
+    """Giống _goi_chatgpt_tin_nhan nhưng cho OpenAI TỰ QUYẾT ĐỊNH có cần gọi
+    1 trong các 'tools' (function calling) hay không, để tự tra cứu thêm dữ
+    liệu ngoài những gì đã nhét sẵn trong ngữ cảnh — thay vì mình phải đoán
+    trước mọi câu hỏi có thể gặp rồi nhét cứng vào context. Trả về NGUYÊN
+    message thô (có thể có tool_calls, content=None khi đó) để nơi gọi tự
+    chạy vòng lặp: nếu có tool_calls thì thực thi rồi gọi lại hàm này, nếu
+    không thì content chính là câu trả lời cuối."""
+    model = model or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini")
+    goi_tin = {"model": model, "messages": messages, "tools": tools}
+    if dang_json:
+        goi_tin["response_format"] = {"type": "json_object"}
+    return _goi_chatgpt_tho(goi_tin)
 
 
 def _goi_chatgpt(he_thong: str, nguoi_dung_hoi: str) -> tuple[str | None, str | None]:
@@ -235,11 +263,14 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "gửi.\n\n"
 
     "DỮ LIỆU: chỉ dùng đúng dữ liệu thật cung cấp bên dưới cho số liệu/tên "
-    "việc/lịch sử cụ thể — không bịa. Thiếu dữ liệu để trả lời 1 câu tra cứu "
-    "thì nói rõ chưa có, đừng đoán. Nhưng nếu được hỏi Ý KIẾN/ĐỀ XUẤT/NHẬN "
-    "XÉT dựa trên dữ liệu đã có (VD: đề xuất cho 1 nhân viên khi đã biết KPI "
-    "của họ) thì CHỦ ĐỘNG đưa góc nhìn — đó là suy luận trên số liệu thật, "
-    "không phải bịa đặt, đừng từ chối.\n\n"
+    "việc/lịch sử cụ thể — không bịa. Nếu có công cụ (tool/function) phù hợp "
+    "để tự tra cứu thêm dữ liệu đang thiếu thì GỌI công cụ đó trước khi trả "
+    "lời, đừng nói \"chưa có dữ liệu\" khi có tool tra cứu được đúng thứ đang "
+    "hỏi. Chỉ khi không có tool nào phù hợp và dữ liệu bên dưới cũng không "
+    "có thì mới nói rõ chưa có, đừng đoán. Nhưng nếu được hỏi Ý KIẾN/ĐỀ "
+    "XUẤT/NHẬN XÉT dựa trên dữ liệu đã có (VD: đề xuất cho 1 nhân viên khi "
+    "đã biết KPI của họ) thì CHỦ ĐỘNG đưa góc nhìn — đó là suy luận trên số "
+    "liệu thật, không phải bịa đặt, đừng từ chối.\n\n"
 
     "PHÂN QUYỀN DỮ LIỆU: dữ liệu bên dưới có thể liệt kê nhiều người, mỗi "
     "người 1 dòng ghi rõ tên. Khi người hỏi nói \"tôi\"/\"của tôi\", CHỈ được "
@@ -612,20 +643,13 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
                             "nhân viên trong bộ phận mình quản lý (dùng để trả lời khi "
                             "được hỏi về 1 người cụ thể theo tên, không chỉ về chính "
                             "người đang hỏi) ---\n" + ngu_canh_doi)
-            cho_duyet_dx = [
-                dx for dx in DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET)
-                .order_by(DeXuat.tao_luc).all()
+            so_cho_duyet_dx = len([
+                dx for dx in DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET).all()
                 if nd.duoc_duyet_de_xuat(dx)
-            ]
-            if cho_duyet_dx:
-                dong.append(
-                    "--- Đề xuất đang chờ người này duyệt (dùng để trả lời khi được hỏi "
-                    "cụ thể là đề xuất nào/của ai/nội dung gì) ---\n" + "\n".join(
-                        f"[#{dx.id}] {dx.ten_loai} - {dx.nguoi_de_xuat.ho_ten}: "
-                        f"{dx.noi_dung[:150]} (gửi {dx.tao_luc:%d/%m})"
-                        for dx in cho_duyet_dx))
-            else:
-                dong.append("Không có đề xuất nào đang chờ người này duyệt.")
+            ])
+            dong.append(f"Có {so_cho_duyet_dx} đề xuất đang chờ người này duyệt — cần chi "
+                        f"tiết (đề xuất nào, của ai, đã duyệt/từ chối trước đó...) thì gọi "
+                        f"tool tra_cuu_de_xuat, đừng bịa.")
     else:
         dau_ngay = datetime.combine(hom_nay, datetime.min.time())
         cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
@@ -652,18 +676,11 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
             + (" Theo bộ phận: " + "; ".join(f"{ten}: {sl}" for ten, sl in theo_bo_phan)
                if theo_bo_phan else "")
         )
-        cho_duyet_dx_all = DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET) \
-            .order_by(DeXuat.tao_luc).all()
-        if cho_duyet_dx_all:
-            dong.append(
-                f"--- {len(cho_duyet_dx_all)} đề xuất (tạm ứng/công việc) đang chờ duyệt "
-                f"toàn công ty, Sếp/Admin duyệt được hết (dùng để trả lời khi được hỏi cụ "
-                f"thể là đề xuất nào/của ai/nội dung gì) ---\n" + "\n".join(
-                    f"[#{dx.id}] {dx.ten_loai} - {dx.nguoi_de_xuat.ho_ten}: "
-                    f"{dx.noi_dung[:150]} (gửi {dx.tao_luc:%d/%m})"
-                    for dx in cho_duyet_dx_all))
-        else:
-            dong.append("Không có đề xuất nào đang chờ duyệt toàn công ty.")
+        so_cho_duyet_dx = DeXuat.query.filter_by(trang_thai=TrangThaiDeXuat.CHO_DUYET).count()
+        dong.append(f"Có {so_cho_duyet_dx} đề xuất (tạm ứng/công việc) đang chờ duyệt toàn "
+                    f"công ty, Sếp/Admin duyệt được hết — cần chi tiết (đề xuất nào, của "
+                    f"ai, đã duyệt/từ chối trước đó, theo loại...) thì gọi tool "
+                    f"tra_cuu_de_xuat, đừng bịa.")
         dong.append(
             "QUAN TRỌNG: Vai trò Sếp/Quản trị KHÔNG tự chấm công, không tự xin "
             "nghỉ, và KHÔNG BAO GIỜ tự NHẬN việc nào trong hệ thống này (không "
@@ -879,11 +896,109 @@ def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     }
 
 
+# ---------------------------------------------------------------------------
+# CÔNG CỤ (function calling) — thay vì đoán trước MỌI câu hỏi có thể gặp
+# rồi nhét cứng dữ liệu vào ngữ cảnh (không bao giờ đủ), để OpenAI TỰ GỌI
+# đúng hàm khi câu hỏi cần dữ liệu ngoài những gì đã có sẵn. Ngữ cảnh
+# (_boi_canh_tro_ly) vẫn giữ vài số liệu tổng quan rẻ tiền để trả lời
+# nhanh câu hỏi chung chung, không cần gọi tool cho MỌI câu hỏi.
+# ---------------------------------------------------------------------------
+
+_CONG_CU_TRO_LY = [
+    {
+        "type": "function",
+        "function": {
+            "name": "tra_cuu_de_xuat",
+            "description": (
+                "Tra cứu Đề xuất (tạm ứng/công việc) trong ĐÚNG phạm vi người đang "
+                "hỏi được xem — tự động giới hạn theo quyền (nhân viên thường chỉ "
+                "thấy đề xuất của chính mình; Quản lý bộ phận thấy của bộ phận mình; "
+                "Sếp/Admin thấy toàn công ty), không cần và không thể truyền phạm vi. "
+                "CHỈ gọi khi câu hỏi cần dữ liệu về đề xuất mà phần 'Dữ liệu hiện tại' "
+                "ở system prompt KHÔNG có sẵn — ví dụ hỏi về đề xuất ĐÃ DUYỆT, ĐÃ TỪ "
+                "CHỐI, lọc theo loại cụ thể, hoặc xem lại lịch sử/nội dung chi tiết."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "trang_thai": {
+                        "type": "string",
+                        "enum": ["cho_duyet", "da_duyet", "tu_choi", "tat_ca"],
+                        "description": "Lọc theo trạng thái. Bỏ qua hoặc 'tat_ca' để lấy mọi trạng thái.",
+                    },
+                    "loai": {
+                        "type": "string",
+                        "enum": ["tam_ung", "cong_viec", "tat_ca"],
+                        "description": "Lọc theo loại đề xuất. Bỏ qua hoặc 'tat_ca' để lấy mọi loại.",
+                    },
+                },
+            },
+        },
+    },
+]
+
+
+def _tra_cuu_de_xuat_cho_ai(nd: NguoiDung, trang_thai: str | None = None,
+                            loai: str | None = None, **_bo_qua) -> dict:
+    """Hàm THẬT được thực thi khi OpenAI gọi tool 'tra_cuu_de_xuat'. Tự giới
+    hạn đúng phạm vi nd được xem — GIỐNG HỆT logic phân quyền ở
+    views/de_xuat.py (_de_xuat_giam_sat/_duoc_xem) — không tin bất kỳ tham
+    số phạm vi nào vì tool chỉ nhận trang_thai/loai để LỌC, không nhận
+    tham số phạm vi nên AI không thể tự ý mở rộng ra ngoài quyền của nd.
+    **_bo_qua hứng mọi tham số lạ nếu OpenAI lỡ tự bịa thêm, tránh lỗi."""
+    from models import DeXuat, LoaiDeXuat, TrangThaiDeXuat
+
+    if nd.la_admin_sep:
+        q = DeXuat.query
+    elif nd.la_quan_ly and nd.bo_phan_id:
+        q = DeXuat.query.join(NguoiDung, DeXuat.nguoi_de_xuat_id == NguoiDung.id).filter(
+            db.or_(NguoiDung.bo_phan_id == nd.bo_phan_id, DeXuat.nguoi_de_xuat_id == nd.id)
+        )
+    else:
+        q = DeXuat.query.filter_by(nguoi_de_xuat_id=nd.id)
+
+    if trang_thai in (TrangThaiDeXuat.CHO_DUYET, TrangThaiDeXuat.DA_DUYET, TrangThaiDeXuat.TU_CHOI):
+        q = q.filter(DeXuat.trang_thai == trang_thai)
+    if loai in (LoaiDeXuat.TAM_UNG, LoaiDeXuat.CONG_VIEC):
+        q = q.filter(DeXuat.loai == loai)
+
+    ds = q.order_by(DeXuat.tao_luc.desc()).limit(30).all()
+    return {
+        "tong_so_tra_ve": len(ds),
+        "luu_y": "Chỉ trả tối đa 30 kết quả gần nhất — còn nhiều hơn nếu tong_so_tra_ve == 30.",
+        "danh_sach": [
+            {
+                "id": dx.id,
+                "loai": dx.ten_loai,
+                "nguoi_de_xuat": dx.nguoi_de_xuat.ho_ten if dx.nguoi_de_xuat else None,
+                "noi_dung": dx.noi_dung[:200],
+                "chi_phi_du_kien": float(dx.chi_phi_du_kien) if dx.chi_phi_du_kien is not None else None,
+                "trang_thai": dx.ten_trang_thai,
+                "nguoi_duyet": dx.nguoi_duyet.ho_ten if dx.nguoi_duyet else None,
+                "y_kien_duyet": dx.y_kien_duyet,
+                "gui_luc": dx.tao_luc.strftime("%d/%m/%Y %H:%M") if dx.tao_luc else None,
+                "duyet_luc": dx.duyet_luc.strftime("%d/%m/%Y %H:%M") if dx.duyet_luc else None,
+            }
+            for dx in ds
+        ],
+    }
+
+
+_CAC_HAM_CONG_CU = {"tra_cuu_de_xuat": _tra_cuu_de_xuat_cho_ai}
+_SO_VONG_GOI_TOOL_TOI_DA = 3  # chặn lặp vô hạn nếu model cứ đòi gọi tool mãi
+
+
 def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[dict | None, str | None]:
     """Trợ lý AI hỏi-đáp — trả lời dựa trên dữ liệu thật của đúng người
     đang hỏi (lấy theo nd, không lấy theo dữ liệu client gửi lên) + hướng
     dẫn sử dụng hệ thống. lich_su là vài lượt hỏi-đáp gần nhất do trình
     duyệt gửi lên để giữ mạch hội thoại, chỉ dùng tối đa 8 lượt gần nhất.
+
+    Ngoài dữ liệu đã nhét sẵn vào ngữ cảnh (_boi_canh_tro_ly), còn cho phép
+    OpenAI TỰ GỌI THÊM các "công cụ" (_CONG_CU_TRO_LY, function calling) khi
+    câu hỏi cần dữ liệu ngoài những gì đã nhét sẵn — VD hỏi đề xuất ĐÃ DUYỆT
+    trong khi ngữ cảnh chỉ có sẵn số lượng đang CHỜ duyệt. Không cần đoán
+    trước mọi câu hỏi có thể gặp để nhét cứng dữ liệu như trước.
 
     Trả về (dict {tra_loi, duong_dan, nhan_nut, media}, lỗi) — các trường
     phụ có thể None nếu câu hỏi không cần gợi ý đi đâu / không có media.
@@ -915,18 +1030,49 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
             messages.append({"role": m["vai_tro"], "content": str(m["noi_dung"])[:2000]})
     messages.append({"role": "user", "content": tin_nhan[:2000]})
 
-    noi_dung, loi, so_token = _goi_chatgpt_tin_nhan(
-        messages, dang_json=True,
-        model=current_app.config.get("OPENAI_MODEL_TRO_LY")
-        or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini"),
-    )
-    if loi:
-        # Gọi lỗi (kể cả rate-limit) không tính là 1 câu hỏi thành công —
-        # không trừ vào hạn mức của người dùng.
-        return None, loi
+    model = (current_app.config.get("OPENAI_MODEL_TRO_LY")
+            or current_app.config.get("OPENAI_MODEL", "gpt-4o-mini"))
 
-    ghi_nhan_su_dung_tro_ly(nd, so_token)
+    # Vòng lặp function-calling: OpenAI có thể trả về tool_calls thay vì
+    # câu trả lời cuối nếu thấy câu hỏi cần dữ liệu ngoài ngữ cảnh đã nhét
+    # sẵn — mình thực thi đúng hàm đó, đưa kết quả THẬT trở lại cho nó viết
+    # tiếp, lặp tối đa _SO_VONG_GOI_TOOL_TOI_DA lần để tránh treo/tốn tiền
+    # vô hạn nếu model cứ đòi tra cứu mãi không chịu trả lời.
+    tong_token = 0
+    msg = None
+    for _vong in range(_SO_VONG_GOI_TOOL_TOI_DA):
+        msg, loi, so_token = _goi_chatgpt_voi_cong_cu(
+            messages, _CONG_CU_TRO_LY, dang_json=True, model=model)
+        tong_token += so_token
+        if loi:
+            # Gọi lỗi (kể cả rate-limit) không tính là 1 câu hỏi thành công
+            # — không trừ vào hạn mức của người dùng.
+            return None, loi
 
+        cac_goi_cong_cu = msg.get("tool_calls")
+        if not cac_goi_cong_cu:
+            break  # có câu trả lời cuối rồi, không cần gọi tool nữa
+
+        messages.append(msg)  # đúng message thô OpenAI trả về, echo lại nguyên văn
+        for tc in cac_goi_cong_cu:
+            ten_ham = (tc.get("function") or {}).get("name")
+            try:
+                tham_so = json.loads((tc.get("function") or {}).get("arguments") or "{}")
+            except (json.JSONDecodeError, TypeError):
+                tham_so = {}
+            ham = _CAC_HAM_CONG_CU.get(ten_ham)
+            ket_qua_ham = ham(nd, **tham_so) if ham else {"loi": f"Không có công cụ '{ten_ham}'."}
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.get("id"),
+                "content": json.dumps(ket_qua_ham, ensure_ascii=False),
+            })
+    else:
+        return None, "Trợ lý cần tra cứu quá nhiều lần cho câu hỏi này, bạn hỏi cụ thể/ngắn gọn hơn nhé."
+
+    ghi_nhan_su_dung_tro_ly(nd, tong_token)
+
+    noi_dung = msg.get("content")
     van_ban = (noi_dung or "").strip()
     if van_ban.startswith("```"):
         van_ban = van_ban.strip("`").removeprefix("json").strip()
