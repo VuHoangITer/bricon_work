@@ -7,7 +7,7 @@
 </div>
 <h1>Đề xuất {{ ten_loai|lower }}</h1>
 
-<form class="the" method="post" id="form-de-xuat">
+<form class="the" method="post" enctype="multipart/form-data" id="form-de-xuat">
   <div class="o-nhap">
     <label for="noi_dung">Nội dung đề xuất</label>
     <textarea id="noi_dung" name="noi_dung" rows="5" required
@@ -17,6 +17,12 @@
   <div class="o-nhap">
     <label for="chi_phi_du_kien">Chi phí dự kiến (đ) — không bắt buộc</label>
     <input id="chi_phi_du_kien" type="text" inputmode="numeric" name="chi_phi_du_kien" placeholder="VD: 3.000.000">
+  </div>
+
+  <div class="o-nhap">
+    <label for="dinh_kem">Ảnh / tệp đính kèm — không bắt buộc</label>
+    <input type="file" id="dinh_kem" name="dinh_kem" multiple>
+    <div class="goi-y">Có thể chọn nhiều ảnh hoặc tệp bất kỳ (PDF, Word, Excel, ZIP...) cùng lúc để làm minh chứng cho đề xuất.</div>
   </div>
 
   <input type="hidden" name="chu_ky" id="chu_ky">

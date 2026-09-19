@@ -648,7 +648,7 @@ def bao_duyet_de_xuat(dx: "DeXuat"):
         f"\n\n{dx.noi_dung}\n"
         f"Người duyệt: {dx.nguoi_duyet.ho_ten}\n"
         f"Ý kiến: {dx.y_kien_duyet or '—'}\n\n"
-        f"Xem đơn (PDF):\n{current_app.config['BASE_URL']}/media/{dx.duong_dan_pdf}"
+        f"Xem đề xuất:\n{current_app.config['BASE_URL']}/de-xuat/{dx.id}"
     )
     gui_cho_nhan_vien(dx.nguoi_de_xuat, nd)
 

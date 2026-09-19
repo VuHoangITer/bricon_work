@@ -7,7 +7,8 @@ from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import DeXuat, LoaiDeXuat, NguoiDung, TrangThaiDeXuat, VaiTro
+from models import (DeXuat, DinhKemDeXuat, GiaiDoanDinhKemDeXuat, LoaiDeXuat, LoaiDinhKem,
+                    NguoiDung, TrangThaiDeXuat, VaiTro)
 
 bp = Blueprint("de_xuat", __name__, url_prefix="/de-xuat")
 
@@ -62,6 +63,27 @@ def _doc_chu_ky(ten_truong: str) -> bytes | None:
     return du_lieu
 
 
+def _luu_dinh_kem_de_xuat(dx: DeXuat, giai_doan: str, ten_truong: str = "dinh_kem") -> int:
+    """Lưu mọi ảnh/tệp (bất kỳ định dạng nào) người dùng chọn ở form vào
+    bảng DinhKemDeXuat, gắn theo giai_doan (de_xuat/duyet) — dùng chung cho
+    cả lúc gửi lẫn lúc duyệt vì logic lưu giống hệt nhau, chỉ khác giai
+    đoạn. Không loại bỏ định dạng lạ như DinhKem (đối chứng nộp việc) vẫn
+    làm: mặc định về LoaiDinhKem.FILE nếu không nhận diện được, để đúng
+    yêu cầu "đính kèm bất kì thứ gì"."""
+    files = [f for f in request.files.getlist(ten_truong) if f and f.filename]
+    so_luu = 0
+    for f in files:
+        loai = services.phan_loai(f.filename, f.mimetype) or LoaiDinhKem.FILE
+        duong_dan, kich_thuoc = services.luu_file(f, "de-xuat")
+        db.session.add(DinhKemDeXuat(
+            de_xuat_id=dx.id, giai_doan=giai_doan, nguoi_tai_len_id=current_user.id,
+            loai=loai, duong_dan=duong_dan, ten_goc=f.filename[:255],
+            kich_thuoc=kich_thuoc, mime=f.mimetype,
+        ))
+        so_luu += 1
+    return so_luu
+
+
 @bp.route("/")
 @login_required
 def danh_sach():
@@ -109,6 +131,8 @@ def moi(loai):
         )
         db.session.add(dx)
         db.session.flush()
+
+        _luu_dinh_kem_de_xuat(dx, GiaiDoanDinhKemDeXuat.DE_XUAT)
 
         pdf_bytes = services.tao_pdf_de_xuat(dx)
         dx.duong_dan_pdf = services.luu_pdf_de_xuat(pdf_bytes)
@@ -161,6 +185,8 @@ def duyet(id):
     dx.duong_dan_chu_ky_duyet = duong_dan_ky
     dx.duyet_luc = services.gio_vn_hien_tai()
 
+    _luu_dinh_kem_de_xuat(dx, GiaiDoanDinhKemDeXuat.DUYET)
+
     pdf_bytes = services.tao_pdf_de_xuat(dx)
     dx.duong_dan_pdf = services.luu_pdf_de_xuat(pdf_bytes)
     db.session.commit()
@@ -181,7 +207,9 @@ def xoa(id):
         abort(403)
     dx = db.session.get(DeXuat, id) or abort(404)
 
-    for duong_dan in (dx.duong_dan_pdf, dx.duong_dan_chu_ky_de_xuat, dx.duong_dan_chu_ky_duyet):
+    duong_dan_can_xoa = [dx.duong_dan_pdf, dx.duong_dan_chu_ky_de_xuat, dx.duong_dan_chu_ky_duyet]
+    duong_dan_can_xoa += [dk.duong_dan for dk in dx.dinh_kem]
+    for duong_dan in duong_dan_can_xoa:
         if not duong_dan:
             continue
         duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *duong_dan.split("/"))

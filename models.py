@@ -706,6 +706,10 @@ class DeXuat(db.Model):
 
     nguoi_de_xuat = db.relationship("NguoiDung", foreign_keys=[nguoi_de_xuat_id])
     nguoi_duyet = db.relationship("NguoiDung", foreign_keys=[nguoi_duyet_id])
+    dinh_kem = db.relationship(
+        "DinhKemDeXuat", back_populates="de_xuat", cascade="all, delete-orphan",
+        order_by="DinhKemDeXuat.id"
+    )
 
     @property
     def ten_loai(self):
@@ -715,8 +719,60 @@ class DeXuat(db.Model):
     def ten_trang_thai(self):
         return TrangThaiDeXuat.NHAN.get(self.trang_thai, self.trang_thai)
 
+    @property
+    def dinh_kem_de_xuat(self):
+        """Ảnh/tệp người đề xuất đính kèm lúc gửi."""
+        return [d for d in self.dinh_kem if d.giai_doan == GiaiDoanDinhKemDeXuat.DE_XUAT]
+
+    @property
+    def dinh_kem_duyet(self):
+        """Ảnh/tệp người duyệt đính kèm lúc duyệt."""
+        return [d for d in self.dinh_kem if d.giai_doan == GiaiDoanDinhKemDeXuat.DUYET]
+
     def __repr__(self):
         return f"<DeXuat {self.id} {self.loai} boi={self.nguoi_de_xuat_id}>"
+
+
+class GiaiDoanDinhKemDeXuat:
+    """Đính kèm của Đề xuất có thể đến từ 1 trong 2 phía — tách theo giai
+    đoạn để hiện đúng phần của ai trong trang chi tiết, không cần 2 bảng
+    riêng cho mỗi phía."""
+    DE_XUAT = "de_xuat"
+    DUYET = "duyet"
+
+
+class DinhKemDeXuat(db.Model):
+    """Ảnh/tệp bất kỳ đính kèm theo Đề xuất — người đề xuất có thể đính kèm
+    lúc gửi (giai_doan=DE_XUAT), người duyệt có thể đính kèm lúc duyệt
+    (giai_doan=DUYET). Tách khỏi 2 ảnh chữ ký (duong_dan_chu_ky_*) vì đó là
+    chữ ký bắt buộc dùng để in PDF, còn đây là tài liệu minh chứng thêm,
+    không bắt buộc, có thể nhiều file — mô phỏng đúng mẫu DinhKem/AnhYeuCau
+    đã dùng cho công việc."""
+    __tablename__ = "dinh_kem_de_xuat"
+
+    id = db.Column(db.Integer, primary_key=True)
+    de_xuat_id = db.Column(db.Integer, db.ForeignKey("de_xuat.id"), nullable=False, index=True)
+    giai_doan = db.Column(db.String(20), nullable=False)  # de_xuat | duyet
+    nguoi_tai_len_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False)
+
+    loai = db.Column(db.String(20), nullable=False)
+    duong_dan = db.Column(db.String(300), nullable=False)  # tương đối so với UPLOAD_ROOT
+    ten_goc = db.Column(db.String(255))
+    kich_thuoc = db.Column(db.Integer)
+    mime = db.Column(db.String(100))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    de_xuat = db.relationship("DeXuat", back_populates="dinh_kem")
+    nguoi_tai_len = db.relationship("NguoiDung")
+
+    @property
+    def kich_thuoc_dep(self):
+        n = self.kich_thuoc or 0
+        if n < 1024:
+            return f"{n} B"
+        if n < 1024 * 1024:
+            return f"{n / 1024:.0f} KB"
+        return f"{n / 1048576:.1f} MB"
 
 
 class TroLySuDung(db.Model):

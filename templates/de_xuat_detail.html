@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Đề xuất {{ dx.ten_loai }} · BRICON{% endblock %}
 
+{% macro hien_tep(d) %}
+  {% set src = url_for('media', duong_dan=d.duong_dan) %}
+  {% if d.loai == LoaiDinhKem.ANH %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
+      <img src="{{ src }}" alt="{{ d.ten_goc }}" loading="lazy"></a>
+  {% elif d.loai == LoaiDinhKem.VIDEO %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
+      <video src="{{ src }}" preload="metadata" muted playsinline></video></a>
+  {% elif d.loai == LoaiDinhKem.GHI_AM %}
+    <div class="tep tep-am" style="grid-column:1/-1">
+      <audio controls preload="none" src="{{ src }}"></audio></div>
+  {% else %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
+      <span class="tep-khac">📄<span>{{ d.ten_goc|truncate(24) }}</span>
+        <span>{{ d.kich_thuoc_dep }}</span></span></a>
+  {% endif %}
+{% endmacro %}
+
 {% block content %}
 <div style="margin-bottom:4px">
   <a href="{{ url_for('de_xuat.danh_sach') }}" style="font-size:.85rem">‹ Đề xuất</a>
@@ -25,12 +43,31 @@
   {% endif %}
 </div>
 
+{% if dx.dinh_kem_de_xuat %}
+<div class="tieu-khu"><h2>Ảnh/tệp người đề xuất đính kèm</h2></div>
+<div class="luoi-tep">
+  {% for d in dx.dinh_kem_de_xuat %}{{ hien_tep(d) }}{% endfor %}
+</div>
+{% endif %}
+
+{% if dx.dinh_kem_duyet %}
+<div class="tieu-khu"><h2>Ảnh/tệp người duyệt đính kèm</h2></div>
+<div class="luoi-tep">
+  {% for d in dx.dinh_kem_duyet %}{{ hien_tep(d) }}{% endfor %}
+</div>
+{% endif %}
+
 {% if duoc_duyet %}
 <div class="tieu-khu"><h2>Duyệt đề xuất</h2></div>
-<form class="the" method="post" action="{{ url_for('de_xuat.duyet', id=dx.id) }}" id="form-duyet-de-xuat">
+<form class="the" method="post" enctype="multipart/form-data" action="{{ url_for('de_xuat.duyet', id=dx.id) }}" id="form-duyet-de-xuat">
   <div class="o-nhap">
     <label for="y_kien_duyet">Ý kiến (không bắt buộc)</label>
     <textarea id="y_kien_duyet" name="y_kien_duyet" rows="3" placeholder="VD: Đồng ý, tạm ứng tối đa 3 triệu..."></textarea>
+  </div>
+  <div class="o-nhap">
+    <label for="dinh_kem">Ảnh / tệp đính kèm — không bắt buộc</label>
+    <input type="file" id="dinh_kem" name="dinh_kem" multiple>
+    <div class="goi-y">Có thể chọn nhiều ảnh hoặc tệp bất kỳ để đính kèm cùng kết quả duyệt.</div>
   </div>
   <input type="hidden" name="ket_qua" id="ket_qua">
   <input type="hidden" name="chu_ky" id="chu_ky">
