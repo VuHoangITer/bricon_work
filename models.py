@@ -796,10 +796,6 @@ class GoiHang(db.Model):
         "AnhGoiHang", back_populates="goi_hang", cascade="all, delete-orphan",
         order_by="AnhGoiHang.id"
     )
-    san_pham = db.relationship(
-        "SanPhamGoiHang", back_populates="goi_hang", cascade="all, delete-orphan",
-        order_by="SanPhamGoiHang.id"
-    )
 
 
 class AnhGoiHang(db.Model):
@@ -813,22 +809,6 @@ class AnhGoiHang(db.Model):
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     goi_hang = db.relationship("GoiHang", back_populates="anh")
-
-
-class SanPhamGoiHang(db.Model):
-    """1 dòng sản phẩm trong 1 lần đóng gói — 1 đơn có thể gồm NHIỀU sản
-    phẩm/màu khác nhau (VD gói chung nhiều bao keo màu khác nhau vào 1
-    kiện), nên tách bảng riêng để ghi được nhiều dòng thay vì gộp chung 3
-    ô cố định (chỉ ghi được đúng 1 sản phẩm/lần gói) như bản trước."""
-    __tablename__ = "san_pham_goi_hang"
-
-    id = db.Column(db.Integer, primary_key=True)
-    goi_hang_id = db.Column(db.Integer, db.ForeignKey("goi_hang.id"), nullable=False, index=True)
-    ten_san_pham = db.Column(db.String(200))
-    ma_mau = db.Column(db.String(50))
-    so_luong = db.Column(db.String(20))
-
-    goi_hang = db.relationship("GoiHang", back_populates="san_pham")
 
 
 class TroLySuDung(db.Model):

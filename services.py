@@ -703,23 +703,9 @@ def bao_goi_hang(gh: "GoiHang"):
     ảnh để tránh dội quá nhiều tin liên tiếp."""
     base = current_app.config["BASE_URL"]
     so_anh = len(gh.anh)
-    # 1 đơn có thể gồm nhiều sản phẩm — mỗi sản phẩm 1 dòng riêng trong
-    # tin nhắn, dạng "- Tên (Mã màu) SL: N", bỏ phần nào không có điền.
-    dong_sp = []
-    for sp in gh.san_pham:
-        phan = []
-        if sp.ten_san_pham:
-            phan.append(sp.ten_san_pham)
-        if sp.ma_mau:
-            phan.append(f"({sp.ma_mau})")
-        if sp.so_luong:
-            phan.append(f"SL: {sp.so_luong}")
-        if phan:
-            dong_sp.append("- " + " ".join(phan))
     nd = (
         f"📦 Đóng gói: {gh.ma_van_don}\n"
         f"Người gói: {gh.nguoi_goi.ho_ten} ({gh.nguoi_goi.ma_dinh_danh})\n"
-        f"{(chr(10).join(dong_sp) + chr(10)) if dong_sp else ''}"
         f"Ảnh: {so_anh}\n"
         f"{gh.tao_luc.strftime('%H:%M %d/%m/%Y')}"
     )

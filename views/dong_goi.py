@@ -1,12 +1,11 @@
 import os
-from itertools import zip_longest
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import AnhGoiHang, GoiHang, LoaiDinhKem, NguoiDung, SanPhamGoiHang
+from models import AnhGoiHang, GoiHang, LoaiDinhKem, NguoiDung
 
 bp = Blueprint("dong_goi", __name__, url_prefix="/dong-goi")
 
@@ -52,22 +51,6 @@ def luu():
     ma_van_don = (request.form.get("ma_van_don") or "").strip()
     cac_anh = [f for f in request.files.getlist("anh") if f and f.filename]
 
-    # 1 đơn có thể gồm nhiều sản phẩm/màu khác nhau — form gửi lên 3 mảng
-    # cùng độ dài, ghép theo vị trí (dòng thứ i trên form = phần tử thứ i
-    # của cả 3 mảng); zip_longest để không rớt dữ liệu nếu lỡ có mảng
-    # ngắn/dài hơn 1 chút do JS. Bỏ qua dòng nào cả 3 ô đều trống (dòng
-    # thừa chưa xoá, hoặc dòng đầu tiên nếu nhân viên không ghi gì).
-    ds_ten = request.form.getlist("ten_san_pham[]")
-    ds_mau = request.form.getlist("ma_mau[]")
-    ds_sl = request.form.getlist("so_luong[]")
-    dong_san_pham = []
-    for ten, mau, sl in zip_longest(ds_ten, ds_mau, ds_sl, fillvalue=""):
-        ten = (ten or "").strip()
-        mau = (mau or "").strip()
-        sl = (sl or "").strip()
-        if ten or mau or sl:
-            dong_san_pham.append((ten[:200] or None, mau[:50] or None, sl[:20] or None))
-
     if not ma_van_don:
         flash("Chưa có mã vận đơn — quét lại hoặc gõ tay vào ô mã.", "error")
         return redirect(url_for("dong_goi.moi"))
@@ -85,8 +68,6 @@ def luu():
     for f in cac_anh:
         duong_dan, _ = services.luu_file(f, "goi-hang")
         db.session.add(AnhGoiHang(goi_hang_id=gh.id, duong_dan=duong_dan))
-    for ten, mau, sl in dong_san_pham:
-        db.session.add(SanPhamGoiHang(goi_hang_id=gh.id, ten_san_pham=ten, ma_mau=mau, so_luong=sl))
     db.session.commit()
 
     services.bao_goi_hang(gh)

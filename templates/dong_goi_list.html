@@ -23,7 +23,7 @@
 <div class="tieu-khu"><h2>Kết quả</h2><span class="dem">{{ phan_trang.total }}</span></div>
 <div class="the the--khong-dem bang-cuon">
   <table>
-    <thead><tr><th>Ảnh</th><th>Mã vận đơn</th><th>Người gói</th><th>Thời gian</th><th>Sản phẩm</th>{% if current_user.la_quan_ly %}<th></th>{% endif %}</tr></thead>
+    <thead><tr><th>Ảnh</th><th>Mã vận đơn</th><th>Người gói</th><th>Thời gian</th>{% if current_user.la_quan_ly %}<th></th>{% endif %}</tr></thead>
     <tbody>
     {% for gh in ban_ghi %}
       <tr>
@@ -40,17 +40,6 @@
         <td style="font-weight:700">{{ gh.ma_van_don }}</td>
         <td>{{ gh.nguoi_goi.ho_ten }}</td>
         <td>{{ gh.tao_luc.strftime('%H:%M %d/%m/%Y') }}</td>
-        <td style="max-width:260px">
-          {% if gh.san_pham %}
-            {% for sp in gh.san_pham %}
-              <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-                {{ sp.ten_san_pham or '(chưa ghi tên)' }}{% if sp.ma_mau %} ({{ sp.ma_mau }}){% endif %}{% if sp.so_luong %} — SL: {{ sp.so_luong }}{% endif %}
-              </div>
-            {% endfor %}
-          {% else %}
-            <span style="color:var(--muc-mo)">—</span>
-          {% endif %}
-        </td>
         {% if current_user.la_quan_ly %}
         <td>
           <form method="post" action="{{ url_for('dong_goi.xoa', id=gh.id) }}"
@@ -61,7 +50,7 @@
         {% endif %}
       </tr>
     {% else %}
-      <tr><td colspan="{{ 6 if current_user.la_quan_ly else 5 }}" style="color:var(--muc-mo)">
+      <tr><td colspan="{{ 5 if current_user.la_quan_ly else 4 }}" style="color:var(--muc-mo)">
         {% if f_ma %}Không tìm thấy mã vận đơn nào khớp "{{ f_ma }}".{% else %}Chưa có lần đóng gói nào được ghi nhận.{% endif %}
       </td></tr>
     {% endfor %}
