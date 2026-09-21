@@ -4,10 +4,16 @@
 {% block content %}
 <h1>Bảng công</h1>
 
-<form class="the" method="get" style="display:flex;gap:8px">
+<form class="the" method="get" style="display:flex;gap:8px;flex-wrap:wrap">
   <input type="month" name="thang" value="{{ thang }}">
+  {% if nhan_vien %}
+  <select name="nguoi" style="flex:1;min-width:160px">
+    <option value="">Tất cả nhân viên</option>
+    {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f_nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
+  </select>
+  {% endif %}
   <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Xem</button>
-  <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('attendance.xuat_bang_cong', thang=thang) }}">⬇ Xuất Excel</a>
+  <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('attendance.xuat_bang_cong', thang=thang, nguoi=f_nguoi) }}">⬇ Xuất Excel</a>
 </form>
 
 <div class="tieu-khu"><h2>Tổng hợp</h2></div>

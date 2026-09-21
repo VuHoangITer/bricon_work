@@ -383,13 +383,15 @@ def xoa_xin_nghi(id):
 
 
 # ---------------------------------------------------------------------------
-def _du_lieu_bang_cong(thang: str):
+def _du_lieu_bang_cong(thang: str, nguoi_id: int | None = None):
     """Query dùng chung cho trang xem và trang xuất Excel.
 
     Ngày công CHỈ tính khi có chấm công thật tại địa điểm — nghỉ phép (có
     phép hay không phép đều vậy) không cộng vào Ngày công, chỉ hiện riêng
     ở cột Nghỉ phép để biết, không ảnh hưởng số ngày công/lương.
-    """
+
+    nguoi_id: lọc riêng 1 nhân viên (bộ lọc trên trang) — None thì lấy hết
+    (trong phạm vi bộ phận nếu là Quản lý bộ phận, như cũ)."""
     nam, thg = (int(x) for x in thang.split("-"))
     dau = date(nam, thg, 1)
     cuoi = date(nam + (thg == 12), (thg % 12) + 1, 1)
@@ -400,6 +402,9 @@ def _du_lieu_bang_cong(thang: str):
         q_cc = q_cc.join(NguoiDung).filter(NguoiDung.bo_phan_id == current_user.bo_phan_id)
         q_xn = q_xn.join(NguoiDung, XinNghi.nguoi_dung_id == NguoiDung.id).filter(
             NguoiDung.bo_phan_id == current_user.bo_phan_id)
+    if nguoi_id:
+        q_cc = q_cc.filter(ChamCong.nguoi_dung_id == nguoi_id)
+        q_xn = q_xn.filter(XinNghi.nguoi_dung_id == nguoi_id)
 
     ban_ghi = q_cc.order_by(ChamCong.ngay.desc()).all()
     don_nghi = q_xn.order_by(XinNghi.ngay.desc()).all()
@@ -426,15 +431,26 @@ def _du_lieu_bang_cong(thang: str):
     return ban_ghi, don_nghi, sorted(tong.values(), key=lambda x: x["ho_ten"])
 
 
+def _nhan_vien_bo_loc():
+    """Danh sách nhân viên cho ô lọc trên Bảng công — Quản lý bộ phận chỉ
+    thấy người trong bộ phận mình (khớp phạm vi dữ liệu _du_lieu_bang_cong
+    đã lọc sẵn); Sếp/Admin thấy toàn bộ."""
+    q = NguoiDung.query.filter_by(dang_hoat_dong=True)
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
+        q = q.filter(NguoiDung.bo_phan_id == current_user.bo_phan_id)
+    return q.order_by(NguoiDung.ho_ten).all()
+
+
 @bp.route("/bang-cong")
 @login_required
 def bang_cong():
     if not current_user.la_quan_ly:
         abort(403)
     thang = request.args.get("thang") or ngay_vn_hien_tai().strftime("%Y-%m")
-    ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang)
+    nguoi = request.args.get("nguoi", type=int)
+    ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang, nguoi)
     return render_template("bang_cong.html", ban_ghi=ban_ghi, don_nghi=don_nghi,
-                           tong=tong, thang=thang)
+                           tong=tong, thang=thang, nhan_vien=_nhan_vien_bo_loc(), f_nguoi=nguoi)
 
 
 @bp.route("/bang-cong/xuat")
@@ -443,7 +459,8 @@ def xuat_bang_cong():
     if not current_user.la_quan_ly:
         abort(403)
     thang = request.args.get("thang") or ngay_vn_hien_tai().strftime("%Y-%m")
-    ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang)
+    nguoi = request.args.get("nguoi", type=int)
+    ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang, nguoi)
     tep = services.xuat_excel_bang_cong(thang, ban_ghi, don_nghi, tong)
     return send_file(
         tep,
