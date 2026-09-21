@@ -7,9 +7,9 @@ from flask_login import current_user, login_required
 
 from config import Config
 from extensions import db, login_manager, migrate
-from models import (AnhDanhGia, AnhSanPhamAI, AnhYeuCau, BotZalo, BuoiNghi, ChamCong, ChucVu,
-                    CongViec, DeXuat, DinhKem, DinhKemDeXuat, DoUuTien, LoaiDinhKem, MucSao,
-                    NguoiDung, TrangThai, VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
+from models import (AnhDanhGia, AnhGoiHang, AnhSanPhamAI, AnhYeuCau, BotZalo, BuoiNghi, ChamCong,
+                    ChucVu, CongViec, DeXuat, DinhKem, DinhKemDeXuat, DoUuTien, LoaiDinhKem,
+                    MucSao, NguoiDung, TrangThai, VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 
 def create_app(config_class=Config):
@@ -26,6 +26,7 @@ def create_app(config_class=Config):
     from views.attendance import bp as attendance_bp
     from views.auth import bp as auth_bp
     from views.de_xuat import bp as de_xuat_bp
+    from views.dong_goi import bp as dong_goi_bp
     from views.tasks import bp as tasks_bp
     from views.thong_bao import bp as thong_bao_bp
     from views.tro_ly import bp as tro_ly_bp
@@ -34,6 +35,7 @@ def create_app(config_class=Config):
     app.register_blueprint(tasks_bp)
     app.register_blueprint(thong_bao_bp)
     app.register_blueprint(de_xuat_bp)
+    app.register_blueprint(dong_goi_bp)
     app.register_blueprint(attendance_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
@@ -87,6 +89,12 @@ def create_app(config_class=Config):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
+        agh = AnhGoiHang.query.filter_by(duong_dan=duong_dan).first()
+        if agh:
+            if not (current_user.id == agh.goi_hang.nguoi_goi_id or current_user.la_quan_ly):
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
         # Ảnh minh hoạ chức vụ — thông tin tổ chức chung, ai đăng nhập cũng xem được
         cv = ChucVu.query.filter_by(anh=duong_dan).first()
         if cv:
@@ -106,18 +114,23 @@ def create_app(config_class=Config):
         về khi gọi sendPhoto (server Zalo gọi trực tiếp, không có phiên
         đăng nhập của ai — gọi /media thường sẽ bị chặn ngay ở @login_required).
 
-        CHỈ áp dụng cho ảnh minh hoạ yêu cầu (AnhYeuCau) và ảnh đính kèm Đề
-        xuất (DinhKemDeXuat, chỉ loại ẢNH) — tên file là uuid4 ngẫu nhiên
-        nên không đoán được, an toàn tương đương kiểu "link chia sẻ" của
-        Google Drive/Dropbox. KHÔNG mở rộng route này cho đối chứng/đánh
-        giá/xin nghỉ — các loại đó vẫn luôn phải qua /media có đăng nhập +
-        kiểm tra quyền xem việc như cũ."""
+        CHỈ áp dụng cho ảnh minh hoạ yêu cầu (AnhYeuCau), ảnh đính kèm Đề
+        xuất (DinhKemDeXuat, chỉ loại ẢNH) và ảnh đóng gói (AnhGoiHang,
+        luôn là ảnh) — tên file là uuid4 ngẫu nhiên nên không đoán được,
+        an toàn tương đương kiểu "link chia sẻ" của Google Drive/Dropbox.
+        KHÔNG mở rộng route này cho đối chứng/đánh giá/xin nghỉ — các loại
+        đó vẫn luôn phải qua /media có đăng nhập + kiểm tra quyền xem việc
+        như cũ."""
         ayc = AnhYeuCau.query.filter_by(duong_dan=duong_dan).first()
         if ayc:
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
         dkdx = DinhKemDeXuat.query.filter_by(duong_dan=duong_dan, loai=LoaiDinhKem.ANH).first()
         if dkdx:
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        agh = AnhGoiHang.query.filter_by(duong_dan=duong_dan).first()
+        if agh:
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
         abort(404)

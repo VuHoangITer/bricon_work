@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Quét đóng gói · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px">
+  <a href="{{ url_for('dong_goi.danh_sach') }}" style="font-size:.85rem">‹ Lịch sử đóng gói</a>
+</div>
+<h1>Quét đóng gói</h1>
+<p class="goi-y" style="margin:-4px 0 14px">Quét mã vận đơn trên đơn hàng, chụp ảnh kiện đã gói, rồi lưu — mỗi lần lưu đều ghi lại đúng người đang đăng nhập (<strong>{{ current_user.ho_ten }}</strong>) để tra cứu sau này.</p>
+
+<div class="the" id="khu-quet">
+  <div id="trang-thai-quet" style="font-weight:600;margin-bottom:8px">Đang mở camera…</div>
+  <video id="video-quet" style="width:100%;max-width:420px;border-radius:var(--bk-n);background:#000;aspect-ratio:4/3;object-fit:cover" muted playsinline autoplay></video>
+  <div class="hang-nut" style="margin-top:10px">
+    <button type="button" class="nut nut--phu nut--nho" id="nut-quet-lai">↻ Quét lại</button>
+  </div>
+</div>
+
+<form class="the" method="post" enctype="multipart/form-data" action="{{ url_for('dong_goi.luu') }}" id="form-goi-hang" style="margin-top:14px">
+  <div class="o-nhap">
+    <label for="ma_van_don">Mã vận đơn</label>
+    <input type="text" id="ma_van_don" name="ma_van_don" required placeholder="Tự điền sau khi quét — hoặc gõ tay nếu mã bị mờ/hỏng">
+  </div>
+
+  <div class="o-nhap">
+    <label for="anh">Ảnh kiện hàng đã gói</label>
+    <input type="file" id="anh" name="anh" accept="image/*" capture="environment" multiple required>
+    <div class="goi-y">Có thể bấm nhiều lần để chụp thêm — ảnh chụp trước không bị mất, gỡ bớt bằng nút × dưới ảnh nếu chụp nhầm.</div>
+    <div id="xem-truoc-anh" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+  </div>
+
+  <div class="o-nhap">
+    <label>Sản phẩm trong kiện hàng</label>
+    <div class="goi-y" style="margin-bottom:8px">Đơn gồm nhiều sản phẩm/màu khác nhau thì bấm "+ Thêm sản phẩm" để thêm dòng — có thể để trống nếu không cần ghi.</div>
+    <div id="khu-san-pham"></div>
+    <button type="button" class="nut nut--phu nut--nho" id="nut-them-sp" style="margin-top:4px">+ Thêm sản phẩm</button>
+  </div>
+
+  <button class="nut nut--rong" type="submit">Lưu xác nhận đóng gói</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com/@zxing/browser@latest"></script>
+<script>
+(function () {
+  const oTrangThai = document.getElementById('trang-thai-quet');
+  const video = document.getElementById('video-quet');
+  const nutQuetLai = document.getElementById('nut-quet-lai');
+  const oMa = document.getElementById('ma_van_don');
+  const oAnh = document.getElementById('anh');
+
+  const dat = (chu) => { oTrangThai.textContent = chu; };
+
+  let codeReader = null;
+  let controls = null;
+
+  function bao(loai) {
+    // rung nhẹ (nếu máy hỗ trợ) để báo đã quét được, không cần bật loa
+    if (navigator.vibrate) navigator.vibrate(loai === 'ok' ? 120 : [60, 60, 60]);
+  }
+
+  function batDauQuet() {
+    if (!window.ZXingBrowser || !window.ZXing) {
+      dat('Không tải được thư viện quét mã (kiểm tra kết nối mạng). Gõ mã vận đơn bằng tay bên dưới.');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      dat('Trình duyệt này không hỗ trợ camera. Gõ mã vận đơn bằng tay bên dưới.');
+      return;
+    }
+    dat('Đang mở camera…');
+    // Không giới hạn định dạng — vạch mã 1D và QR trên đơn (VD Shopee)
+    // đều mã hoá ĐÚNG mã vận đơn (in trùng để máy quét nào cũng đọc
+    // được), nên quét được cái nào trước cũng cho ra đúng kết quả. Chỉ
+    // bật TRY_HARDER để đọc chắc hơn trên nhãn in mờ/xước.
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    codeReader = new ZXingBrowser.BrowserMultiFormatReader(hints);
+    codeReader.decodeFromConstraints(
+      { video: { facingMode: { ideal: 'environment' } } },
+      video,
+      (result, err, ctrl) => {
+        controls = ctrl;
+        if (result) {
+          const ma = result.getText().trim();
+          if (!ma) return;
+          oMa.value = ma;
+          dat('✅ Đã quét được mã: ' + ma);
+          bao('ok');
+          if (controls) controls.stop();
+          oAnh.focus();
+        }
+        // err kiểu "không tìm thấy mã trong khung hình này" xảy ra liên tục
+        // khi đang quét — bỏ qua, không phải lỗi thật.
+      }
+    ).catch((e) => {
+      dat('Không mở được camera: ' + (e && e.message ? e.message : e) + '. Gõ mã vận đơn bằng tay bên dưới.');
+    });
+  }
+
+  function dungQuet() {
+    if (controls) { controls.stop(); controls = null; }
+  }
+
+  nutQuetLai.addEventListener('click', () => {
+    dungQuet();
+    oMa.value = '';
+    batDauQuet();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) dungQuet();
+  });
+  window.addEventListener('beforeunload', dungQuet);
+
+  batDauQuet();
+})();
+</script>
+
+<script>
+(function () {
+  // Input type=file với capture="environment" thường chỉ mở camera CHỤP 1
+  // TẤM mỗi lần bấm (tuỳ trình duyệt/máy) — nên tự cộng dồn danh sách ảnh
+  // qua nhiều lần bấm/chụp, thay vì để mỗi lần chọn lại THAY THẾ ảnh cũ.
+  const oAnh = document.getElementById('anh');
+  const khuXemTruoc = document.getElementById('xem-truoc-anh');
+  let danhSachAnh = [];
+
+  function capNhatInputTuDanhSach() {
+    const dt = new DataTransfer();
+    danhSachAnh.forEach((f) => dt.items.add(f));
+    oAnh.files = dt.files;
+  }
+
+  function veLaiXemTruoc() {
+    khuXemTruoc.innerHTML = '';
+    danhSachAnh.forEach((f, i) => {
+      const url = URL.createObjectURL(f);
+      const oBoc = document.createElement('div');
+      oBoc.style.cssText = 'position:relative;width:72px;height:72px';
+      oBoc.innerHTML =
+        '<img src="' + url + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:var(--bk-n)">' +
+        '<button type="button" data-i="' + i + '" ' +
+        'style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;' +
+        'border:none;background:var(--lam-lai);color:#fff;font-size:14px;line-height:1;cursor:pointer">×</button>';
+      khuXemTruoc.appendChild(oBoc);
+    });
+    khuXemTruoc.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        danhSachAnh.splice(Number(btn.dataset.i), 1);
+        capNhatInputTuDanhSach();
+        veLaiXemTruoc();
+      });
+    });
+  }
+
+  oAnh.addEventListener('change', () => {
+    const anhMoi = Array.from(oAnh.files);
+    danhSachAnh = danhSachAnh.concat(anhMoi);
+    capNhatInputTuDanhSach();
+    veLaiXemTruoc();
+  });
+
+  // Reset danh sách sau khi form gửi đi thành công (trang tải lại từ
+  // server nên biến JS cũng mất theo — không cần xử lý thêm ở đây).
+})();
+</script>
+
+<script>
+(function () {
+  // 1 đơn có thể gồm NHIỀU sản phẩm/màu khác nhau — cho thêm/bớt dòng
+  // động, mỗi dòng gửi lên server dưới dạng 3 mảng cùng tên
+  // ten_san_pham[]/ma_mau[]/so_luong[] (ghép theo vị trí ở phía server).
+  //
+  // Mỗi dòng bọc trong 1 khung riêng (không dùng class "hang" cho toàn bộ
+  // dòng) — vì "hang" tự đổi thành flex-direction:column trên điện
+  // thoại, khiến nút Xoá bị kéo giãn to bằng cả chiều ngang màn hình rất
+  // xấu. Nút Xoá đặt riêng ở dòng tiêu đề nhỏ phía trên, không phụ thuộc
+  // layout "hang" nên luôn gọn dù ở máy tính hay điện thoại.
+  const khuSanPham = document.getElementById('khu-san-pham');
+  const nutThem = document.getElementById('nut-them-sp');
+
+  function danhSoLaiCacDong() {
+    khuSanPham.querySelectorAll('[data-nhan-dong]').forEach((nhan, i) => {
+      nhan.textContent = 'Sản phẩm ' + (i + 1);
+    });
+  }
+
+  function themDong() {
+    const dong = document.createElement('div');
+    dong.style.cssText =
+      'border:1px solid var(--vien);border-radius:var(--bk-n);background:var(--nen);' +
+      'padding:12px;margin-bottom:10px';
+    dong.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<span data-nhan-dong style="font-weight:700;font-size:.8rem;color:var(--muc-mo)"></span>' +
+      '<button type="button" class="nut nut--do nut--nho" data-xoa-dong>Xoá</button>' +
+      '</div>' +
+      '<div class="o-nhap" style="margin-bottom:10px">' +
+      '<label>Tên sản phẩm</label>' +
+      '<input type="text" name="ten_san_pham[]" placeholder="VD: Keo chà ron Epoxy 2TP"></div>' +
+      '<div class="hang">' +
+      '<div class="o-nhap" style="margin-bottom:0"><label>Mã màu</label>' +
+      '<input type="text" name="ma_mau[]" placeholder="VD: E07"></div>' +
+      '<div class="o-nhap" style="margin-bottom:0"><label>Số lượng</label>' +
+      '<input type="text" name="so_luong[]" placeholder="VD: 1"></div>' +
+      '</div>';
+    dong.querySelector('[data-xoa-dong]').addEventListener('click', () => {
+      dong.remove();
+      if (!khuSanPham.children.length) themDong(); // luôn giữ ít nhất 1 dòng để có chỗ gõ
+      danhSoLaiCacDong();
+    });
+    khuSanPham.appendChild(dong);
+    danhSoLaiCacDong();
+  }
+
+  nutThem.addEventListener('click', themDong);
+  themDong(); // sẵn 1 dòng trống khi mở form
+})();
+</script>
+{% endblock %}

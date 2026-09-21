@@ -775,6 +775,62 @@ class DinhKemDeXuat(db.Model):
         return f"{n / 1048576:.1f} MB"
 
 
+class GoiHang(db.Model):
+    """1 lần đóng gói đơn hàng — nhân viên quét mã vận đơn (camera đọc mã
+    vạch/QR trên đơn) rồi chụp (nhiều) ảnh kiện hàng đã gói, để sau này
+    tra cứu NHANH ai là người gói 1 đơn cụ thể khi phát hiện sai sót (VD
+    gói nhầm màu), thay vì phải lướt lại cả nhóm Zalo tìm ảnh.
+
+    Không ràng buộc unique trên ma_van_don: có thể gói lại/gói bù cùng 1
+    mã nhiều lần (đóng sai rồi sửa lại) — khi tra cứu luôn ưu tiên xem bản
+    ghi MỚI NHẤT là lần gói cuối cùng thực tế gửi đi."""
+    __tablename__ = "goi_hang"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ma_van_don = db.Column(db.String(50), nullable=False, index=True)
+    nguoi_goi_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai, index=True)
+
+    nguoi_goi = db.relationship("NguoiDung")
+    anh = db.relationship(
+        "AnhGoiHang", back_populates="goi_hang", cascade="all, delete-orphan",
+        order_by="AnhGoiHang.id"
+    )
+    san_pham = db.relationship(
+        "SanPhamGoiHang", back_populates="goi_hang", cascade="all, delete-orphan",
+        order_by="SanPhamGoiHang.id"
+    )
+
+
+class AnhGoiHang(db.Model):
+    """1 ảnh trong 1 lần đóng gói — tách bảng riêng (giống DinhKemDeXuat)
+    để 1 lần gói cho phép NHIỀU ảnh thay vì chỉ 1."""
+    __tablename__ = "anh_goi_hang"
+
+    id = db.Column(db.Integer, primary_key=True)
+    goi_hang_id = db.Column(db.Integer, db.ForeignKey("goi_hang.id"), nullable=False, index=True)
+    duong_dan = db.Column(db.String(300), nullable=False)  # tương đối so với UPLOAD_ROOT
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    goi_hang = db.relationship("GoiHang", back_populates="anh")
+
+
+class SanPhamGoiHang(db.Model):
+    """1 dòng sản phẩm trong 1 lần đóng gói — 1 đơn có thể gồm NHIỀU sản
+    phẩm/màu khác nhau (VD gói chung nhiều bao keo màu khác nhau vào 1
+    kiện), nên tách bảng riêng để ghi được nhiều dòng thay vì gộp chung 3
+    ô cố định (chỉ ghi được đúng 1 sản phẩm/lần gói) như bản trước."""
+    __tablename__ = "san_pham_goi_hang"
+
+    id = db.Column(db.Integer, primary_key=True)
+    goi_hang_id = db.Column(db.Integer, db.ForeignKey("goi_hang.id"), nullable=False, index=True)
+    ten_san_pham = db.Column(db.String(200))
+    ma_mau = db.Column(db.String(50))
+    so_luong = db.Column(db.String(20))
+
+    goi_hang = db.relationship("GoiHang", back_populates="san_pham")
+
+
 class TroLySuDung(db.Model):
     """Theo dõi mức dùng Trợ lý AI của từng người, TÍNH THEO NGÀY — dùng để
     áp giới hạn số câu hỏi + số token cho Nhân viên/Quản lý bộ phận (Sếp/

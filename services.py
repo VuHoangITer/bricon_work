@@ -691,6 +691,43 @@ def bao_duyet_de_xuat(dx: "DeXuat"):
         gui_anh_cho_nhan_vien(dx.nguoi_de_xuat, f"{base}/media-cong-khai/{a.duong_dan}")
 
 
+def bao_goi_hang(gh: "GoiHang"):
+    """Báo vào nhóm QL mỗi khi có 1 lần đóng gói mới — giữ thói quen xem
+    ảnh ngay trong nhóm như trước, nhưng giờ có sẵn mã vận đơn + tên người
+    gói trong tin nhắn, nên nhóm có thể Ctrl+F/tìm ngay trong Zalo mà
+    không cần vào web; web (/dong-goi) vẫn là nơi tra cứu chính xác vì
+    tìm được theo mã, không phụ thuộc lướt lại chat.
+
+    1 lần gói giờ có thể nhiều ảnh — gửi 1 tin nhắn text tóm tắt (giống
+    bao_de_xuat_moi) rồi gửi kèm từng ảnh thật (sendPhoto), giới hạn 5
+    ảnh để tránh dội quá nhiều tin liên tiếp."""
+    base = current_app.config["BASE_URL"]
+    so_anh = len(gh.anh)
+    # 1 đơn có thể gồm nhiều sản phẩm — mỗi sản phẩm 1 dòng riêng trong
+    # tin nhắn, dạng "- Tên (Mã màu) SL: N", bỏ phần nào không có điền.
+    dong_sp = []
+    for sp in gh.san_pham:
+        phan = []
+        if sp.ten_san_pham:
+            phan.append(sp.ten_san_pham)
+        if sp.ma_mau:
+            phan.append(f"({sp.ma_mau})")
+        if sp.so_luong:
+            phan.append(f"SL: {sp.so_luong}")
+        if phan:
+            dong_sp.append("- " + " ".join(phan))
+    nd = (
+        f"📦 Đóng gói: {gh.ma_van_don}\n"
+        f"Người gói: {gh.nguoi_goi.ho_ten} ({gh.nguoi_goi.ma_dinh_danh})\n"
+        f"{(chr(10).join(dong_sp) + chr(10)) if dong_sp else ''}"
+        f"Ảnh: {so_anh}\n"
+        f"{gh.tao_luc.strftime('%H:%M %d/%m/%Y')}"
+    )
+    gui_nhom_ql(nd)
+    for a in gh.anh[:5]:
+        gui_anh_nhom_ql(f"{base}/media-cong-khai/{a.duong_dan}")
+
+
 def lay_cac_chat_gan_day(token: str) -> tuple[list[dict], str | None, str]:
     """Gọi getUpdates để tìm các nhóm/chat bot vừa nhận được tin nhắn — dùng
     để dò chat_id của 1 nhóm mới thêm bot vào.
