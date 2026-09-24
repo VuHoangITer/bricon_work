@@ -96,6 +96,10 @@ def create_app(config_class=Config):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
+        # Ảnh đại diện nhân viên — ai đăng nhập cũng xem được
+        if NguoiDung.query.filter_by(anh_dai_dien=duong_dan).first():
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
         # Giấy tờ nhân sự (hợp đồng, bàn giao, cam kết) — nhạy cảm, CHỈ
         # Admin/Ban giám đốc xem được, kể cả chính nhân viên đó cũng không.
         from models import HoSoNhanVien

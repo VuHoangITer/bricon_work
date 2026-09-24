@@ -1056,7 +1056,8 @@ def _muc_mo_coi(tim, tu_ngay, den_ngay):
     # xoá an toàn". Thêm bảng mới có cột đường dẫn file thì PHẢI thêm vào đây.
     from models import AnhGoiHang, DeXuat, DinhKemDeXuat, HoSoNhanVien
     for cot in (DeXuat.duong_dan_pdf, DeXuat.duong_dan_chu_ky_de_xuat, DeXuat.duong_dan_chu_ky_duyet,
-                DinhKemDeXuat.duong_dan, AnhGoiHang.duong_dan, HoSoNhanVien.duong_dan):
+                DinhKemDeXuat.duong_dan, AnhGoiHang.duong_dan, HoSoNhanVien.duong_dan,
+                NguoiDung.anh_dai_dien):
         da_biet.update(r[0] for r in db.session.query(cot).filter(cot.isnot(None)).all())
     anh_tro_ly = services.lay_cai_dat("tro_ly_anh_dai_dien")
     if anh_tro_ly:

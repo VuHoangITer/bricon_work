@@ -1,0 +1,9 @@
+{# avatar(nd): ảnh đại diện tròn nếu có, không thì chữ cái đầu tên — dùng
+   chung cho danh sách nhân viên, trang hồ sơ, góc tài khoản. #}
+{% macro avatar(nd, cls="nv-avatar", style="") -%}
+<span class="{{ cls }}" data-vt="{{ nd.vai_tro }}" style="overflow:hidden;{{ style }}">
+  {%- if nd.anh_dai_dien -%}
+  <img src="{{ url_for('media', duong_dan=nd.anh_dai_dien) }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">
+  {%- else -%}{{ (nd.ho_ten or '?')[:1]|upper }}{%- endif -%}
+</span>
+{%- endmacro %}

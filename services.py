@@ -2159,6 +2159,24 @@ def xoa_file_dinh_kem(viec: CongViec):
             pass
 
 
+def dat_anh_dai_dien(nd: NguoiDung, file_storage) -> str | None:
+    """Lưu ảnh đại diện mới cho nd (xoá file cũ trên đĩa). file_storage=None
+    thì bỏ ảnh (về chữ cái đầu tên). Trả về thông báo lỗi nếu có."""
+    if file_storage is not None:
+        if phan_loai(file_storage.filename, file_storage.mimetype) != LoaiDinhKem.ANH:
+            return "Tệp vừa chọn không phải ảnh."
+        duong_dan_moi, _ = luu_file(file_storage, "anh-dai-dien")
+    else:
+        duong_dan_moi = None
+    if nd.anh_dai_dien:
+        try:
+            os.remove(os.path.join(current_app.config["UPLOAD_ROOT"], *nd.anh_dai_dien.split("/")))
+        except OSError:
+            pass
+    nd.anh_dai_dien = duong_dan_moi
+    return None
+
+
 def xoa_file_ho_so(h) -> None:
     """Xoá file vật lý của 1 HoSoNhanVien (không xoá dòng DB)."""
     duong_dan = os.path.join(current_app.config["UPLOAD_ROOT"], *h.duong_dan.split("/"))
@@ -2220,6 +2238,7 @@ def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
     from models import HoSoNhanVien
     for h in list(nd.ho_so):
         xoa_file_ho_so(h)
+    dat_anh_dai_dien(nd, None)
     for h in HoSoNhanVien.query.filter(HoSoNhanVien.nguoi_tai_len_id == nd.id,
                                        HoSoNhanVien.nguoi_dung_id != nd.id).all():
         h.nguoi_tai_len_id = None

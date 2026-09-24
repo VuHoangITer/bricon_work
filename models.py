@@ -246,6 +246,7 @@ class NguoiDung(UserMixin, db.Model):
     # Hồ sơ nhân sự
     ngay_vao_lam = db.Column(db.Date)
     ngay_sinh = db.Column(db.Date)
+    anh_dai_dien = db.Column(db.String(300))  # ảnh vuông đã cắt, tương đối so với UPLOAD_ROOT
 
     bo_phan = db.relationship("BoPhan", back_populates="nhan_vien")
     ho_so = db.relationship("HoSoNhanVien", back_populates="nguoi_dung",

@@ -121,6 +121,25 @@ def _doc_ngay(ten: str):
         return None
 
 
+@bp.route("/nhan-vien/<int:uid>/anh-dai-dien", methods=["POST"])
+@chi_admin
+def doi_anh_dai_dien_nv(uid):
+    nd = db.session.get(NguoiDung, uid) or abort(404)
+    if request.form.get("xoa") == "1":
+        services.dat_anh_dai_dien(nd, None)
+        db.session.commit()
+        flash("Đã bỏ ảnh đại diện.", "success")
+    else:
+        f = request.files.get("anh")
+        loi = services.dat_anh_dai_dien(nd, f) if f and f.filename else "Chưa chọn ảnh."
+        if loi:
+            flash(loi, "error")
+        else:
+            db.session.commit()
+            flash(f"Đã cập nhật ảnh đại diện của {nd.ho_ten}.", "success")
+    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid))
+
+
 @bp.route("/nhan-vien/<int:uid>/ho-so", methods=["POST"])
 @chi_admin
 def tai_ho_so(uid):

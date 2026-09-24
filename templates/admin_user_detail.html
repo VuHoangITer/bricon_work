@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}{{ n.ho_ten }} · Nhân sự{% endblock %}
 
 {% block content %}
@@ -41,7 +42,19 @@
 
 <div class="the">
   <div class="hs-dau">
-    <span class="nv-avatar" data-vt="{{ n.vai_tro }}">{{ n.ho_ten[:1]|upper }}</span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      {{ avatar(n) }}
+      <form method="post" action="{{ url_for('admin.doi_anh_dai_dien_nv', uid=n.id) }}" enctype="multipart/form-data">
+        <label style="cursor:pointer;font-size:.72rem;color:var(--chinh-dam);font-weight:600">Đổi ảnh
+          <input type="file" name="anh" accept="image/*" data-cat-anh hidden></label>
+      </form>
+      {% if n.anh_dai_dien %}
+      <form method="post" action="{{ url_for('admin.doi_anh_dai_dien_nv', uid=n.id) }}" onsubmit="return confirm('Bỏ ảnh đại diện?')">
+        <input type="hidden" name="xoa" value="1">
+        <button type="submit" style="border:0;background:none;color:var(--muc-mo);font-size:.7rem;cursor:pointer;padding:0">Bỏ ảnh</button>
+      </form>
+      {% endif %}
+    </div>
     <div style="flex:1;min-width:200px">
       <h1>{{ n.ho_ten }}</h1>
       <div class="hs-dau-phu">
@@ -195,6 +208,7 @@
 {% endblock %}
 
 {% block scripts %}
+{% include "_cat_anh_tron.html" %}
 <script>
 // Mỗi form tải giấy tờ: 2 nút chọn (ảnh/chụp và file) CỘNG DỒN vào 1 danh
 // sách — chọn nhiều lần không mất lựa chọn trước, bỏ được từng file chọn

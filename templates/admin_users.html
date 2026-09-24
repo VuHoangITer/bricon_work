@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}Nhân viên · Quản trị{% endblock %}
 
 {% block content %}
@@ -112,7 +113,7 @@
       {% for n in ds_nhom %}
       <tr class="nv-dong{{ ' nv-mo' if not n.dang_hoat_dong }}" onclick="location.href='{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}'">
         <td><div class="nv-ten">
-          <span class="nv-avatar" data-vt="{{ n.vai_tro }}">{{ n.ho_ten[:1]|upper }}</span>
+          {{ avatar(n) }}
           <span><strong>{{ n.ho_ten }}</strong><small>{{ n.ma_dinh_danh }}{% if not n.dang_hoat_dong %} · đã nghỉ{% endif %}</small></span>
         </div></td>
         <td style="font-size:.82rem">{{ n.chuc_vu.ten if n.chuc_vu else '—' }}</td>

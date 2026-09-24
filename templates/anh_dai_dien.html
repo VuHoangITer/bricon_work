@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block title %}Ảnh đại diện · BRICON{% endblock %}
+{% block content %}
+<div class="page-head"><div class="page-head-copy">
+  <h1>Ảnh đại diện</h1>
+  <p>Ảnh hiện ở góc tài khoản và trong danh sách nhân sự.</p>
+</div></div>
+
+<div class="the" style="max-width:520px">
+  <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+    {{ avatar(current_user, style="width:96px;height:96px;flex:0 0 96px;font-size:2.2rem") }}
+    <div style="flex:1;min-width:200px">
+      <strong>{{ current_user.ho_ten }}</strong>
+      <div style="color:var(--muc-mo);font-size:.84rem">{{ current_user.ten_vai_tro }}</div>
+      <form method="post" enctype="multipart/form-data" style="margin-top:12px">
+        <label class="nut nut--nho" style="cursor:pointer">📷 Chọn ảnh mới
+          <input type="file" name="anh" accept="image/*" data-cat-anh hidden></label>
+      </form>
+      {% if current_user.anh_dai_dien %}
+      <form method="post" style="margin-top:8px" onsubmit="return confirm('Bỏ ảnh đại diện hiện tại?')">
+        <input type="hidden" name="xoa" value="1">
+        <button class="nut nut--phu nut--nho" type="submit">Bỏ ảnh</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% include "_cat_anh_tron.html" %}
+{% endblock %}

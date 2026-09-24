@@ -55,7 +55,7 @@
       <div class="topbar-right">
         <div class="tai-khoan-menu" id="tai-khoan-menu">
           <button type="button" class="tai-khoan-nut" id="nut-tai-khoan" aria-haspopup="true" aria-expanded="false">
-            <span class="tai-khoan-avatar">{{ current_user.ho_ten[0]|upper }}</span>
+            {% from "_avatar.html" import avatar %}{{ avatar(current_user, cls="tai-khoan-avatar") }}
             <span class="topbar-user">
               <strong>{{ current_user.ho_ten }}</strong>
               <small>{{ current_user.ten_vai_tro if current_user.ten_vai_tro is defined else 'Nhân viên BRICON' }}</small>
@@ -63,6 +63,7 @@
             <span class="tai-khoan-chevron">▾</span>
           </button>
           <div class="tai-khoan-dropdown">
+            <a href="{{ url_for('auth.anh_dai_dien') }}">🖼 Ảnh đại diện</a>
             <a href="{{ url_for('auth.doi_mat_khau') }}">🔒 Đổi mật khẩu</a>
             <a href="{{ url_for('auth.logout') }}">↪ Đăng xuất</a>
           </div>

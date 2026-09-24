@@ -86,3 +86,25 @@ def doi_mat_khau():
             return redirect(url_for("tasks.dashboard"))
 
     return render_template("doi_mat_khau.html")
+
+
+@bp.route("/anh-dai-dien", methods=["GET", "POST"])
+@login_required
+def anh_dai_dien():
+    """Nhân viên tự đổi ảnh đại diện của mình (có khung cắt tròn)."""
+    import services
+    if request.method == "POST":
+        if request.form.get("xoa") == "1":
+            services.dat_anh_dai_dien(current_user, None)
+            db.session.commit()
+            flash("Đã bỏ ảnh đại diện.", "success")
+        else:
+            f = request.files.get("anh")
+            loi = services.dat_anh_dai_dien(current_user, f) if f and f.filename else "Chưa chọn ảnh."
+            if loi:
+                flash(loi, "error")
+            else:
+                db.session.commit()
+                flash("Đã cập nhật ảnh đại diện.", "success")
+        return redirect(url_for("auth.anh_dai_dien"))
+    return render_template("anh_dai_dien.html")
