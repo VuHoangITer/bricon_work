@@ -924,15 +924,6 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     if not tin_tu & tu_xin_anh:
         return None
 
-    if nd.la_admin_sep:
-        ung_vien = ChucVu.query.filter(ChucVu.anh.isnot(None)).all()
-    elif nd.chuc_vu and nd.chuc_vu.anh:
-        ung_vien = [nd.chuc_vu]
-    else:
-        ung_vien = []
-    if not ung_vien:
-        return None
-
     # Từ chung của MỌI chức vụ ("nhân viên", "kiêm"...) và từ chức năng —
     # không dùng để phân biệt chức vụ này với chức vụ khác.
     tu_chung = {"nhan", "vien", "va", "kiem", "truong", "pho", "bo", "phan"}
@@ -960,6 +951,41 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     tu_san_pham = {"keo", "cha", "ron", "gach", "tds", "chong", "tham", "epoxy", "vua",
                    "catalog", "catalogue"} | _tu_ten_san_pham()
     if not nhac_chuc_vu and tin_tu & tu_san_pham:
+        return None
+
+    def _tra_loi(noi_dung: str) -> dict:
+        return {"tra_loi": noi_dung, "duong_dan": None, "nhan_nut": None, "media": None}
+
+    if not nd.la_admin_sep:
+        # (a) Nêu tên 1 chức vụ KHÁC (VD NV kho hỏi "phiếu đánh giá nhân viên
+        #     kinh doanh") -> từ chối rõ ràng, không trả nhầm phiếu của mình.
+        khac = [c for c in ChucVu.query.all()
+                if c.id != (nd.chuc_vu_id or 0)
+                and (_tach_tu(c.ten) - tu_chung - tu_bo_qua) & tin_tu]
+        noi_ro_cua_minh = bool(nd.chuc_vu and (_tach_tu(nd.chuc_vu.ten) - tu_chung - tu_bo_qua) & tin_tu)
+        if khac and not noi_ro_cua_minh:
+            cua_minh = f" — chức vụ của bạn là \"{nd.chuc_vu.ten}\"" if nd.chuc_vu else ""
+            return _tra_loi(f"Bạn chỉ xem được phiếu/thông tin của chức vụ mình{cua_minh}. "
+                            f"Thông tin chức vụ \"{khac[0].ten}\" chỉ quản lý/Ban giám đốc mới xem "
+                            f"được. Muốn xem phiếu của bạn, hỏi \"phiếu đánh giá của tôi\".")
+        # (b) Hỏi phiếu/ảnh chức vụ nhưng tài khoản chưa gán chức vụ, hoặc
+        #     chức vụ chưa có ảnh -> nói rõ nguyên nhân + ai xử lý, thay vì để
+        #     AI trả lời chung chung "chưa có dữ liệu".
+        if nhac_chuc_vu or "phieu" in tin_tu:
+            if not nd.chuc_vu:
+                return _tra_loi("Tài khoản của bạn chưa được gán chức vụ nên chưa có phiếu đánh giá. "
+                                "Nhờ Admin gán chức vụ cho bạn ở Quản trị → Nhân sự → Nhân viên.")
+            if not nd.chuc_vu.anh:
+                return _tra_loi(f"Chức vụ \"{nd.chuc_vu.ten}\" của bạn chưa có ảnh phiếu đánh giá. "
+                                "Nhờ Admin tải ảnh lên ở Quản trị → Trợ lý AI → Chức vụ.")
+
+    if nd.la_admin_sep:
+        ung_vien = ChucVu.query.filter(ChucVu.anh.isnot(None)).all()
+    elif nd.chuc_vu and nd.chuc_vu.anh:
+        ung_vien = [nd.chuc_vu]
+    else:
+        ung_vien = []
+    if not ung_vien:
         return None
 
     # 1) Câu hỏi nêu rõ tên chức vụ -> chỉ xét ĐÚNG câu hiện tại (không đọc
