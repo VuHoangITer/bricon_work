@@ -220,6 +220,17 @@ def create_app(config_class=Config):
                 return n
         return None
 
+    def lay_gioi_han_tro_ly():
+        """Hạn mức Trợ lý AI hôm nay của người đang đăng nhập — widget chat
+        nổi (có ở mọi trang) gọi hàm này thay vì bắt từng view truyền vào."""
+        import dich_vu_ai
+        from flask_login import current_user as nd
+        if not nd.is_authenticated:
+            return {"gioi_han": False}
+        return dich_vu_ai.trang_thai_gioi_han_tro_ly(nd)
+
+    app.jinja_env.globals["lay_gioi_han_tro_ly"] = lay_gioi_han_tro_ly
+
     @app.context_processor
     def bien_chung():
         return {

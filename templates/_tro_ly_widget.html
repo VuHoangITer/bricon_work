@@ -1,3 +1,9 @@
+{# Trợ lý AI dạng bong bóng chat nổi ở góc phải (kiểu Messenger) — include 1
+   lần trong base.html nên có mặt ở MỌI trang sau khi đăng nhập:
+   - Nút tròn góc phải dưới; vừa vào web sẽ bật lời chào "Trợ lý BRICON…"
+     (mỗi phiên trình duyệt chỉ chào 1 lần, bấm ✕ để tắt).
+   - Bấm nút/lời chào -> mở khung chat. Lịch sử chat giữ nguyên khi chuyển
+     trang (sessionStorage), bấm ⟳ để bắt đầu cuộc trò chuyện mới. #}
 {% if current_user.la_admin_sep %}
   {% set goi_y_tro_ly = [
     ("📄", "Có bao nhiêu việc đang chờ duyệt?"),
@@ -20,130 +26,179 @@
     ("🌴", "Làm sao để xin nghỉ phép?"),
   ] %}
 {% endif %}
+{% set gh_tro_ly = lay_gioi_han_tro_ly() %}
+{% set ten_goi = current_user.ho_ten.split()[-1] if current_user.ho_ten else '' %}
 
-<div class="tro-ly-the">
-  <div class="tro-ly-dau">
-    <div class="tro-ly-avatar">🤖</div>
-    <div class="tro-ly-tieu-de">
-      <strong>Trợ lý AI</strong>
-      <span id="tro-ly-loi-chao">Chào mừng bạn trở lại! Tôi có thể hỗ trợ bạn với các công việc và thông tin nhanh chóng.</span>
-    </div>
-    <span class="tro-ly-lap-lanh" aria-hidden="true">✦</span>
-  </div>
+<style>
+  .tl-chat-nut { position:fixed; right:22px; bottom:22px; z-index:900; width:58px; height:58px; border-radius:50%;
+    border:0; cursor:pointer; background:var(--chinh,#a9822a); color:#fff; font-size:1.6rem; display:grid; place-items:center;
+    box-shadow:0 8px 24px rgba(28,28,26,.28); transition:transform .18s ease, box-shadow .18s ease; }
+  .tl-chat-nut:hover { transform:scale(1.06); box-shadow:0 10px 28px rgba(28,28,26,.34); }
+  .tl-chat-nut .tl-cham { position:absolute; top:4px; right:4px; width:13px; height:13px; border-radius:50%;
+    background:#e5484d; border:2px solid #fff; display:none; }
+  .tl-chat-nut.co-tin .tl-cham { display:block; }
+  .tl-chat-nut .tl-icon-dong { display:none; font-size:1.4rem; }
+  body.tl-chat-mo .tl-chat-nut .tl-icon-mo { display:none; }
+  body.tl-chat-mo .tl-chat-nut .tl-icon-dong { display:block; }
 
-  <div id="tro-ly-goi-y" class="tro-ly-goi-y-hang">
-    {% for icon, goi_y in goi_y_tro_ly %}
-    <button type="button" class="tro-ly-goi-y-nut" data-cau-hoi="{{ goi_y }}"><span>{{ icon }}</span>{{ goi_y }}</button>
-    {% endfor %}
-  </div>
+  .tl-loi-chao { position:fixed; right:22px; bottom:92px; z-index:900; max-width:290px; background:#fff; color:var(--muc,#1c1c1a);
+    border:1px solid var(--vien,#e6e4de); border-radius:16px 16px 4px 16px; padding:12px 34px 12px 14px;
+    box-shadow:0 10px 30px rgba(28,28,26,.16); font-size:.86rem; line-height:1.45; cursor:pointer;
+    opacity:0; transform:translateY(8px) scale(.97); pointer-events:none; transition:opacity .25s ease, transform .25s ease; }
+  .tl-loi-chao.hien { opacity:1; transform:none; pointer-events:auto; }
+  .tl-loi-chao strong { display:block; font-size:.8rem; color:var(--chinh-dam,#8a6a1f); margin-bottom:2px; }
+  .tl-loi-chao-dong { position:absolute; top:6px; right:8px; border:0; background:transparent; color:var(--muc-mo,#888);
+    font-size:.9rem; cursor:pointer; padding:2px 4px; line-height:1; }
 
-  <div id="tro-ly-khung" class="tro-ly-khung" style="max-height:{{ chieu_cao_tro_ly|default('min(48vh,420px)') }}" hidden></div>
+  .tl-chat-khung { position:fixed; right:22px; bottom:92px; z-index:901; width:380px; height:min(600px, calc(100vh - 120px));
+    display:flex; flex-direction:column; background:#fff; border:1px solid var(--vien,#e6e4de); border-radius:18px;
+    box-shadow:0 18px 50px rgba(28,28,26,.25); overflow:hidden;
+    opacity:0; transform:translateY(14px) scale(.98); transform-origin:bottom right; pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease; }
+  body.tl-chat-mo .tl-chat-khung { opacity:1; transform:none; pointer-events:auto; }
 
-  <form id="form-tro-ly" class="tro-ly-form">
-    <span class="tro-ly-form-icon" aria-hidden="true">✦</span>
-    <input type="text" id="tro-ly-input" placeholder="Hôm nay tôi có thể giúp gì cho bạn?" autocomplete="off">
-    <button class="nut nut--vang nut--nho" type="submit" id="tro-ly-gui">➤ Gửi</button>
-  </form>
+  .tl-chat-dau { display:flex; align-items:center; gap:10px; padding:12px 12px 12px 14px;
+    background:var(--den,#1c1c1a); color:#fff; }
+  .tl-chat-avatar { width:38px; height:38px; border-radius:50%; background:var(--chinh,#a9822a); display:grid;
+    place-items:center; font-size:1.2rem; flex:0 0 auto; position:relative; }
+  .tl-chat-avatar::after { content:''; position:absolute; right:0; bottom:1px; width:10px; height:10px; border-radius:50%;
+    background:#3fb950; border:2px solid var(--den,#1c1c1a); }
+  .tl-chat-ten { display:flex; flex-direction:column; min-width:0; line-height:1.25; }
+  .tl-chat-ten strong { font-size:.92rem; }
+  .tl-chat-ten span { font-size:.72rem; color:#b3b2ac; }
+  .tl-chat-dau-nut { margin-left:auto; display:flex; gap:2px; }
+  .tl-chat-dau-nut button { border:0; background:transparent; color:#d6d5cf; font-size:1rem; width:32px; height:32px;
+    border-radius:8px; cursor:pointer; }
+  .tl-chat-dau-nut button:hover { background:rgba(255,255,255,.1); color:#fff; }
 
-  {% if gioi_han_tro_ly and gioi_han_tro_ly.gioi_han %}
-  <div id="tro-ly-han-muc" class="tro-ly-han-muc" style="font-size:.78rem;color:var(--muc-mo,#888);margin-top:6px">
-    Đã hỏi {{ gioi_han_tro_ly.so_cau_hoi }}/{{ gioi_han_tro_ly.gh_cau_hoi }} câu hôm nay
-  </div>
-  {% endif %}
+  .tl-chat-than { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; background:#faf9f6; }
+  .tl-chat-than .tro-ly-tin { max-width:84%; }
+  .tl-chat-than .tro-ly-tin--ai { background:#fff; border:1px solid var(--vien,#e6e4de); }
+  .tl-goi-y { display:flex; flex-direction:column; gap:6px; margin-top:2px; }
+  .tl-goi-y button { align-self:flex-start; text-align:left; border:1px solid var(--chinh,#a9822a); background:#fff;
+    color:var(--chinh-dam,#8a6a1f); border-radius:16px; padding:7px 12px; font-size:.8rem; font-weight:600; cursor:pointer; }
+  .tl-goi-y button:hover { background:var(--chinh-nhat,#f6efdf); }
+  .tl-dang-go { display:inline-flex; gap:4px; align-items:center; }
+  .tl-dang-go i { width:6px; height:6px; border-radius:50%; background:#a9a8a2; animation:tl-nhun 1s infinite ease-in-out; }
+  .tl-dang-go i:nth-child(2) { animation-delay:.15s; } .tl-dang-go i:nth-child(3) { animation-delay:.3s; }
+  @keyframes tl-nhun { 0%,80%,100% { transform:translateY(0); opacity:.5; } 40% { transform:translateY(-4px); opacity:1; } }
+
+  .tl-chat-chan { border-top:1px solid var(--vien,#e6e4de); padding:10px; background:#fff; }
+  .tl-chat-form { display:flex; gap:8px; align-items:center; }
+  .tl-chat-form input { flex:1; border:1px solid var(--vien,#e6e4de); border-radius:20px; padding:10px 14px; font-size:.86rem;
+    background:#faf9f6; min-width:0; }
+  .tl-chat-form input:focus { outline:none; border-color:var(--chinh,#a9822a); background:#fff; }
+  .tl-chat-form button { flex:0 0 auto; width:40px; height:40px; border-radius:50%; border:0; cursor:pointer;
+    background:var(--chinh,#a9822a); color:#fff; font-size:1rem; }
+  .tl-chat-form button:disabled { opacity:.5; cursor:default; }
+  .tl-han-muc { font-size:.7rem; color:var(--muc-mo,#888); margin-top:6px; text-align:center; }
+
+  @media (max-width:600px) {
+    .tl-chat-nut { right:16px; bottom:16px; width:54px; height:54px; }
+    .tl-loi-chao { right:16px; bottom:80px; max-width:calc(100vw - 32px); }
+    .tl-chat-khung { right:0; bottom:0; width:100vw; height:100dvh; border-radius:0; border:0; }
+    body.tl-chat-mo .tl-chat-nut { display:none; }
+  }
+</style>
+
+<div class="tl-loi-chao" id="tl-loi-chao" role="button" tabindex="0" aria-label="Mở Trợ lý BRICON">
+  <button type="button" class="tl-loi-chao-dong" id="tl-loi-chao-dong" aria-label="Tắt lời chào">✕</button>
+  <strong>🤖 Trợ lý BRICON</strong>
+  Chào {{ ten_goi }}! Bạn cần trợ giúp gì không? Bấm vào đây để hỏi mình nhé.
 </div>
 
-<script>
-  window.__gioiHanTroLy = {{ (gioi_han_tro_ly or {"gioi_han": false})|tojson }};
-</script>
+<button type="button" class="tl-chat-nut" id="tl-chat-nut" aria-label="Mở Trợ lý BRICON" title="Trợ lý BRICON">
+  <span class="tl-icon-mo">🤖</span><span class="tl-icon-dong">✕</span><span class="tl-cham"></span>
+</button>
+
+<section class="tl-chat-khung" id="tl-chat-khung" aria-label="Trợ lý BRICON">
+  <header class="tl-chat-dau">
+    <div class="tl-chat-avatar">🤖</div>
+    <div class="tl-chat-ten"><strong>Trợ lý BRICON</strong><span>Đang trực tuyến · trả lời theo dữ liệu thật</span></div>
+    <div class="tl-chat-dau-nut">
+      <button type="button" id="tl-chat-moi" title="Cuộc trò chuyện mới" aria-label="Cuộc trò chuyện mới">⟳</button>
+      <button type="button" id="tl-chat-dong" title="Thu nhỏ" aria-label="Thu nhỏ">—</button>
+    </div>
+  </header>
+
+  <div class="tl-chat-than" id="tro-ly-khung"></div>
+
+  <div class="tl-chat-chan">
+    <form id="form-tro-ly" class="tl-chat-form">
+      <input type="text" id="tro-ly-input" placeholder="Nhập câu hỏi…" autocomplete="off">
+      <button type="submit" id="tro-ly-gui" aria-label="Gửi">➤</button>
+    </form>
+    <div id="tro-ly-han-muc" class="tl-han-muc" {% if not gh_tro_ly.gioi_han %}hidden{% endif %}>
+      {% if gh_tro_ly.gioi_han %}Đã hỏi {{ gh_tro_ly.so_cau_hoi }}/{{ gh_tro_ly.gh_cau_hoi }} câu hôm nay{% endif %}
+    </div>
+  </div>
+</section>
 
 <script>
 (function () {
-  const loiChao = document.getElementById('tro-ly-loi-chao');
-  if (loiChao) {
-    const noiDungDay = loiChao.textContent;
-    loiChao.textContent = '';
-    loiChao.classList.add('tro-ly-dang-go');
-    let i = 0;
-    (function goTung() {
-      loiChao.textContent = noiDungDay.slice(0, i);
-      i++;
-      if (i <= noiDungDay.length) {
-        setTimeout(goTung, 22);
-      } else {
-        loiChao.classList.remove('tro-ly-dang-go');
-      }
-    })();
-  }
+  const KHOA = 'bricon_tro_ly_{{ current_user.id }}';
+  const KHOA_CHAO = 'bricon_tro_ly_da_chao_{{ current_user.id }}';
+  const GOI_Y = {{ goi_y_tro_ly|tojson }};
+  const LOI_CHAO_DAU = 'Xin chào {{ ten_goi }} 👋 Mình là Trợ lý BRICON. Mình có thể tra việc, chấm công, KPI, đề xuất, đóng gói, kiến thức sản phẩm… Bạn cần hỏi gì?';
 
+  const body = document.body;
+  const nut = document.getElementById('tl-chat-nut');
+  const loiChao = document.getElementById('tl-loi-chao');
   const khung = document.getElementById('tro-ly-khung');
   const form = document.getElementById('form-tro-ly');
   const input = document.getElementById('tro-ly-input');
   const nutGui = document.getElementById('tro-ly-gui');
-  const goiYKhoi = document.getElementById('tro-ly-goi-y');
   const hanMuc = document.getElementById('tro-ly-han-muc');
-  let lichSu = [];
 
-  function capNhatHanMuc(gh) {
-    if (!hanMuc || !gh) return;
-    if (!gh.gioi_han) { hanMuc.remove(); return; }
-    hanMuc.textContent = `Đã hỏi ${gh.so_cau_hoi}/${gh.gh_cau_hoi} câu hôm nay`;
+  // ---- lưu trạng thái trong phiên (giữ lịch sử khi chuyển trang) ----------
+  function docTrangThai() {
+    try { return JSON.parse(sessionStorage.getItem(KHOA)) || null; } catch (e) { return null; }
+  }
+  let tt = docTrangThai() || { mo: false, tin: [], lichSu: [] };
+  function luu() { try { sessionStorage.setItem(KHOA, JSON.stringify(tt)); } catch (e) { /* bỏ qua */ } }
+
+  function cuonXuong() { khung.scrollTop = khung.scrollHeight; }
+
+  function veMedia(dsMedia) {
+    const ds = (Array.isArray(dsMedia) ? dsMedia : (dsMedia ? [dsMedia] : []))
+      .filter((m) => typeof m === 'string' && m);
+    const nhieu = ds.length > 1;
+    let noiChua = khung;
+    if (nhieu) {
+      noiChua = document.createElement('div');
+      noiChua.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;max-width:90%';
+      khung.appendChild(noiChua);
+    }
+    ds.forEach((m) => {
+      const duoi = m.split('?')[0].split('.').pop().toLowerCase();
+      let el = null;
+      if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(duoi)) {
+        el = document.createElement('a');
+        el.href = m; el.target = '_blank'; el.rel = 'noopener';
+        el.title = 'Bấm để xem ảnh cỡ đầy đủ / tải về';
+        const img = document.createElement('img');
+        img.src = m;
+        img.onload = cuonXuong;
+        img.style.cssText = nhieu
+          ? 'width:104px;height:104px;object-fit:cover;border-radius:10px;display:block;border:1px solid rgba(0,0,0,.08)'
+          : 'max-width:220px;border-radius:10px;display:block';
+        el.appendChild(img);
+      } else if (['mp4', 'webm', 'mov'].includes(duoi)) {
+        el = document.createElement('video'); el.src = m; el.controls = true;
+        el.style.cssText = 'max-width:220px;border-radius:10px;display:block';
+      } else if (['mp3', 'wav', 'm4a', 'ogg'].includes(duoi)) {
+        el = document.createElement('audio'); el.src = m; el.controls = true;
+      }
+      if (el) { if (!nhieu) el.style.alignSelf = 'flex-start'; noiChua.appendChild(el); }
+    });
   }
 
-  function themTin(vaiTro, noiDung, duongDan, nhanNut, media) {
-    khung.hidden = false;
+  function themTin(vaiTro, noiDung, duongDan, nhanNut, media, luuLai = true) {
     const o = document.createElement('div');
     o.className = 'tro-ly-tin tro-ly-tin--' + (vaiTro === 'user' ? 'nguoi' : 'ai');
     o.textContent = noiDung;
     khung.appendChild(o);
-
-    // media: 1 chuỗi hoặc mảng nhiều đường dẫn (sản phẩm có nhiều ảnh).
-    // Nhiều ảnh thì xếp thành lưới thumbnail, bấm từng ảnh để xem cỡ đầy đủ.
-    const dsMedia = (Array.isArray(media) ? media : (media ? [media] : []))
-      .filter((m) => typeof m === 'string' && m);
-    const nhieuAnh = dsMedia.length > 1;
-    let luoi = null;
-    if (nhieuAnh) {
-      luoi = document.createElement('div');
-      luoi.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-self:flex-start;max-width:100%';
-      khung.appendChild(luoi);
-    }
-    dsMedia.forEach((m) => {
-      const duoi = m.split('?')[0].split('.').pop().toLowerCase();
-      let phanTu = null;
-      if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(duoi)) {
-        const lienKet = document.createElement('a');
-        lienKet.href = m;
-        lienKet.target = '_blank';
-        lienKet.rel = 'noopener';
-        lienKet.title = 'Bấm để xem ảnh cỡ đầy đủ / tải về';
-        lienKet.style.cssText = 'display:block';
-        const img = document.createElement('img');
-        img.src = m;
-        img.style.cssText = nhieuAnh
-          ? 'width:160px;height:160px;object-fit:cover;border-radius:10px;display:block;cursor:zoom-in;border:1px solid rgba(0,0,0,.08)'
-          : 'max-width:240px;border-radius:10px;display:block;cursor:zoom-in';
-        lienKet.appendChild(img);
-        phanTu = lienKet;
-      } else if (['mp4', 'webm', 'mov'].includes(duoi)) {
-        phanTu = document.createElement('video');
-        phanTu.src = m;
-        phanTu.controls = true;
-        phanTu.style.cssText = 'max-width:240px;border-radius:10px;display:block';
-      } else if (['mp3', 'wav', 'm4a', 'ogg'].includes(duoi)) {
-        phanTu = document.createElement('audio');
-        phanTu.src = m;
-        phanTu.controls = true;
-      }
-      if (phanTu) {
-        if (luoi) {
-          luoi.appendChild(phanTu);
-        } else {
-          phanTu.style.alignSelf = 'flex-start';
-          khung.appendChild(phanTu);
-        }
-      }
-    });
-
+    veMedia(media);
     if (duongDan) {
       const a = document.createElement('a');
       a.href = duongDan;
@@ -152,62 +207,129 @@
       a.textContent = nhanNut || 'Xem ngay';
       khung.appendChild(a);
     }
-    khung.scrollTop = khung.scrollHeight;
+    if (luuLai) { tt.tin.push({ vaiTro, noiDung, duongDan, nhanNut, media }); luu(); }
+    cuonXuong();
     return o;
   }
 
+  function veGoiY() {
+    const hop = document.createElement('div');
+    hop.className = 'tl-goi-y';
+    hop.id = 'tro-ly-goi-y';
+    GOI_Y.forEach(([icon, cau]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = icon + ' ' + cau;
+      b.addEventListener('click', () => guiCauHoi(cau));
+      hop.appendChild(b);
+    });
+    khung.appendChild(hop);
+  }
+
+  function veLai() {
+    khung.innerHTML = '';
+    themTin('ai', LOI_CHAO_DAU, null, null, null, false);
+    tt.tin.forEach((t) => themTin(t.vaiTro, t.noiDung, t.duongDan, t.nhanNut, t.media, false));
+    if (!tt.tin.length) veGoiY();
+    cuonXuong();
+  }
+
+  function capNhatHanMuc(gh) {
+    if (!hanMuc || !gh) return;
+    if (!gh.gioi_han) { hanMuc.hidden = true; return; }
+    hanMuc.hidden = false;
+    hanMuc.textContent = `Đã hỏi ${gh.so_cau_hoi}/${gh.gh_cau_hoi} câu hôm nay`;
+  }
+
+  // ---- mở / đóng -------------------------------------------------------------
+  function anLoiChao() { loiChao.classList.remove('hien'); nut.classList.remove('co-tin'); }
+  function moChat() {
+    anLoiChao();
+    try { sessionStorage.setItem(KHOA_CHAO, '1'); } catch (e) { /* bỏ qua */ }
+    body.classList.add('tl-chat-mo');
+    nut.setAttribute('aria-label', 'Thu nhỏ Trợ lý BRICON');
+    tt.mo = true; luu();
+    cuonXuong();
+    setTimeout(() => input.focus(), 150);
+  }
+  function dongChat() {
+    body.classList.remove('tl-chat-mo');
+    nut.setAttribute('aria-label', 'Mở Trợ lý BRICON');
+    tt.mo = false; luu();
+  }
+
+  nut.addEventListener('click', () => (body.classList.contains('tl-chat-mo') ? dongChat() : moChat()));
+  document.getElementById('tl-chat-dong').addEventListener('click', dongChat);
+  document.getElementById('tl-chat-moi').addEventListener('click', () => {
+    tt = { mo: true, tin: [], lichSu: [] }; luu(); veLai(); input.focus();
+  });
+  loiChao.addEventListener('click', moChat);
+  loiChao.addEventListener('keydown', (e) => { if (e.key === 'Enter') moChat(); });
+  document.getElementById('tl-loi-chao-dong').addEventListener('click', (e) => {
+    e.stopPropagation();
+    anLoiChao();
+    try { sessionStorage.setItem(KHOA_CHAO, '1'); } catch (err) { /* bỏ qua */ }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && body.classList.contains('tl-chat-mo')) dongChat();
+  });
+
+  // ---- gửi câu hỏi -----------------------------------------------------------
   async function guiCauHoi(tin) {
+    const goiY = document.getElementById('tro-ly-goi-y');
+    if (goiY) goiY.remove();
     themTin('user', tin);
-    lichSu.push({ vai_tro: 'user', noi_dung: tin });
+    tt.lichSu.push({ vai_tro: 'user', noi_dung: tin }); luu();
     input.value = '';
     nutGui.disabled = true;
-    const dangGo = themTin('ai', 'Đang trả lời…');
+    const dangGo = document.createElement('div');
+    dangGo.className = 'tro-ly-tin tro-ly-tin--ai';
+    dangGo.innerHTML = '<span class="tl-dang-go"><i></i><i></i><i></i></span>';
+    khung.appendChild(dangGo);
+    cuonXuong();
 
     try {
       const r = await fetch('{{ url_for("tro_ly.hoi") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tin_nhan: tin, lich_su: lichSu }),
+        body: JSON.stringify({ tin_nhan: tin, lich_su: tt.lichSu.slice(-10) }),
       });
+      dangGo.remove();
       if (!r.ok) {
-        dangGo.remove();
-        themTin('ai', `Máy chủ báo lỗi (mã ${r.status}) — báo quản trị viên kiểm tra log.`);
+        themTin('ai', `Máy chủ báo lỗi (mã ${r.status}) — báo quản trị viên kiểm tra log.`, null, null, null, false);
         return;
       }
       const d = await r.json();
-      dangGo.remove();
       capNhatHanMuc(d.gioi_han_tro_ly);
-      if (!d.ok) {
-        themTin('ai', 'Lỗi: ' + d.loi);
-        return;
-      }
+      if (!d.ok) { themTin('ai', 'Lỗi: ' + d.loi, null, null, null, false); return; }
       themTin('ai', d.tra_loi, d.duong_dan, d.nhan_nut, d.media);
-      lichSu.push({ vai_tro: 'assistant', noi_dung: d.tra_loi });
+      tt.lichSu.push({ vai_tro: 'assistant', noi_dung: d.tra_loi }); luu();
     } catch (err) {
       dangGo.remove();
-      themTin('ai', 'Không kết nối được máy chủ (mất mạng hoặc server đang tắt).');
+      themTin('ai', 'Không kết nối được máy chủ (mất mạng hoặc server đang tắt).', null, null, null, false);
     } finally {
       nutGui.disabled = false;
       input.focus();
     }
   }
 
-  if (goiYKhoi) {
-    goiYKhoi.querySelectorAll('.tro-ly-goi-y-nut').forEach((nut) => {
-      nut.addEventListener('click', () => {
-        const cauHoi = nut.dataset.cauHoi || nut.textContent.trim();
-        goiYKhoi.remove();
-        guiCauHoi(cauHoi);
-      });
-    });
-  }
-
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const tin = input.value.trim();
-    if (!tin) return;
-    if (goiYKhoi) goiYKhoi.remove();
-    guiCauHoi(tin);
+    if (tin) guiCauHoi(tin);
   });
+
+  // ---- khởi tạo ------------------------------------------------------------
+  veLai();
+  if (tt.mo) {
+    body.classList.add('tl-chat-mo');
+  } else {
+    let daChao = false;
+    try { daChao = sessionStorage.getItem(KHOA_CHAO) === '1'; } catch (e) { daChao = false; }
+    if (!daChao) {
+      nut.classList.add('co-tin');
+      setTimeout(() => { if (!body.classList.contains('tl-chat-mo')) loiChao.classList.add('hien'); }, 1200);
+    }
+  }
 })();
 </script>

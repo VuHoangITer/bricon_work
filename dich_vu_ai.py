@@ -151,7 +151,11 @@ def _goi_chatgpt_tho(goi_tin: dict, _da_thu_lai: bool = False, _bo_nhiet_do: boo
         # Ngược lại: model KHÔNG hỗ trợ tham số reasoning_effort mình vừa tự
         # thêm ở trên (model cũ, không thuộc dòng suy luận) -> bỏ tham số
         # rồi gọi lại 1 lần.
-        if "reasoning_effort" in goi_tin and not _bo_reasoning and loi.get("param") == "reasoning_effort":
+        # OpenAI báo lỗi này theo 2 kiểu: có param="reasoning_effort", HOẶC
+        # param rỗng và chỉ ghi trong message ("Unrecognized request argument
+        # supplied: reasoning_effort") — phải bắt cả 2 kiểu.
+        if ("reasoning_effort" in goi_tin and not _bo_reasoning
+                and (loi.get("param") == "reasoning_effort" or "reasoning_effort" in thong_diep)):
             goi_tin.pop("reasoning_effort", None)
             return _goi_chatgpt_tho(goi_tin, _da_thu_lai=_da_thu_lai, _bo_nhiet_do=_bo_nhiet_do,
                                     _bo_reasoning=True)
