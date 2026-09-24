@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}{{ n.ho_ten }} · Nhân sự{% endblock %}
+
+{% block content %}
+<style>
+  .hs-dau { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .hs-dau .nv-avatar { width:56px; height:56px; font-size:1.4rem; }
+  .hs-dau h1 { margin:0; font-size:1.35rem; }
+  .hs-dau-phu { color:var(--muc-mo); font-size:.84rem; margin-top:2px; }
+  .hs-luoi { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start; }
+  @media (max-width:980px) { .hs-luoi { grid-template-columns:1fr; } }
+  .hs-luoi .the { margin-bottom:16px; }
+  .hs-luoi h3 { margin:0 0 12px; font-size:1rem; }
+  .hs-nhom { border-top:1px solid var(--vien); padding-top:14px; margin-top:14px; }
+  .hs-nhom:first-of-type { border-top:0; padding-top:0; margin-top:0; }
+  .hs-nhom-dau { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .hs-nhom-dau strong { font-size:.9rem; }
+  .hs-tep { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--vien); border-radius:10px;
+    margin-bottom:6px; background:#fff; }
+  .hs-tep-icon { font-size:1.2rem; flex:0 0 auto; }
+  .hs-tep-nd { flex:1; min-width:0; }
+  .hs-tep-nd a { font-weight:600; font-size:.84rem; overflow-wrap:anywhere; }
+  .hs-tep-nd small { display:block; color:var(--muc-mo); font-size:.72rem; }
+  .hs-tep button { border:0; background:transparent; color:var(--lam-lai); cursor:pointer; font-size:.9rem; padding:4px; }
+  .hs-them > summary { list-style:none; cursor:pointer; font-size:.8rem; font-weight:600; color:var(--chinh-dam); }
+  .hs-them > summary::-webkit-details-marker { display:none; }
+  .hs-them[open] > summary { margin-bottom:8px; }
+  .hs-trong { color:var(--muc-mo); font-size:.8rem; padding:4px 0 6px; }
+  .hs-da-chon { display:flex; flex-direction:column; gap:4px; margin:8px 0 4px; }
+  .hs-da-chon div { display:flex; align-items:center; gap:8px; font-size:.8rem; padding:5px 8px;
+    border:1px dashed var(--vien-dam, #ccc); border-radius:8px; background:#fafaf8; }
+  .hs-da-chon img { width:34px; height:34px; object-fit:cover; border-radius:5px; flex:0 0 auto; }
+  .hs-da-chon span { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .hs-da-chon small { color:var(--muc-mo); white-space:nowrap; }
+  .hs-da-chon button { border:0; background:transparent; color:var(--lam-lai); cursor:pointer; padding:2px 4px; }
+</style>
+
+{% include "_tab_quan_tri.html" %}
+
+<p style="margin:0 0 8px"><a href="{{ url_for('admin.nhan_vien') }}">‹ Danh sách nhân viên</a></p>
+
+<div class="the">
+  <div class="hs-dau">
+    <span class="nv-avatar" data-vt="{{ n.vai_tro }}">{{ n.ho_ten[:1]|upper }}</span>
+    <div style="flex:1;min-width:200px">
+      <h1>{{ n.ho_ten }}</h1>
+      <div class="hs-dau-phu">
+        {{ n.ma_dinh_danh }} · {{ n.bo_phan.ten if n.bo_phan else 'Chưa gán bộ phận' }}
+        {% if n.chuc_vu %} · {{ n.chuc_vu.ten }}{% endif %}
+        {% if n.tham_nien %} · làm được {{ n.tham_nien }}{% endif %}
+      </div>
+    </div>
+    <span class="nhan" data-tt="{{ n.vai_tro }}">{{ n.ten_vai_tro }}</span>
+    {% if not n.dang_hoat_dong %}<span class="nhan" data-tt="huy">Đã nghỉ</span>{% endif %}
+    {% if n.sinh_nhat_thang_nay %}<span class="nhan" data-tt="cho_duyet">🎂 Sinh nhật {{ n.ngay_sinh.strftime('%d/%m') }}</span>{% endif %}
+  </div>
+</div>
+
+
+<div class="hs-luoi">
+  {# ============================ CỘT TRÁI: THÔNG TIN ============================ #}
+  <div>
+    <form class="the" method="post" action="{{ url_for('admin.luu_nhan_vien') }}">
+      <input type="hidden" name="id" value="{{ n.id }}">
+      <h3>👤 Thông tin cá nhân</h3>
+      <div class="hang">
+        <div class="o-nhap"><label>Mã nhân viên</label><input type="text" name="ma_dinh_danh" value="{{ n.ma_dinh_danh }}" required></div>
+        <div class="o-nhap"><label>Họ tên</label><input type="text" name="ho_ten" value="{{ n.ho_ten }}" required></div>
+      </div>
+      <div class="hang">
+        <div class="o-nhap"><label>Ngày vào làm</label>
+          <input type="date" name="ngay_vao_lam" value="{{ n.ngay_vao_lam.isoformat() if n.ngay_vao_lam else '' }}"></div>
+        <div class="o-nhap"><label>Sinh nhật</label>
+          <input type="date" name="ngay_sinh" value="{{ n.ngay_sinh.isoformat() if n.ngay_sinh else '' }}"></div>
+      </div>
+      <div class="o-nhap"><label>Số điện thoại</label>
+        <input type="tel" name="so_dien_thoai" value="{{ n.so_dien_thoai or '' }}"></div>
+
+      <h3 style="margin-top:18px">🏢 Công việc & phân quyền</h3>
+      <div class="hang">
+        <div class="o-nhap"><label>Vai trò</label>
+          <select name="vai_tro">{% for ma, ten in vai_tros.items() %}<option value="{{ ma }}" {{ 'selected' if n.vai_tro == ma }}>{{ ten }}</option>{% endfor %}</select></div>
+        <div class="o-nhap"><label>Bộ phận</label>
+          <select name="bo_phan_id"><option value="">—</option>{% for b in bo_phans %}<option value="{{ b.id }}" {{ 'selected' if n.bo_phan_id == b.id }}>{{ b.ten }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="o-nhap"><label>Chức vụ</label>
+        <select name="chuc_vu_id">
+          <option value="">— Không chọn —</option>
+          {% for cv in ds_chuc_vu %}<option value="{{ cv.id }}" {{ 'selected' if n.chuc_vu_id == cv.id }}>{{ cv.ten }}</option>{% endfor %}
+        </select></div>
+
+      <h3 style="margin-top:18px">💬 Zalo</h3>
+      <div class="hang">
+        <div class="o-nhap"><label>Zalo chat id</label>
+          <input type="text" name="zalo_group_id" value="{{ n.zalo_group_id or '' }}" placeholder="zgr-..."></div>
+        <div class="o-nhap"><label>Bot Zalo riêng</label>
+          <select name="bot_zalo_id">
+            <option value="">— Dùng bot mặc định —</option>
+            {% for b in bots %}<option value="{{ b.id }}" {{ 'selected' if n.bot_zalo_id == b.id }}>{{ b.ten }}{% if not b.dang_hoat_dong %} (đã tắt){% endif %}</option>{% endfor %}
+          </select></div>
+      </div>
+
+      <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin:6px 0 14px">
+        <input type="checkbox" name="dang_hoat_dong" {{ 'checked' if n.dang_hoat_dong }} style="width:18px;height:18px;accent-color:var(--chinh)">
+        Đang làm việc</label>
+      <button class="nut" type="submit">Lưu thông tin</button>
+    </form>
+
+    <div class="the">
+      <h3>⚙ Tài khoản</h3>
+      <div class="hang-nut" style="flex-wrap:wrap">
+        <form method="post" action="{{ url_for('admin.reset_mat_khau', uid=n.id) }}" onsubmit="return confirm('Cấp lại mật khẩu cho {{ n.ho_ten|e }}?')">
+          <button class="nut nut--phu nut--nho" type="submit">🔑 Cấp lại mật khẩu</button></form>
+        <form method="post" action="{{ url_for('admin.test_zalo', uid=n.id) }}">
+          <button class="nut nut--phu nut--nho" type="submit">📨 Gửi Zalo thử</button></form>
+        {% if n.id != current_user.id %}
+        <form method="post" action="{{ url_for('admin.xoa_nhan_vien', uid=n.id) }}"
+              onsubmit="return confirm('Xoá tài khoản {{ n.ho_ten|e }}? Chỉ xoá được nếu chưa từng có công việc/chấm công/đánh giá nào.')">
+          <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá tài khoản</button></form>
+        {% if current_user.la_admin_thuan %}
+        <form method="post" action="{{ url_for('admin.xoa_vinh_vien_nhan_vien', uid=n.id) }}"
+              onsubmit="return confirm('XOÁ VĨNH VIỄN {{ n.ho_ten|e }} ({{ n.ma_dinh_danh|e }})?\n\nSẽ xoá luôn TOÀN BỘ chấm công, xin nghỉ, việc đã nhận và giấy tờ của người này. KHÔNG THỂ khôi phục.') && prompt('Gõ đúng mã nhân viên \'{{ n.ma_dinh_danh|e }}\' để xác nhận:') === '{{ n.ma_dinh_danh|e }}'">
+          <button class="nut nut--do nut--nho" type="submit">🗑️ Xoá vĩnh viễn</button></form>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ============================ CỘT PHẢI: GIẤY TỜ ============================ #}
+  <div class="the">
+    <h3>📁 Giấy tờ nhân sự</h3>
+    <p class="goi-y" style="margin:-6px 0 12px">Ảnh chụp hoặc PDF bản ký. Chỉ Quản trị và Ban giám đốc xem được.</p>
+
+    {% for loai, ten_loai in LoaiHoSo.NHAN.items() %}
+    {% set ds = n.ho_so_theo_loai(loai) %}
+    <div class="hs-nhom" id="ho-so-{{ loai }}">
+      <div class="hs-nhom-dau">
+        <strong>{{ LoaiHoSo.ICON[loai] }} {{ ten_loai }} <span class="dem">{{ ds|length }}</span></strong>
+      </div>
+
+      {% for h in ds %}
+      <div class="hs-tep">
+        <span class="hs-tep-icon">{{ '🖼' if (h.mime or '').startswith('image') else '📄' }}</span>
+        <div class="hs-tep-nd">
+          <a href="{{ url_for('media', duong_dan=h.duong_dan) }}" target="_blank" rel="noopener">{{ h.ten_goc or 'Tệp' }}</a>
+          <small>
+            {% if h.ngay_ky %}Ký {{ h.ngay_ky.strftime('%d/%m/%Y') }} · {% endif %}
+            {% if h.ngay_het_han %}
+              {% if h.so_ngay_con_han < 0 %}<b style="color:var(--lam-lai)">Đã hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }}</b>
+              {% elif h.so_ngay_con_han <= 30 %}<b style="color:var(--chinh-dam)">Hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }} (còn {{ h.so_ngay_con_han }} ngày)</b>
+              {% else %}Hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }}{% endif %} ·
+            {% endif %}
+            {{ h.kich_thuoc_dep }}{% if h.ghi_chu %} · {{ h.ghi_chu }}{% endif %}
+          </small>
+        </div>
+        <form method="post" action="{{ url_for('admin.xoa_ho_so', hid=h.id) }}" onsubmit="return confirm('Xoá file {{ (h.ten_goc or '')|e }}?')">
+          <button type="submit" title="Xoá file">✕</button></form>
+      </div>
+      {% else %}
+      <div class="hs-trong">Chưa có file nào.</div>
+      {% endfor %}
+
+      <details class="hs-them">
+        <summary>+ Thêm {{ ten_loai|lower }}</summary>
+        <form method="post" action="{{ url_for('admin.tai_ho_so', uid=n.id) }}" enctype="multipart/form-data">
+          <input type="hidden" name="loai" value="{{ loai }}">
+          <div class="o-nhap hs-chon">
+            <input type="file" name="tep" multiple hidden class="hs-tep-gui">
+            <input type="file" multiple accept="image/*" hidden class="hs-chon-anh">
+            <input type="file" multiple hidden class="hs-chon-file"
+                   accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+            <div class="hang-nut" style="flex-wrap:wrap">
+              <button type="button" class="nut nut--phu nut--nho hs-nut-anh">📷 Ảnh / chụp</button>
+              <button type="button" class="nut nut--phu nut--nho hs-nut-file">📎 File (PDF, Word…)</button>
+            </div>
+            <div class="hs-da-chon"></div>
+            <div class="goi-y">Chọn được nhiều lần, ảnh và file lẫn nhau — tất cả được gộp lại rồi tải lên cùng lúc.</div>
+          </div>
+          <div class="hang">
+            <div class="o-nhap"><label>Ngày ký</label><input type="date" name="ngay_ky"></div>
+            {% if loai == LoaiHoSo.HOP_DONG %}
+            <div class="o-nhap"><label>Ngày hết hạn (nếu có)</label><input type="date" name="ngay_het_han"></div>
+            {% endif %}
+          </div>
+          <div class="o-nhap"><input type="text" name="ghi_chu" maxlength="255"
+               placeholder="{{ 'VD: HĐ thử việc 2 tháng / HĐ chính thức 1 năm' if loai == LoaiHoSo.HOP_DONG else ('VD: Laptop Dell + điện thoại công ty' if loai == LoaiHoSo.BAN_GIAO else 'VD: Cam kết bảo mật thông tin') }}"></div>
+          <button class="nut nut--nho" type="submit" disabled>Tải lên</button>
+        </form>
+      </details>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Mỗi form tải giấy tờ: 2 nút chọn (ảnh/chụp và file) CỘNG DỒN vào 1 danh
+// sách — chọn nhiều lần không mất lựa chọn trước, bỏ được từng file chọn
+// nhầm; khi gửi, gom hết vào input "tep" thật bằng DataTransfer.
+document.querySelectorAll('.hs-chon').forEach((hop) => {
+  const form = hop.closest('form');
+  const oGui = hop.querySelector('.hs-tep-gui');
+  const oAnh = hop.querySelector('.hs-chon-anh');
+  const oFile = hop.querySelector('.hs-chon-file');
+  const dsHien = hop.querySelector('.hs-da-chon');
+  const nutGui = form.querySelector('button[type=submit]');
+  let ds = [];
+
+  function kichThuoc(n) {
+    return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  }
+  function ve() {
+    dsHien.innerHTML = '';
+    ds.forEach((f, i) => {
+      const d = document.createElement('div');
+      if (f.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        d.appendChild(img);
+      } else {
+        d.insertAdjacentHTML('beforeend', '<b>📄</b>');
+      }
+      const ten = document.createElement('span'); ten.textContent = f.name; d.appendChild(ten);
+      const kt = document.createElement('small'); kt.textContent = kichThuoc(f.size); d.appendChild(kt);
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.title = 'Bỏ file này';
+      x.addEventListener('click', () => { ds.splice(i, 1); ve(); });
+      d.appendChild(x);
+      dsHien.appendChild(d);
+    });
+    const dt = new DataTransfer();
+    ds.forEach((f) => dt.items.add(f));
+    oGui.files = dt.files;
+    nutGui.disabled = ds.length === 0;
+    nutGui.textContent = ds.length ? `Tải lên (${ds.length} file)` : 'Tải lên';
+  }
+  function them(input) {
+    for (const f of input.files) {
+      if (!ds.some((c) => c.name === f.name && c.size === f.size)) ds.push(f);
+    }
+    input.value = '';
+    ve();
+  }
+  hop.querySelector('.hs-nut-anh').addEventListener('click', () => oAnh.click());
+  hop.querySelector('.hs-nut-file').addEventListener('click', () => oFile.click());
+  oAnh.addEventListener('change', () => them(oAnh));
+  oFile.addEventListener('change', () => them(oFile));
+  form.addEventListener('submit', () => { nutGui.disabled = true; nutGui.textContent = 'Đang tải lên…'; });
+});
+</script>
+{% endblock %}

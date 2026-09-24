@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 import dich_vu_ai
 import services
 from extensions import db
-from models import (LoaiDinhKem, AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
+from models import (HoSoNhanVien, LoaiDinhKem, LoaiHoSo, AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
                     DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI,
                     TroLySuDung, VaiTro, ngay_vn_hien_tai)
 
@@ -69,8 +69,22 @@ def nhan_vien():
         theo_bo_phan.setdefault(ten_bp, []).append(n)
     nhom_nhan_vien = sorted(theo_bo_phan.items(), key=lambda kv: (kv[0] == CHUA_GAN, kv[0]))
 
+    # Nhắc nhanh đầu trang: sinh nhật trong tháng + hợp đồng sắp/đã hết hạn
+    dang_lam = [n for n in tat_ca if n.dang_hoat_dong]
+    sinh_nhat_thang = sorted((n for n in dang_lam if n.sinh_nhat_thang_nay),
+                             key=lambda n: n.ngay_sinh.day)
+    hd_can_chu_y = []
+    for n in dang_lam:
+        hd = [h for h in n.ho_so_theo_loai(LoaiHoSo.HOP_DONG) if h.ngay_het_han]
+        if hd:
+            moi_nhat = max(hd, key=lambda h: h.ngay_het_han)
+            if moi_nhat.so_ngay_con_han is not None and moi_nhat.so_ngay_con_han <= 30:
+                hd_can_chu_y.append((n, moi_nhat))
+
     return render_template(
         "admin_users.html",
+        sinh_nhat_thang=sinh_nhat_thang, hd_can_chu_y=hd_can_chu_y, hom_nay_vn=ngay_vn_hien_tai(),
+        LoaiHoSo=LoaiHoSo,
         nhom_nhan_vien=nhom_nhan_vien, tong_so=len(tat_ca),
         bo_phans=BoPhan.query.order_by(BoPhan.ten).all(),
         bots=BotZalo.query.order_by(BotZalo.ten).all(),
@@ -82,6 +96,68 @@ def nhan_vien():
     )
 
 
+@bp.route("/nhan-vien/<int:uid>")
+@chi_admin
+def chi_tiet_nhan_vien(uid):
+    """Trang hồ sơ riêng của 1 nhân viên: thông tin tài khoản + hồ sơ nhân
+    sự (ngày vào làm, sinh nhật) + giấy tờ (hợp đồng, bàn giao, cam kết)."""
+    nd = db.session.get(NguoiDung, uid) or abort(404)
+    return render_template(
+        "admin_user_detail.html", n=nd, LoaiHoSo=LoaiHoSo,
+        bo_phans=BoPhan.query.order_by(BoPhan.ten).all(),
+        bots=BotZalo.query.order_by(BotZalo.ten).all(),
+        ds_chuc_vu=ChucVu.query.order_by(ChucVu.ten).all(),
+        vai_tros=VaiTro.NHAN,
+    )
+
+
+def _doc_ngay(ten: str):
+    raw = (request.form.get(ten) or "").strip()
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+@bp.route("/nhan-vien/<int:uid>/ho-so", methods=["POST"])
+@chi_admin
+def tai_ho_so(uid):
+    nd = db.session.get(NguoiDung, uid) or abort(404)
+    loai = request.form.get("loai")
+    if loai not in LoaiHoSo.NHAN:
+        abort(400)
+    files = [f for f in request.files.getlist("tep") if f and f.filename]
+    if not files:
+        flash("Chưa chọn file nào.", "error")
+        return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+    ghi_chu = (request.form.get("ghi_chu") or "").strip()[:255] or None
+    ngay_ky, ngay_het_han = _doc_ngay("ngay_ky"), _doc_ngay("ngay_het_han")
+    for f in files:
+        duong_dan, kich_thuoc = services.luu_file(f, "ho-so-nhan-vien")
+        db.session.add(HoSoNhanVien(
+            nguoi_dung_id=nd.id, loai=loai, duong_dan=duong_dan, ten_goc=f.filename[:255],
+            kich_thuoc=kich_thuoc, mime=f.mimetype, ghi_chu=ghi_chu,
+            ngay_ky=ngay_ky, ngay_het_han=ngay_het_han, nguoi_tai_len_id=current_user.id,
+        ))
+    db.session.commit()
+    flash(f"Đã thêm {len(files)} file vào \"{LoaiHoSo.NHAN[loai]}\" của {nd.ho_ten}.", "success")
+    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+
+
+@bp.route("/nhan-vien/ho-so/<int:hid>/xoa", methods=["POST"])
+@chi_admin
+def xoa_ho_so(hid):
+    h = db.session.get(HoSoNhanVien, hid) or abort(404)
+    uid, loai = h.nguoi_dung_id, h.loai
+    services.xoa_file_ho_so(h)
+    db.session.delete(h)
+    db.session.commit()
+    flash("Đã xoá file.", "success")
+    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+
+
 @bp.route("/nhan-vien/luu", methods=["POST"])
 @chi_admin
 def luu_nhan_vien():
@@ -91,14 +167,14 @@ def luu_nhan_vien():
     ma = (request.form.get("ma_dinh_danh") or "").strip()
     if not ma or not (request.form.get("ho_ten") or "").strip():
         flash("Mã nhân viên và họ tên là bắt buộc.", "error")
-        return redirect(url_for("admin.nhan_vien"))
+        return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) if uid else url_for("admin.nhan_vien"))
 
     trung = NguoiDung.query.filter(
         db.func.lower(NguoiDung.ma_dinh_danh) == ma.lower()
     ).first()
     if trung and trung.id != nd.id:
         flash(f"Mã nhân viên {ma} đã tồn tại.", "error")
-        return redirect(url_for("admin.nhan_vien"))
+        return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) if uid else url_for("admin.nhan_vien"))
 
     bot_zalo_id = request.form.get("bot_zalo_id", type=int) or None
     if bot_zalo_id:
@@ -109,7 +185,7 @@ def luu_nhan_vien():
             bot = db.session.get(BotZalo, bot_zalo_id)
             flash(f"Bot {bot.ten if bot else ''} đã có đủ 3 nhân viên sử dụng — "
                   f"chọn bot khác hoặc thêm bot mới ở Thiết lập.", "error")
-            return redirect(url_for("admin.nhan_vien"))
+            return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) if uid else url_for("admin.nhan_vien"))
 
     nd.ma_dinh_danh = ma
     nd.ho_ten = request.form["ho_ten"].strip()
@@ -120,6 +196,10 @@ def luu_nhan_vien():
     nd.bot_zalo_id = bot_zalo_id
     nd.chuc_vu_id = request.form.get("chuc_vu_id", type=int) or None
     nd.dang_hoat_dong = request.form.get("dang_hoat_dong") == "on"
+    if "ngay_vao_lam" in request.form:
+        nd.ngay_vao_lam = _doc_ngay("ngay_vao_lam")
+    if "ngay_sinh" in request.form:
+        nd.ngay_sinh = _doc_ngay("ngay_sinh")
 
     mk_moi = None
     if not uid:
@@ -134,7 +214,7 @@ def luu_nhan_vien():
               f"lần đăng nhập đầu sẽ bắt đổi.", "success")
     else:
         flash("Đã lưu.", "success")
-    return redirect(url_for("admin.nhan_vien"))
+    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=nd.id))
 
 
 @bp.route("/nhan-vien/<int:uid>/reset-mat-khau", methods=["POST"])
@@ -146,7 +226,7 @@ def reset_mat_khau(uid):
     nd.doi_mat_khau = True
     db.session.commit()
     flash(f"Mật khẩu mới của {nd.ho_ten}: {mk}", "success")
-    return redirect(url_for("admin.nhan_vien"))
+    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid))
 
 
 @bp.route("/nhan-vien/<int:uid>/test-zalo", methods=["POST"])
@@ -157,7 +237,7 @@ def test_zalo(uid):
     db.session.commit()
     flash("Gửi thành công." if ok else "Gửi thất bại — xem log Zalo để biết lý do.",
           "success" if ok else "error")
-    return redirect(url_for("admin.nhan_vien"))
+    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid))
 
 
 @bp.route("/nhan-vien/<int:uid>/xoa", methods=["POST"])
@@ -183,6 +263,8 @@ def xoa_nhan_vien(uid):
         return redirect(url_for("admin.nhan_vien"))
 
     ten = nd.ho_ten
+    for h in list(nd.ho_so):
+        services.xoa_file_ho_so(h)
     db.session.delete(nd)
     db.session.commit()
     flash(f"Đã xoá tài khoản {ten}.", "success")

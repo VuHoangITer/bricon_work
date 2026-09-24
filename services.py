@@ -2159,6 +2159,15 @@ def xoa_file_dinh_kem(viec: CongViec):
             pass
 
 
+def xoa_file_ho_so(h) -> None:
+    """Xoá file vật lý của 1 HoSoNhanVien (không xoá dòng DB)."""
+    duong_dan = os.path.join(current_app.config["UPLOAD_ROOT"], *h.duong_dan.split("/"))
+    try:
+        os.remove(duong_dan)
+    except OSError:
+        pass
+
+
 def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
     """Xoá vĩnh viễn 1 nhân viên và TOÀN BỘ dữ liệu gắn với chính họ —
     không thể khôi phục. Chỉ gọi từ route đã tự kiểm tra quyền Admin thuần.
@@ -2204,6 +2213,16 @@ def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
 
     for lz in LogZalo.query.filter_by(nguoi_dung_id=nd.id).all():
         lz.nguoi_dung_id = None
+
+    # Giấy tờ nhân sự: xoá file vật lý (dòng DB tự xoá theo cascade của
+    # NguoiDung.ho_so); file người này từng tải lên cho người KHÁC thì giữ,
+    # chỉ gỡ tên người tải.
+    from models import HoSoNhanVien
+    for h in list(nd.ho_so):
+        xoa_file_ho_so(h)
+    for h in HoSoNhanVien.query.filter(HoSoNhanVien.nguoi_tai_len_id == nd.id,
+                                       HoSoNhanVien.nguoi_dung_id != nd.id).all():
+        h.nguoi_tai_len_id = None
 
     db.session.delete(nd)
 

@@ -243,7 +243,14 @@ class NguoiDung(UserMixin, db.Model):
     doi_mat_khau = db.Column(db.Boolean, default=True, nullable=False)
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
+    # Hồ sơ nhân sự
+    ngay_vao_lam = db.Column(db.Date)
+    ngay_sinh = db.Column(db.Date)
+
     bo_phan = db.relationship("BoPhan", back_populates="nhan_vien")
+    ho_so = db.relationship("HoSoNhanVien", back_populates="nguoi_dung",
+                            foreign_keys="HoSoNhanVien.nguoi_dung_id",
+                            cascade="all, delete-orphan", order_by="HoSoNhanVien.tao_luc.desc()")
     chuc_vu = db.relationship("ChucVu")
     bot_zalo = db.relationship("BotZalo")
 
@@ -313,6 +320,27 @@ class NguoiDung(UserMixin, db.Model):
     def ten_vai_tro(self):
         return VaiTro.NHAN.get(self.vai_tro, self.vai_tro)
 
+    def ho_so_theo_loai(self, loai: str) -> list:
+        return [h for h in self.ho_so if h.loai == loai]
+
+    @property
+    def tham_nien(self) -> str | None:
+        """"2 năm 3 tháng" tính từ ngày vào làm tới hôm nay."""
+        if not self.ngay_vao_lam:
+            return None
+        hn = ngay_vn_hien_tai()
+        thang = (hn.year - self.ngay_vao_lam.year) * 12 + hn.month - self.ngay_vao_lam.month
+        if hn.day < self.ngay_vao_lam.day:
+            thang -= 1
+        if thang < 1:
+            return "dưới 1 tháng"
+        nam, thang = divmod(thang, 12)
+        return " ".join(p for p in (f"{nam} năm" if nam else "", f"{thang} tháng" if thang else "") if p)
+
+    @property
+    def sinh_nhat_thang_nay(self) -> bool:
+        return bool(self.ngay_sinh and self.ngay_sinh.month == ngay_vn_hien_tai().month)
+
     def __repr__(self):
         return f"<NguoiDung {self.ma_dinh_danh} {self.ho_ten}>"
 
@@ -332,6 +360,60 @@ def load_user(user_id):
     if nd and not nd.dang_hoat_dong:
         return None
     return nd
+
+
+class LoaiHoSo:
+    HOP_DONG = "hop_dong"
+    BAN_GIAO = "ban_giao"
+    CAM_KET = "cam_ket"
+
+    NHAN = {
+        HOP_DONG: "Hợp đồng lao động",
+        BAN_GIAO: "Giấy bàn giao tài sản",
+        CAM_KET: "Cam kết",
+    }
+    ICON = {HOP_DONG: "📄", BAN_GIAO: "📦", CAM_KET: "✍️"}
+
+
+class HoSoNhanVien(db.Model):
+    """1 file giấy tờ nhân sự (scan/ảnh/PDF) của 1 nhân viên — hợp đồng lao
+    động, giấy bàn giao tài sản, cam kết. Mỗi loại có thể nhiều file (VD
+    hợp đồng thử việc + chính thức, phụ lục). Chỉ Admin/Ban giám đốc xem
+    và quản lý (dữ liệu nhạy cảm: lương, điều khoản)."""
+    __tablename__ = "ho_so_nhan_vien"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    loai = db.Column(db.String(20), nullable=False, index=True)
+    duong_dan = db.Column(db.String(300), nullable=False)  # tương đối so với UPLOAD_ROOT
+    ten_goc = db.Column(db.String(255))
+    kich_thuoc = db.Column(db.Integer)
+    mime = db.Column(db.String(100))
+    ghi_chu = db.Column(db.String(255))
+    ngay_ky = db.Column(db.Date)
+    ngay_het_han = db.Column(db.Date)  # chủ yếu cho hợp đồng có thời hạn
+    nguoi_tai_len_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    nguoi_dung = db.relationship("NguoiDung", back_populates="ho_so", foreign_keys=[nguoi_dung_id])
+    nguoi_tai_len = db.relationship("NguoiDung", foreign_keys=[nguoi_tai_len_id])
+
+    @property
+    def ten_loai(self):
+        return LoaiHoSo.NHAN.get(self.loai, self.loai)
+
+    @property
+    def so_ngay_con_han(self) -> int | None:
+        if not self.ngay_het_han:
+            return None
+        return (self.ngay_het_han - ngay_vn_hien_tai()).days
+
+    @property
+    def kich_thuoc_dep(self):
+        n = self.kich_thuoc or 0
+        if n < 1024 * 1024:
+            return f"{max(1, n // 1024)} KB"
+        return f"{n / 1048576:.1f} MB"
 
 
 class CongViec(db.Model):

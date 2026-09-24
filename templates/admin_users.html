@@ -2,173 +2,136 @@
 {% block title %}Nhân viên · Quản trị{% endblock %}
 
 {% block content %}
+<style>
+  .nv-bang td { vertical-align:middle; }
+  .nv-bang tr.nv-dong { cursor:pointer; }
+  .nv-bang tr.nv-dong:hover td { background:var(--chinh-nhat, #f6efdf); }
+  .nv-bang tr.nv-nhom td { background:#faf9f6; font-weight:700; font-size:.78rem; color:var(--chinh-dam);
+    text-transform:uppercase; letter-spacing:.04em; padding-top:14px; }
+  .nv-ten { display:flex; align-items:center; gap:10px; min-width:190px; }
+  .nv-ten strong { display:block; font-size:.88rem; }
+  .nv-ten small { color:var(--muc-mo); font-size:.74rem; }
+  .nv-ho-so { display:inline-flex; gap:4px; }
+  .nv-ho-so span { width:24px; height:24px; border-radius:6px; display:grid; place-items:center; font-size:.8rem;
+    background:#f1f0ec; opacity:.35; }
+  .nv-ho-so span.co { opacity:1; background:#e7f4ea; }
+  .nv-mo { opacity:.55; }
+  .nv-nhac { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-bottom:14px; }
+  .nv-nhac .the { margin:0; padding:14px 16px; }
+  .nv-nhac h4 { margin:0 0 6px; font-size:.85rem; }
+  .nv-nhac a { color:inherit; }
+  #them-nhan-vien > summary::-webkit-details-marker { display:none; }
+</style>
+
 <div class="page-head">
   <div class="page-head-copy">
-    <h1>Nhân viên</h1>
-    <p>Quản lý tài khoản, phân quyền và kết nối Zalo cho từng nhân viên.</p>
-  </div>
-  <div class="page-actions">
-    <a class="nut nut--vang" href="#them-nhan-vien">+ Thêm nhân viên</a>
+    <h1>Nhân sự</h1>
+    <p>Bấm vào 1 nhân viên để xem và sửa hồ sơ: tài khoản, ngày vào làm, sinh nhật, hợp đồng, giấy tờ.</p>
   </div>
 </div>
 
 {% include "_tab_quan_tri.html" %}
 
-<form class="the" method="get">
-  <div class="hang">
-    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm theo tên hoặc mã nhân viên">
-    <select name="bo_phan" onchange="this.form.submit()">
+{% if sinh_nhat_thang or hd_can_chu_y %}
+<div class="nv-nhac">
+  {% if sinh_nhat_thang %}
+  <div class="the">
+    <h4>🎂 Sinh nhật tháng {{ hom_nay_vn.month }}</h4>
+    {% for n in sinh_nhat_thang %}
+    <div style="font-size:.84rem"><a href="{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}">{{ n.ho_ten }}</a>
+      — {{ n.ngay_sinh.strftime('%d/%m') }}{% if n.ngay_sinh.day == hom_nay_vn.day %} <b style="color:var(--chinh-dam)">· hôm nay 🎉</b>{% endif %}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if hd_can_chu_y %}
+  <div class="the">
+    <h4>📄 Hợp đồng cần chú ý</h4>
+    {% for n, h in hd_can_chu_y %}
+    <div style="font-size:.84rem"><a href="{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}#ho-so-hop_dong">{{ n.ho_ten }}</a> —
+      {% if h.so_ngay_con_han < 0 %}<b style="color:var(--lam-lai)">đã hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }}</b>
+      {% else %}hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }} (còn {{ h.so_ngay_con_han }} ngày){% endif %}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<form class="the" method="get" style="margin-bottom:14px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm theo tên hoặc mã nhân viên" style="flex:2;min-width:200px">
+    <select name="bo_phan" onchange="this.form.submit()" style="flex:1;min-width:150px">
       <option value="">Mọi bộ phận</option>
       {% for b in bo_phans %}<option value="{{ b.id }}" {{ 'selected' if f_bo_phan == b.id }}>{{ b.ten }}</option>{% endfor %}
     </select>
-    <select name="trang_thai" onchange="this.form.submit()">
+    <select name="trang_thai" onchange="this.form.submit()" style="flex:1;min-width:150px">
       <option value="">Mọi trạng thái</option>
       <option value="1" {{ 'selected' if f_trang_thai == '1' }}>Đang làm việc</option>
       <option value="0" {{ 'selected' if f_trang_thai == '0' }}>Đã nghỉ</option>
     </select>
-    <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Lọc</button>
+    <button class="nut nut--phu nut--nho" type="submit">Tìm</button>
   </div>
 </form>
 
-<details class="the the--them" id="them-nhan-vien">
-  <summary style="cursor:pointer">+ Thêm nhân viên mới</summary>
-  <form method="post" action="{{ url_for('admin.luu_nhan_vien') }}" style="margin-top:14px">
+<details class="ai-them" id="them-nhan-vien" style="margin-bottom:14px">
+  <summary class="nut nut--vang nut--nho" style="list-style:none;display:inline-flex;cursor:pointer">+ Thêm nhân viên</summary>
+  <div class="the" style="margin-top:10px">
+  <form method="post" action="{{ url_for('admin.luu_nhan_vien') }}">
     <div class="hang">
-      <div class="o-nhap"><label>Mã nhân viên</label>
-        <input name="ma_dinh_danh" required placeholder="VD: 93"></div>
-      <div class="o-nhap"><label>Họ tên</label>
-        <input name="ho_ten" required></div>
+      <div class="o-nhap"><label>Mã nhân viên</label><input type="text" name="ma_dinh_danh" required placeholder="VD: 93"></div>
+      <div class="o-nhap"><label>Họ tên</label><input type="text" name="ho_ten" required></div>
     </div>
     <div class="hang">
       <div class="o-nhap"><label>Vai trò</label>
-        <select name="vai_tro">
-          {% for ma, ten in vai_tros.items() %}<option value="{{ ma }}">{{ ten }}</option>{% endfor %}
-        </select></div>
+        <select name="vai_tro">{% for ma, ten in vai_tros.items() %}<option value="{{ ma }}" {{ 'selected' if ma == 'nhan_vien' }}>{{ ten }}</option>{% endfor %}</select></div>
       <div class="o-nhap"><label>Bộ phận</label>
-        <select name="bo_phan_id"><option value="">—</option>
-          {% for b in bo_phans %}<option value="{{ b.id }}">{{ b.ten }}</option>{% endfor %}
-        </select></div>
+        <select name="bo_phan_id"><option value="">—</option>{% for b in bo_phans %}<option value="{{ b.id }}">{{ b.ten }}</option>{% endfor %}</select></div>
     </div>
-    <div class="o-nhap"><label>Chức vụ (phục vụ Trợ lý AI trả lời đúng lương/mô tả công việc riêng)</label>
-      <select name="chuc_vu_id">
-        <option value="">— Không chọn —</option>
-        {% for cv in ds_chuc_vu %}<option value="{{ cv.id }}">{{ cv.ten }}</option>{% endfor %}
-      </select>
-      <div class="goi-y">Chưa có chức vụ nào thì thêm ở tab Info AI trước.</div></div>
-    <div class="o-nhap"><label>Zalo chat id (nhóm riêng của nhân viên)</label>
-      <input name="zalo_group_id" placeholder="zgr-...">
-      <div class="goi-y">Lấy đúng giá trị đang dùng ở cột zalo_group_id trong Google Sheet của bot.</div></div>
-    <div class="o-nhap"><label>Bot Zalo riêng (bỏ trống nếu dùng mặc định)</label>
-      <select name="bot_zalo_id">
-        <option value="">— Dùng bot mặc định —</option>
-        {% for b in bots %}<option value="{{ b.id }}">{{ b.ten }}{% if not b.dang_hoat_dong %} (đã tắt){% endif %}</option>{% endfor %}
-      </select>
-      <div class="goi-y">Chưa có bot nào thì thêm ở tab Thiết lập trước.</div></div>
-    <div class="o-nhap"><label>Số điện thoại</label><input name="so_dien_thoai" type="tel"></div>
-    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
-      <input type="checkbox" name="dang_hoat_dong" checked style="width:18px;height:18px;accent-color:var(--chinh)">
-      Đang làm việc</label>
-    <button class="nut nut--rong" type="submit">Tạo tài khoản</button>
-    <div class="goi-y" style="text-align:center">Hệ thống sinh mật khẩu tạm và hiện lên màn hình một lần.</div>
+    <div class="hang">
+      <div class="o-nhap"><label>Ngày vào làm</label><input type="date" name="ngay_vao_lam"></div>
+      <div class="o-nhap"><label>Sinh nhật</label><input type="date" name="ngay_sinh"></div>
+    </div>
+    <input type="hidden" name="dang_hoat_dong" value="on">
+    <button class="nut" type="submit">Tạo tài khoản</button>
+    <div class="goi-y">Tạo xong sẽ mở trang hồ sơ để điền tiếp Zalo, chức vụ và tải giấy tờ. Mật khẩu tạm hiện lên 1 lần.</div>
   </form>
+  </div>
 </details>
 
 <div class="tieu-khu"><h2>Danh sách</h2><span class="dem">{{ tong_so }}</span></div>
 
-{% for ten_bo_phan, ds_nhom in nhom_nhan_vien %}
-<div class="nhom-bo-phan-tieu-de">
-  <h3>{{ ten_bo_phan }}</h3>
-  <span class="dem">{{ ds_nhom|length }}</span>
+{% if nhom_nhan_vien %}
+<div class="the the--khong-dem bang-cuon">
+  <table class="nv-bang">
+    <thead><tr>
+      <th>Nhân viên</th><th>Chức vụ</th><th>Vai trò</th><th>Ngày vào làm</th><th>Sinh nhật</th>
+      <th title="Hợp đồng · Bàn giao · Cam kết">Giấy tờ</th><th>Zalo</th>
+    </tr></thead>
+    <tbody>
+    {% for ten_bo_phan, ds_nhom in nhom_nhan_vien %}
+      <tr class="nv-nhom"><td colspan="7">{{ ten_bo_phan }} · {{ ds_nhom|length }}</td></tr>
+      {% for n in ds_nhom %}
+      <tr class="nv-dong{{ ' nv-mo' if not n.dang_hoat_dong }}" onclick="location.href='{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}'">
+        <td><div class="nv-ten">
+          <span class="nv-avatar" data-vt="{{ n.vai_tro }}">{{ n.ho_ten[:1]|upper }}</span>
+          <span><strong>{{ n.ho_ten }}</strong><small>{{ n.ma_dinh_danh }}{% if not n.dang_hoat_dong %} · đã nghỉ{% endif %}</small></span>
+        </div></td>
+        <td style="font-size:.82rem">{{ n.chuc_vu.ten if n.chuc_vu else '—' }}</td>
+        <td><span class="nhan" data-tt="{{ n.vai_tro }}">{{ n.ten_vai_tro }}</span></td>
+        <td style="font-size:.82rem;white-space:nowrap">{% if n.ngay_vao_lam %}{{ n.ngay_vao_lam.strftime('%d/%m/%Y') }}<br><small style="color:var(--muc-mo)">{{ n.tham_nien }}</small>{% else %}—{% endif %}</td>
+        <td style="font-size:.82rem;white-space:nowrap">{% if n.ngay_sinh %}{{ n.ngay_sinh.strftime('%d/%m') }}{% if n.sinh_nhat_thang_nay %} 🎂{% endif %}{% else %}—{% endif %}</td>
+        <td><span class="nv-ho-so">
+          {% for loai, ten in LoaiHoSo.NHAN.items() %}
+          <span class="{{ 'co' if n.ho_so_theo_loai(loai) }}" title="{{ ten }}: {{ n.ho_so_theo_loai(loai)|length }} file">{{ LoaiHoSo.ICON[loai] }}</span>
+          {% endfor %}
+        </span></td>
+        <td>{% if n.zalo_group_id %}<span title="Đã có Zalo">✅</span>{% else %}<span class="nhan" data-tt="lam_lai">Chưa</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
 </div>
-<div class="khoi-nv-bo-phan">
-{% for n in ds_nhom %}
-<details class="nv-hang{{ ' the--nv-nghi' if not n.dang_hoat_dong }}">
-  <summary class="nv-tom-tat">
-    <span class="nv-avatar" data-vt="{{ n.vai_tro }}">{{ n.ho_ten[:1]|upper }}</span>
-    <span class="nv-thong-tin">
-      <strong>{{ n.ho_ten }}</strong>
-      <small>{{ n.ma_dinh_danh }}</small>
-    </span>
-    <span class="nv-nhan-nhom">
-      {% if not n.dang_hoat_dong %}<span class="nhan" data-tt="huy">Đã nghỉ</span>{% endif %}
-      {% if not n.zalo_group_id %}<span class="nhan" data-tt="lam_lai">Chưa Zalo</span>{% endif %}
-      <span class="nhan" data-tt="{{ n.vai_tro }}">{{ n.ten_vai_tro }}</span>
-    </span>
-  </summary>
-
-  <div class="nv-hang-form">
-  <form method="post" action="{{ url_for('admin.luu_nhan_vien') }}">
-    <input type="hidden" name="id" value="{{ n.id }}">
-    <div class="hang">
-      <div class="o-nhap"><label>Mã nhân viên</label>
-        <input name="ma_dinh_danh" value="{{ n.ma_dinh_danh }}" required></div>
-      <div class="o-nhap"><label>Họ tên</label>
-        <input name="ho_ten" value="{{ n.ho_ten }}" required></div>
-    </div>
-    <div class="hang">
-      <div class="o-nhap"><label>Vai trò</label>
-        <select name="vai_tro">
-          {% for ma, ten in vai_tros.items() %}
-          <option value="{{ ma }}" {{ 'selected' if n.vai_tro == ma }}>{{ ten }}</option>{% endfor %}
-        </select></div>
-      <div class="o-nhap"><label>Bộ phận</label>
-        <select name="bo_phan_id"><option value="">—</option>
-          {% for b in bo_phans %}
-          <option value="{{ b.id }}" {{ 'selected' if n.bo_phan_id == b.id }}>{{ b.ten }}</option>{% endfor %}
-        </select></div>
-    </div>
-    <div class="o-nhap"><label>Chức vụ</label>
-      <select name="chuc_vu_id">
-        <option value="">— Không chọn —</option>
-        {% for cv in ds_chuc_vu %}
-        <option value="{{ cv.id }}" {{ 'selected' if n.chuc_vu_id == cv.id }}>{{ cv.ten }}</option>
-        {% endfor %}
-      </select></div>
-    <div class="o-nhap"><label>Zalo chat id</label>
-      <input name="zalo_group_id" value="{{ n.zalo_group_id or '' }}"></div>
-    <div class="o-nhap"><label>Bot Zalo riêng</label>
-      <select name="bot_zalo_id">
-        <option value="">— Dùng bot mặc định —</option>
-        {% for b in bots %}
-        <option value="{{ b.id }}" {{ 'selected' if n.bot_zalo_id == b.id }}>{{ b.ten }}{% if not b.dang_hoat_dong %} (đã tắt){% endif %}</option>
-        {% endfor %}
-      </select></div>
-    <div class="o-nhap"><label>Số điện thoại</label>
-      <input name="so_dien_thoai" type="tel" value="{{ n.so_dien_thoai or '' }}"></div>
-    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
-      <input type="checkbox" name="dang_hoat_dong" {{ 'checked' if n.dang_hoat_dong }}
-             style="width:18px;height:18px;accent-color:var(--chinh)">
-      Đang làm việc</label>
-    <button class="nut nut--nho" type="submit">Lưu</button>
-  </form>
-
-  <div class="hang-nut" style="margin-top:10px">
-    <form method="post" action="{{ url_for('admin.reset_mat_khau', uid=n.id) }}"
-          onsubmit="return confirm('Cấp lại mật khẩu cho {{ n.ho_ten }}?')">
-      <button class="nut nut--phu nut--nho" type="submit">Cấp lại mật khẩu</button>
-    </form>
-    <form method="post" action="{{ url_for('admin.test_zalo', uid=n.id) }}">
-      <button class="nut nut--phu nut--nho" type="submit">Gửi Zalo thử</button>
-    </form>
-    {% if n.id != current_user.id %}
-    <form method="post" action="{{ url_for('admin.xoa_nhan_vien', uid=n.id) }}"
-          onsubmit="return confirm('Xoá vĩnh viễn {{ n.ho_ten }}? Chỉ xoá được nếu tài khoản chưa từng có công việc/chấm công/đánh giá nào.')">
-      <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá</button>
-    </form>
-    {% if current_user.la_admin_thuan %}
-    <form method="post" action="{{ url_for('admin.xoa_vinh_vien_nhan_vien', uid=n.id) }}"
-          onsubmit="return confirm('XOÁ VĨNH VIỄN {{ n.ho_ten }} ({{ n.ma_dinh_danh }})?\n\nSẽ xoá luôn TOÀN BỘ chấm công, xin nghỉ, việc đã nhận của người này. KHÔNG THỂ khôi phục.') && prompt('Gõ đúng mã nhân viên \'{{ n.ma_dinh_danh }}\' để xác nhận:') === '{{ n.ma_dinh_danh }}'">
-      <button class="nut nut--do nut--nho" type="submit">🗑️ Xoá vĩnh viễn (toàn bộ dữ liệu)</button>
-    </form>
-    {% endif %}
-    {% endif %}
-  </div>
-  </div>
-</details>
-{% endfor %}
-</div>
-{% endfor %}
-{% if not nhom_nhan_vien %}
+{% else %}
 <div class="trong"><strong>Không tìm thấy nhân viên nào</strong>Thử đổi bộ lọc.</div>
 {% endif %}
 {% endblock %}

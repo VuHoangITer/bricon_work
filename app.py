@@ -96,6 +96,15 @@ def create_app(config_class=Config):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
+        # Giấy tờ nhân sự (hợp đồng, bàn giao, cam kết) — nhạy cảm, CHỈ
+        # Admin/Ban giám đốc xem được, kể cả chính nhân viên đó cũng không.
+        from models import HoSoNhanVien
+        hs = HoSoNhanVien.query.filter_by(duong_dan=duong_dan).first()
+        if hs:
+            if not current_user.la_admin_sep:
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
         # Ảnh đại diện Trợ lý công việc — ai đăng nhập cũng thấy (nút chat nổi)
         import services as _sv
         if duong_dan == (_sv.lay_cai_dat("tro_ly_anh_dai_dien") or None):
@@ -203,7 +212,8 @@ def create_app(config_class=Config):
     # trang Tìm Group ID) khai báo ở "phu" để sidebar vẫn sáng đúng nhóm.
     NHOM_QUAN_TRI = [
         {"ma": "nhan_su", "nhan": "Nhân sự", "icon": "👥", "chi_admin": False,
-         "tab": [("admin.nhan_vien", "Nhân viên"), ("admin.bo_phan", "Bộ phận")], "phu": []},
+         "tab": [("admin.nhan_vien", "Nhân viên"), ("admin.bo_phan", "Bộ phận")],
+         "phu": ["admin.chi_tiet_nhan_vien"]},
         {"ma": "cham_cong", "nhan": "Cấu hình chấm công", "icon": "📍", "chi_admin": False,
          "tab": [("admin.diem_cham_cong", "Điểm chấm công"), ("admin.ngay_nghi", "Ngày nghỉ")],
          "phu": []},
