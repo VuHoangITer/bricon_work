@@ -913,12 +913,14 @@ def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     # nhãn đã đặt cho ảnh (VD: "bảng định mức", "bảng màu") thay vì nói
     # "cho xem ảnh" — nên cũng phải tính là muốn xem ảnh trong trường hợp
     # này, không chỉ dựa vào bộ từ khoá chung cố định.
-    tu_khoa_chung = {"anh", "hinh", "photo", "image", "phieu", "tds", "catalogue", "catalog"}
-    tu_nhan_da_luu = {
-        t for sp in ung_vien for a in sp.anh if a.nhan
-        for t in _chuan_hoa_khong_dau(a.nhan).split() if len(t) > 2
-    }
-    if not (tin_tu & tu_khoa_chung) and not (tin_tu & tu_nhan_da_luu):
+    # CHỈ khớp trực tiếp khi câu hỏi XIN XEM ẢNH rõ ràng. Trước đây còn coi
+    # mọi từ trùng với nhãn ảnh (VD "keo", "chà", "ron", "thi công") là xin
+    # ảnh — nên câu hỏi tính định mức kiểu "gạch 60x60 ron 3mm 1kg keo chà
+    # được bao nhiêu m2" bị trả nhầm 1 tấm ảnh thay vì câu trả lời. Không có
+    # từ xin ảnh thì để AI xử lý (AI vẫn có sẵn [media:...] của từng ảnh để
+    # tự kèm ảnh khi thật sự phù hợp).
+    tu_khoa_xin_anh = {"anh", "hinh", "photo", "image", "tds", "catalogue", "catalog"}
+    if not (tin_tu & tu_khoa_xin_anh):
         return None
 
     # Gộp thêm ngữ cảnh vài lượt gần đây CHỈ để suy ra ĐÚNG sản phẩm/ảnh
@@ -926,13 +928,19 @@ def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     # nhưng vẫn đang hỏi tiếp về sản phẩm vừa nhắc ở lượt trước.
     tin_tu_rong = tin_tu | set(_chuan_hoa_khong_dau(ngu_canh).split())
 
+    # Xếp hạng theo từ ĐẶC TRƯNG của tên (VD "mau", "epoxy", "noi", "that")
+    # trước, từ chung của cả nhóm (keo/chà/ron/bricon...) chỉ để phân định
+    # phụ — nếu không thì "ảnh keo chà ron màu" khớp ngang nhau với MỌI sản
+    # phẩm keo chà ron (đều có đủ 3 chữ keo-chà-ron).
+    tu_chung_nhom = {"keo", "cha", "ron", "bricon", "san", "pham", "gach", "dan", "loai"}
     xep_hang = []
     for sp in ung_vien:
         tu_ten = [t for t in _chuan_hoa_khong_dau(sp.ten).split() if len(t) > 2]
-        so_khop = sum(1 for t in tu_ten if t in tin_tu_rong)
-        toi_thieu = 1 if len(tu_ten) <= 1 else 2
-        if so_khop >= toi_thieu:
-            xep_hang.append((so_khop, sp))
+        tu_rieng = [t for t in tu_ten if t not in tu_chung_nhom]
+        so_rieng = sum(1 for t in tu_rieng if t in tin_tu_rong)
+        so_chung = sum(1 for t in tu_ten if t in tu_chung_nhom and t in tin_tu_rong)
+        if so_rieng >= 1 or (not tu_rieng and so_chung >= min(2, len(tu_ten))):
+            xep_hang.append(((so_rieng, so_chung), sp))
 
     if not xep_hang:
         return None
