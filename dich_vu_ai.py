@@ -902,66 +902,65 @@ def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     đúng câu hỏi hiện tại (tin_nhan)."""
     from models import SanPhamAI
 
-    tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
-    tin_tu = set(tin_chuan.split())
+    def _tach_tu(van_ban: str) -> set[str]:
+        return set(re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban)).split())
+
+    tin_tu = _tach_tu(tin_nhan)
 
     ung_vien = [sp for sp in SanPhamAI.query.all() if sp.anh]
     if not ung_vien:
         return None
 
-    # Ngoài các từ xin xem ảnh chung chung, người dùng thường gõ THẲNG tên
-    # nhãn đã đặt cho ảnh (VD: "bảng định mức", "bảng màu") thay vì nói
-    # "cho xem ảnh" — nên cũng phải tính là muốn xem ảnh trong trường hợp
-    # này, không chỉ dựa vào bộ từ khoá chung cố định.
-    # CHỈ khớp trực tiếp khi câu hỏi XIN XEM ẢNH rõ ràng. Trước đây còn coi
-    # mọi từ trùng với nhãn ảnh (VD "keo", "chà", "ron", "thi công") là xin
-    # ảnh — nên câu hỏi tính định mức kiểu "gạch 60x60 ron 3mm 1kg keo chà
-    # được bao nhiêu m2" bị trả nhầm 1 tấm ảnh thay vì câu trả lời. Không có
-    # từ xin ảnh thì để AI xử lý (AI vẫn có sẵn [media:...] của từng ảnh để
-    # tự kèm ảnh khi thật sự phù hợp).
+    # CHỈ khớp trực tiếp khi câu hỏi XIN XEM ẢNH rõ ràng — câu hỏi tính
+    # toán/tư vấn (dù có chữ "keo", "thi công"...) luôn để AI trả lời.
     tu_khoa_xin_anh = {"anh", "hinh", "photo", "image", "tds", "catalogue", "catalog"}
     if not (tin_tu & tu_khoa_xin_anh):
         return None
 
-    # Gộp thêm ngữ cảnh vài lượt gần đây CHỈ để suy ra ĐÚNG sản phẩm/ảnh
-    # nào — câu hỏi nối tiếp kiểu chỉ gõ "ảnh" không lặp lại tên sản phẩm
-    # nhưng vẫn đang hỏi tiếp về sản phẩm vừa nhắc ở lượt trước.
-    tin_tu_rong = tin_tu | set(_chuan_hoa_khong_dau(ngu_canh).split())
+    # Từ chung của cả nhóm hàng — có mặt trong gần như MỌI sản phẩm nên
+    # không phân biệt được sản phẩm này với sản phẩm khác.
+    tu_chung_nhom = {"keo", "cha", "ron", "bricon", "san", "pham", "gach", "dan", "loai"}
+    # Từ chức năng/xin ảnh — bỏ hẳn khi so khớp.
+    tu_bo_qua = tu_khoa_xin_anh | {"cho", "xem", "toi", "minh", "em", "anh", "gui", "cua",
+                                    "voi", "the", "nay", "do", "va", "cac", "la", "co", "nao",
+                                    "di", "nhe", "a", "t", "m", "e", "ban", "dau", "hinh"}
 
-    # Xếp hạng theo từ ĐẶC TRƯNG của tên (VD "mau", "epoxy", "noi", "that")
-    # trước, từ chung của cả nhóm (keo/chà/ron/bricon...) chỉ để phân định
-    # phụ — nếu không thì "ảnh keo chà ron màu" khớp ngang nhau với MỌI sản
-    # phẩm keo chà ron (đều có đủ 3 chữ keo-chà-ron).
-    tu_chung_nhom = {"keo", "cha", "ron", "bricon", "san", "pham", "gach", "dan", "loai",
-                     # từ tiếng Việt rất hay gặp trong câu hỏi/trả lời thường
-                     # ("bao nhiêu", "thi công", "giá"...) — không được coi là
-                     # đặc trưng của 1 sản phẩm dù có nằm trong tên sản phẩm
-                     "bao", "thi", "cong", "gia", "cho", "cua", "voi", "nhieu", "the"}
+    def _diem(sp, bo_tu: set) -> tuple[int, int]:
+        """(điểm đặc trưng, điểm từ chung). Từ trong TÊN sản phẩm nặng gấp
+        đôi từ trong NHÃN ảnh — VD "nội thất" vừa là tên sản phẩm "Keo Chà
+        Ron Bricon Nội Thất" vừa nằm trong nhãn "TDS ... nội - ngoại thất"
+        của keo chà ron màu, thì sản phẩm có "nội thất" ở TÊN phải thắng."""
+        tu_ten = _tach_tu(sp.ten) - tu_bo_qua
+        tu_nhan = set().union(*(_tach_tu(a.nhan or "") for a in sp.anh)) - tu_bo_qua - tu_ten
+        diem_rieng = (2 * len((tu_ten - tu_chung_nhom) & bo_tu)
+                      + len((tu_nhan - tu_chung_nhom) & bo_tu))
+        diem_chung = len((tu_ten & tu_chung_nhom) & bo_tu)
+        return diem_rieng, diem_chung
 
-    def _xep_hang(bo_tu: set) -> list:
-        kq = []
-        for sp in ung_vien:
-            tu_ten = [t for t in _chuan_hoa_khong_dau(sp.ten).split() if len(t) > 2]
-            tu_rieng = [t for t in tu_ten if t not in tu_chung_nhom]
-            so_rieng = sum(1 for t in tu_rieng if t in bo_tu)
-            so_chung = sum(1 for t in tu_ten if t in tu_chung_nhom and t in bo_tu)
-            if so_rieng >= 1 or (not tu_rieng and so_chung >= min(2, len(tu_ten))):
-                kq.append(((so_rieng, so_chung), sp))
-        return kq
+    def _chon(bo_tu: set):
+        """Trả về sản phẩm thắng rõ ràng, hoặc None nếu không ai có từ đặc
+        trưng / hoà điểm (mơ hồ -> để AI hỏi lại)."""
+        xep = sorted(((_diem(sp, bo_tu), sp) for sp in ung_vien),
+                     key=lambda x: x[0], reverse=True)
+        xep = [x for x in xep if x[0][0] > 0]
+        if not xep or (len(xep) > 1 and xep[0][0] == xep[1][0]):
+            return None
+        return xep[0][1]
 
-    # Ưu tiên CÂU HỎI HIỆN TẠI: chỉ khi câu hiện tại không nêu được sản phẩm
-    # nào (VD chỉ gõ "ảnh") mới dùng thêm vài lượt trước để suy ra. Trước
-    # đây gộp luôn ngữ cảnh vào để chấm điểm, nên chữ trong câu trả lời cũ
-    # ("bao nhiêu", "thi công"...) kéo nhầm sang sản phẩm khác — hỏi "ảnh
-    # keo chà ron màu" lại ra ảnh epoxy.
-    xep_hang = _xep_hang(tin_tu) or _xep_hang(tin_tu_rong)
-
-    if not xep_hang:
+    phan_con_lai = tin_tu - tu_bo_qua
+    if phan_con_lai:
+        # Câu hiện tại CÓ nêu gì đó -> chỉ xét đúng câu này. Nêu mỗi từ
+        # chung ("ảnh keo chà ron") mà không có từ đặc trưng thì là mơ hồ
+        # -> None, để AI hỏi lại loại nào, KHÔNG đoán theo lượt trước.
+        sp = _chon(tin_tu)
+    else:
+        # Câu chỉ toàn từ xin ảnh ("ảnh", "cho xem ảnh") -> suy theo các câu
+        # hỏi TRƯỚC của NGƯỜI DÙNG (ngu_canh chỉ chứa câu người dùng, không
+        # lẫn câu trả lời của AI — câu trả lời AI liệt kê nhãn ảnh nên từng
+        # kéo nhầm sang sản phẩm khác).
+        sp = _chon(_tach_tu(ngu_canh))
+    if not sp:
         return None
-    xep_hang.sort(key=lambda x: x[0], reverse=True)
-    if len(xep_hang) > 1 and xep_hang[0][0] == xep_hang[1][0]:
-        return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
-    sp = xep_hang[0][1]
 
     # Chấm điểm theo từ ĐẶC TRƯNG RIÊNG của từng nhãn (loại bỏ các từ trùng
     # với tên sản phẩm, vì những từ đó lặp lại ở MỌI nhãn của cùng 1 sản
@@ -969,12 +968,14 @@ def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     # trả TẤT CẢ ảnh cùng điểm cao nhất (VD hỏi "TDS" mà có 2 ảnh TDS thì
     # trả cả 2); không nhãn nào khớp (chỉ hỏi chung "ảnh keo chà ron màu")
     # thì trả TOÀN BỘ ảnh của sản phẩm — trước đây chỉ trả được 1 ảnh.
-    tu_ten_sp = set(_chuan_hoa_khong_dau(sp.ten).split())
+    tu_ten_sp = _tach_tu(sp.ten)
     xep_hang_anh = []
     for a in sp.anh:
         if not a.nhan:
             continue
-        tu_nhan_rieng = set(_chuan_hoa_khong_dau(a.nhan).split()) - tu_ten_sp
+        # giữ lại "tds"/"catalog" — chúng vừa là từ xin ảnh vừa phân biệt được ảnh
+        tu_nhan_rieng = (_tach_tu(a.nhan) - tu_ten_sp - tu_chung_nhom
+                         - (tu_bo_qua - {"tds", "catalog", "catalogue"}))
         so_khop = len(tu_nhan_rieng & tin_tu)
         if so_khop:
             xep_hang_anh.append((so_khop, a))
@@ -1212,7 +1213,13 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
         ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
         return ket_qua_anh, None
 
-    ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan, ngu_canh_gan_day)
+    # Chỉ lấy câu hỏi TRƯỚC của người dùng (bỏ câu trả lời AI + câu hiện
+    # tại — trình duyệt đã đẩy câu hiện tại vào cuối lich_su trước khi gửi).
+    cau_nguoi_dung = [str(m.get("noi_dung", "")) for m in lich_su
+                      if isinstance(m, dict) and m.get("vai_tro") == "user"]
+    if cau_nguoi_dung and cau_nguoi_dung[-1].strip() == tin_nhan.strip():
+        cau_nguoi_dung = cau_nguoi_dung[:-1]
+    ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan, " ".join(cau_nguoi_dung[-1:]))
     if ket_qua_anh_sp:
         ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
         return ket_qua_anh_sp, None
