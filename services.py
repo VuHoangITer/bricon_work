@@ -1681,12 +1681,34 @@ def gui_chuc_mung_sinh_nhat(ngay: date | None = None) -> int:
         if nv.zalo_group_id:
             gui_cho_nhan_vien(nv, noi_dung_chuc_sinh_nhat(nv))
     if ds and lay_cai_dat("sinh_nhat_bao_nhom", "1") == "1":
-        gui_nhom_ql(
+        nd_nhom = (
             f"🎂 Hôm nay {ngay:%d/%m} là sinh nhật của:\n"
             + "\n".join(f"• {n.ho_ten}" + (f" – {n.bo_phan.ten}" if n.bo_phan else "") for n in ds)
             + "\n\nCả nhà cùng gửi lời chúc mừng nhé! 🎉"
         )
+        ds_nhom, token = kenh_sinh_nhat()
+        for chat_id in ds_nhom:
+            gui_zalo(chat_id, nd_nhom, token_ghi_de=token)
     return len(ds)
+
+
+def kenh_sinh_nhat() -> tuple[list[str], str]:
+    """(danh sách group ID, bot token) nhận thông báo sinh nhật chung — Admin
+    chọn ở Hệ thống → Tin tự động (VD nhóm chung toàn công ty, nhiều nhóm
+    mỗi dòng 1 ID). Bỏ trống thì gửi vào nhóm QL như trước."""
+    from models import BotZalo
+    ds_nhom = [d.strip() for d in (lay_cai_dat("sinh_nhat_group_ids") or "").splitlines() if d.strip()]
+    if not ds_nhom and current_app.config["ZALO_GROUP_QL"]:
+        ds_nhom = [current_app.config["ZALO_GROUP_QL"]]
+    token = ""
+    bot_id = lay_cai_dat("sinh_nhat_bot_id")
+    if bot_id and bot_id.isdigit():
+        bot = db.session.get(BotZalo, int(bot_id))
+        if bot and bot.dang_hoat_dong:
+            token = bot.token
+    if not token:
+        token = current_app.config["ZALO_BOT_TOKEN_QL"] or current_app.config["ZALO_DEFAULT_BOT_TOKEN"]
+    return ds_nhom, token
 
 
 def gui_ban_tin_sang() -> int:
