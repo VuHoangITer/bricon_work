@@ -932,15 +932,29 @@ def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     # trước, từ chung của cả nhóm (keo/chà/ron/bricon...) chỉ để phân định
     # phụ — nếu không thì "ảnh keo chà ron màu" khớp ngang nhau với MỌI sản
     # phẩm keo chà ron (đều có đủ 3 chữ keo-chà-ron).
-    tu_chung_nhom = {"keo", "cha", "ron", "bricon", "san", "pham", "gach", "dan", "loai"}
-    xep_hang = []
-    for sp in ung_vien:
-        tu_ten = [t for t in _chuan_hoa_khong_dau(sp.ten).split() if len(t) > 2]
-        tu_rieng = [t for t in tu_ten if t not in tu_chung_nhom]
-        so_rieng = sum(1 for t in tu_rieng if t in tin_tu_rong)
-        so_chung = sum(1 for t in tu_ten if t in tu_chung_nhom and t in tin_tu_rong)
-        if so_rieng >= 1 or (not tu_rieng and so_chung >= min(2, len(tu_ten))):
-            xep_hang.append(((so_rieng, so_chung), sp))
+    tu_chung_nhom = {"keo", "cha", "ron", "bricon", "san", "pham", "gach", "dan", "loai",
+                     # từ tiếng Việt rất hay gặp trong câu hỏi/trả lời thường
+                     # ("bao nhiêu", "thi công", "giá"...) — không được coi là
+                     # đặc trưng của 1 sản phẩm dù có nằm trong tên sản phẩm
+                     "bao", "thi", "cong", "gia", "cho", "cua", "voi", "nhieu", "the"}
+
+    def _xep_hang(bo_tu: set) -> list:
+        kq = []
+        for sp in ung_vien:
+            tu_ten = [t for t in _chuan_hoa_khong_dau(sp.ten).split() if len(t) > 2]
+            tu_rieng = [t for t in tu_ten if t not in tu_chung_nhom]
+            so_rieng = sum(1 for t in tu_rieng if t in bo_tu)
+            so_chung = sum(1 for t in tu_ten if t in tu_chung_nhom and t in bo_tu)
+            if so_rieng >= 1 or (not tu_rieng and so_chung >= min(2, len(tu_ten))):
+                kq.append(((so_rieng, so_chung), sp))
+        return kq
+
+    # Ưu tiên CÂU HỎI HIỆN TẠI: chỉ khi câu hiện tại không nêu được sản phẩm
+    # nào (VD chỉ gõ "ảnh") mới dùng thêm vài lượt trước để suy ra. Trước
+    # đây gộp luôn ngữ cảnh vào để chấm điểm, nên chữ trong câu trả lời cũ
+    # ("bao nhiêu", "thi công"...) kéo nhầm sang sản phẩm khác — hỏi "ảnh
+    # keo chà ron màu" lại ra ảnh epoxy.
+    xep_hang = _xep_hang(tin_tu) or _xep_hang(tin_tu_rong)
 
     if not xep_hang:
         return None
