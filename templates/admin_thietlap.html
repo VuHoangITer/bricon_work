@@ -193,7 +193,7 @@
   <h3 style="margin-top:0">🎂 Chúc mừng sinh nhật tự động</h3>
   <p style="color:var(--muc-mo);font-size:.85rem;margin-top:0">
     Mỗi sáng 08:00 (kể cả Chủ nhật/ngày lễ), hệ thống gửi lời chúc riêng qua Zalo cho người có sinh nhật hôm đó
-    và báo vào nhóm chung bạn chọn bên dưới. Sinh nhật lấy từ hồ sơ nhân viên (Nhân sự → Nhân viên).</p>
+    và báo cho toàn bộ nhân viên. Sinh nhật lấy từ hồ sơ nhân viên (Nhân sự → Nhân viên).</p>
   {% if sinh_nhat_sap_toi %}
   <div style="font-size:.84rem;margin-bottom:12px;padding:10px 12px;background:var(--chinh-nhat);border-radius:10px">
     <b>Sắp tới (30 ngày):</b>
@@ -206,27 +206,15 @@
       Bật chúc mừng sinh nhật tự động</label>
     <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:12px">
       <input type="checkbox" name="bao_nhom" {{ 'checked' if sinh_nhat_bao_nhom }} style="width:18px;height:18px;accent-color:var(--chinh)">
-      Báo vào nhóm chung để mọi người cùng chúc</label>
-    <div class="hang">
-      <div class="o-nhap"><label>Nhóm nhận thông báo (mỗi dòng 1 Group ID)</label>
-        <textarea name="group_ids" rows="3" placeholder="VD: zgr-nhom-chung-cong-ty&#10;zgr-nhom-kho&#10;(để trống = nhóm quản lý)">{{ sinh_nhat_group_ids }}</textarea>
-        <div class="goi-y">Lấy ID: thêm bot vào nhóm rồi gõ <code>/id</code> trong nhóm.</div></div>
-      <div class="o-nhap"><label>Bot gửi</label>
-        <select name="bot_id">
-          <option value="">Bot của nhóm quản lý (mặc định)</option>
-          {% for b in ds if b.dang_hoat_dong %}
-          <option value="{{ b.id }}" {{ 'selected' if sinh_nhat_bot_id == b.id|string }}>{{ b.ten }}</option>
-          {% endfor %}
-        </select>
-        <div class="goi-y">Bot này phải có mặt trong TẤT CẢ các nhóm ở bên trái.</div></div>
-    </div>
+      Báo cho toàn bộ nhân viên + nhóm quản lý để mọi người cùng chúc</label>
+    <p class="goi-y" style="margin:-6px 0 12px">Tin báo gửi vào Zalo riêng của từng nhân viên qua đúng bot của họ — không cần cài đặt nhóm hay bot.</p>
     <div class="o-nhap"><label>Lời chúc gửi riêng cho nhân viên</label>
       <textarea name="loi_chuc" rows="6">{{ sinh_nhat_loi_chuc }}</textarea>
       <div class="goi-y">Dùng <code>{ten}</code> = tên gọi (VD "Linh"), <code>{ho_ten}</code> = họ tên đầy đủ,
         <code>{tham_nien}</code> = " suốt 2 năm 3 tháng qua" (tự bỏ trống nếu chưa có ngày vào làm).</div></div>
     <div class="hang-nut">
       <button class="nut nut--nho" type="submit">Lưu</button>
-      <button class="nut nut--phu nut--nho" type="submit" name="gui_thu" value="1">Lưu & gửi thử vào các nhóm trên</button>
+      <button class="nut nut--phu nut--nho" type="submit" name="gui_thu" value="1">Lưu & gửi thử lời chúc vào nhóm QL</button>
     </div>
   </form>
 </div>

@@ -485,8 +485,6 @@ def _trang_thiet_lap(muc: str):
                            sinh_nhat_loi_chuc=services.lay_cai_dat("sinh_nhat_loi_chuc", "")
                                               or services.LOI_CHUC_SINH_NHAT_MAC_DINH,
                            sinh_nhat_sap_toi=sinh_nhat_sap_toi[:8],
-                           sinh_nhat_group_ids=services.lay_cai_dat("sinh_nhat_group_ids", ""),
-                           sinh_nhat_bot_id=services.lay_cai_dat("sinh_nhat_bot_id", ""),
                            dong_goi_group_id=services.lay_cai_dat("dong_goi_group_id", ""),
                            dong_goi_bot_id=services.lay_cai_dat("dong_goi_bot_id", ""),
                            nhom_ql_mac_dinh=current_app.config["ZALO_GROUP_QL"],
@@ -692,24 +690,14 @@ def luu_cai_dat_sinh_nhat():
     services.dat_cai_dat("sinh_nhat_bao_nhom", "1" if request.form.get("bao_nhom") == "on" else "0")
     mau = (request.form.get("loi_chuc") or "").strip()
     services.dat_cai_dat("sinh_nhat_loi_chuc", mau)
-    services.dat_cai_dat("sinh_nhat_group_ids", "\n".join(
-        d.strip() for d in (request.form.get("group_ids") or "").splitlines() if d.strip()))
-    bot_id = (request.form.get("bot_id") or "").strip()
-    services.dat_cai_dat("sinh_nhat_bot_id", bot_id if bot_id.isdigit() else "")
     db.session.commit()
     if request.form.get("gui_thu") == "1":
-        # Gửi thử vào ĐÚNG các nhóm đã chọn: lời chúc mẫu (dựng theo tên người
-        # đang thao tác) — để kiểm tra bot đã vào được nhóm chưa.
-        ds_nhom, token = services.kenh_sinh_nhat()
-        nd = ("[TIN THỬ — chúc mừng sinh nhật]\n\n"
-              + services.noi_dung_chuc_sinh_nhat(current_user, mau or None))
-        ket_qua = [services.gui_zalo(c, nd, token_ghi_de=token) for c in ds_nhom]
+        # Gửi thử lời chúc mẫu (dựng theo tên người đang thao tác) vào nhóm QL
+        ok = services.gui_nhom_ql("[TIN THỬ — lời chúc sinh nhật]\n\n"
+                                  + services.noi_dung_chuc_sinh_nhat(current_user, mau or None))
         db.session.commit()
-        if ket_qua and all(ket_qua):
-            flash(f"Đã lưu và gửi thử thành công vào {len(ket_qua)} nhóm.", "success")
-        else:
-            flash(f"Đã lưu nhưng gửi thử thất bại {ket_qua.count(False)}/{len(ket_qua)} nhóm — kiểm tra "
-                  f"Group ID và bot đã được thêm vào nhóm chưa (xem tab Log Zalo).", "error")
+        flash("Đã lưu và gửi thử lời chúc vào nhóm quản lý." if ok
+              else "Đã lưu nhưng gửi thử thất bại — xem tab Log Zalo.", "success" if ok else "error")
     else:
         flash("Đã lưu cài đặt chúc mừng sinh nhật.", "success")
     return redirect(url_for("admin.thiet_lap_tin_tu_dong"))
