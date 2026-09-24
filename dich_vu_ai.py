@@ -916,9 +916,12 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     câu hỏi hiện tại (tin_nhan)."""
     from models import ChucVu
 
-    tin_chuan = _chuan_hoa_khong_dau(tin_nhan)
-    tin_tu = set(tin_chuan.split())
-    if not tin_tu & {"anh", "hinh", "photo", "image", "phieu"}:
+    def _tach_tu(van_ban: str) -> set[str]:
+        return set(re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban)).split())
+
+    tu_xin_anh = {"anh", "hinh", "photo", "image", "phieu"}
+    tin_tu = _tach_tu(tin_nhan)
+    if not tin_tu & tu_xin_anh:
         return None
 
     if nd.la_admin_sep:
@@ -930,29 +933,45 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     if not ung_vien:
         return None
 
-    # Nhân viên thường chỉ có ĐÚNG 1 chức vụ hợp lệ để chọn — chính là
-    # chức vụ của họ — nên không cần bắt khớp tên trong câu hỏi (họ hỏi
-    # "ảnh/phiếu của TÔI" chứ không cần xướng tên chức vụ ra). Chỉ khi có
-    # NHIỀU ứng viên cùng lúc (Admin/Sếp xem được mọi chức vụ) mới cần
-    # khớp tên để biết đang hỏi về chức vụ nào trong số đó.
-    if len(ung_vien) == 1:
-        cv = ung_vien[0]
-    else:
-        tin_tu_rong = tin_tu | set(_chuan_hoa_khong_dau(ngu_canh).split())
-        xep_hang = []
-        for ung in ung_vien:
-            tu_ten = [t for t in _chuan_hoa_khong_dau(ung.ten).split() if t not in ("va",)]
-            so_khop = sum(1 for t in tu_ten if t in tin_tu_rong)
-            toi_thieu = 1 if len(tu_ten) <= 1 else 2
-            if so_khop >= toi_thieu:
-                xep_hang.append((so_khop, ung))
+    # Từ chung của MỌI chức vụ ("nhân viên", "kiêm"...) và từ chức năng —
+    # không dùng để phân biệt chức vụ này với chức vụ khác.
+    tu_chung = {"nhan", "vien", "va", "kiem", "truong", "pho", "bo", "phan"}
+    tu_bo_qua = tu_xin_anh | {"cho", "xem", "toi", "minh", "em", "t", "m", "gui", "cua", "voi",
+                              "the", "nay", "do", "cac", "la", "co", "nao", "di", "nhe", "a",
+                              "ban", "dau", "chuc", "vu", "vi", "tri"}
 
-        if not xep_hang:
+    def _chon(bo_tu: set):
+        xep = []
+        for ung in ung_vien:
+            tu_rieng = _tach_tu(ung.ten) - tu_chung - tu_bo_qua
+            diem = len(tu_rieng & bo_tu)
+            if diem:
+                xep.append((diem, ung))
+        xep.sort(key=lambda x: x[0], reverse=True)
+        if not xep or (len(xep) > 1 and xep[0][0] == xep[1][0]):
             return None
-        xep_hang.sort(key=lambda x: x[0], reverse=True)
-        if len(xep_hang) > 1 and xep_hang[0][0] == xep_hang[1][0]:
-            return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
-        cv = xep_hang[0][1]
+        return xep[0][1]
+
+    # 1) Câu hỏi nêu rõ tên chức vụ -> chỉ xét ĐÚNG câu hiện tại (không đọc
+    #    câu trả lời cũ của AI — từng khiến "giao việc/người nhận" trong câu
+    #    trả lời trước kéo nhầm sang chức vụ "tài xế kiêm giao nhận").
+    cv = _chon(tin_tu)
+    if not cv:
+        noi_dung_con_lai = tin_tu - tu_bo_qua - tu_chung
+        nhac_chuc_vu = bool({"chuc", "vu"} <= tin_tu or {"vi", "tri"} <= tin_tu
+                            or {"lo", "trinh"} <= tin_tu or {"danh", "gia"} <= tin_tu)
+        if len(ung_vien) == 1 and (nhac_chuc_vu or not noi_dung_con_lai):
+            # 2) Nhân viên thường (chỉ có đúng chức vụ của mình) hỏi kiểu
+            #    "ảnh chức vụ của tôi", "phiếu đánh giá", "lộ trình" — hoặc
+            #    chỉ gõ trơn "ảnh"/"phiếu". Hỏi ảnh thứ khác (VD "ảnh keo chà
+            #    ron") thì KHÔNG trả ảnh chức vụ nữa.
+            cv = ung_vien[0] if (nhac_chuc_vu or _chon(_tach_tu(ngu_canh)) or not ngu_canh) else None
+        elif not noi_dung_con_lai:
+            # 3) Chỉ gõ trơn "ảnh"/"cho xem ảnh" -> suy theo câu hỏi TRƯỚC
+            #    của chính người dùng (ngu_canh chỉ chứa câu người dùng).
+            cv = _chon(_tach_tu(ngu_canh))
+    if not cv:
+        return None
 
     return {
         "tra_loi": f"Đây là ảnh đã lưu cho chức vụ \"{cv.ten}\":",
@@ -1288,18 +1307,22 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
     ngu_canh_gan_day = " ".join(
         str(m.get("noi_dung", "")) for m in lich_su[-4:] if isinstance(m, dict))
 
-    ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan, ngu_canh_gan_day)
-    if ket_qua_anh:
-        ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
-        return ket_qua_anh, None
-
-    # Chỉ lấy câu hỏi TRƯỚC của người dùng (bỏ câu trả lời AI + câu hiện
-    # tại — trình duyệt đã đẩy câu hiện tại vào cuối lich_su trước khi gửi).
+    # Ngữ cảnh cho 2 bộ khớp ảnh: CHỈ câu hỏi trước của người dùng (bỏ câu
+    # trả lời AI + câu hiện tại — trình duyệt đã đẩy câu hiện tại vào cuối
+    # lich_su trước khi gửi). Câu trả lời AI hay nhắc tên chức vụ/nhãn ảnh
+    # nên từng kéo nhầm sang ảnh không liên quan.
     cau_nguoi_dung = [str(m.get("noi_dung", "")) for m in lich_su
                       if isinstance(m, dict) and m.get("vai_tro") == "user"]
     if cau_nguoi_dung and cau_nguoi_dung[-1].strip() == tin_nhan.strip():
         cau_nguoi_dung = cau_nguoi_dung[:-1]
-    ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan, " ".join(cau_nguoi_dung[-1:]))
+    cau_truoc = " ".join(cau_nguoi_dung[-1:])
+
+    ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan, cau_truoc)
+    if ket_qua_anh:
+        ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
+        return ket_qua_anh, None
+
+    ket_qua_anh_sp = _thu_khop_anh_san_pham(tin_nhan, cau_truoc)
     if ket_qua_anh_sp:
         ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
         return ket_qua_anh_sp, None
