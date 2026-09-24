@@ -96,36 +96,53 @@
     o.textContent = noiDung;
     khung.appendChild(o);
 
-    if (media) {
-      const duoi = media.split('?')[0].split('.').pop().toLowerCase();
+    // media: 1 chuỗi hoặc mảng nhiều đường dẫn (sản phẩm có nhiều ảnh).
+    // Nhiều ảnh thì xếp thành lưới thumbnail, bấm từng ảnh để xem cỡ đầy đủ.
+    const dsMedia = (Array.isArray(media) ? media : (media ? [media] : []))
+      .filter((m) => typeof m === 'string' && m);
+    const nhieuAnh = dsMedia.length > 1;
+    let luoi = null;
+    if (nhieuAnh) {
+      luoi = document.createElement('div');
+      luoi.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-self:flex-start;max-width:100%';
+      khung.appendChild(luoi);
+    }
+    dsMedia.forEach((m) => {
+      const duoi = m.split('?')[0].split('.').pop().toLowerCase();
       let phanTu = null;
       if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(duoi)) {
         const lienKet = document.createElement('a');
-        lienKet.href = media;
+        lienKet.href = m;
         lienKet.target = '_blank';
         lienKet.rel = 'noopener';
         lienKet.title = 'Bấm để xem ảnh cỡ đầy đủ / tải về';
         lienKet.style.cssText = 'display:block';
         const img = document.createElement('img');
-        img.src = media;
-        img.style.cssText = 'max-width:240px;border-radius:10px;display:block;cursor:zoom-in';
+        img.src = m;
+        img.style.cssText = nhieuAnh
+          ? 'width:160px;height:160px;object-fit:cover;border-radius:10px;display:block;cursor:zoom-in;border:1px solid rgba(0,0,0,.08)'
+          : 'max-width:240px;border-radius:10px;display:block;cursor:zoom-in';
         lienKet.appendChild(img);
         phanTu = lienKet;
       } else if (['mp4', 'webm', 'mov'].includes(duoi)) {
         phanTu = document.createElement('video');
-        phanTu.src = media;
+        phanTu.src = m;
         phanTu.controls = true;
         phanTu.style.cssText = 'max-width:240px;border-radius:10px;display:block';
       } else if (['mp3', 'wav', 'm4a', 'ogg'].includes(duoi)) {
         phanTu = document.createElement('audio');
-        phanTu.src = media;
+        phanTu.src = m;
         phanTu.controls = true;
       }
       if (phanTu) {
-        phanTu.style.alignSelf = 'flex-start';
-        khung.appendChild(phanTu);
+        if (luoi) {
+          luoi.appendChild(phanTu);
+        } else {
+          phanTu.style.alignSelf = 'flex-start';
+          khung.appendChild(phanTu);
+        }
       }
-    }
+    });
 
     if (duongDan) {
       const a = document.createElement('a');

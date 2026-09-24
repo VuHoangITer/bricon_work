@@ -320,8 +320,8 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     '{"tra_loi": "<câu trả lời tự nhiên bằng tiếng Việt>", '
     '"duong_dan": "<đường dẫn gợi ý bấm vào nếu phù hợp, hoặc null>", '
     '"nhan_nut": "<nhãn ngắn cho nút bấm đó, hoặc null>", '
-    '"media": "<đường dẫn ảnh/video/ghi âm để hiện kèm câu trả lời, hoặc '
-    'null>"}\n\n'
+    '"media": <null, hoặc 1 chuỗi đường dẫn, hoặc MẢNG nhiều chuỗi đường '
+    'dẫn ảnh/video/ghi âm để hiện kèm câu trả lời>}\n\n'
 
     "CHỈ được dùng đúng các đường dẫn sau cho duong_dan, không bịa đường "
     "dẫn khác:\n"
@@ -354,7 +354,10 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "file thật, nên luôn là hành động AN TOÀN và ĐÚNG CHỨC NĂNG khi có "
     "[media:...] khớp — TUYỆT ĐỐI không từ chối kiểu \"tôi không thể cung "
     "cấp ảnh\" khi có [media:...] phù hợp. Không có đoạn nào phù hợp thì để "
-    "media là null, không tự bịa đường dẫn."
+    "media là null, không tự bịa đường dẫn. Người hỏi muốn xem ảnh của 1 "
+    "sản phẩm/đối tượng có NHIỀU ảnh mà không nói rõ ảnh nào (VD \"ảnh keo "
+    "chà ron màu\") → trả media là MẢNG chứa TẤT CẢ các đường dẫn ảnh của "
+    "đối tượng đó (tối đa 6), đừng chỉ chọn 1 ảnh."
 )
 
 
@@ -487,14 +490,38 @@ def _can_boi_canh_chuc_vu(van_ban: str, tat_ca_cv) -> bool:
 _TU_KHOA_SAN_PHAM = (
     "san pham", "keo dan gach", "dan gach", "cha ron", "chong tham",
     "2 thanh phan", "hai thanh phan", "tram tuong", "mo kinh", "epoxy",
-    "dung cu thi cong", "phu gia", "quy cach dong goi", "dong goi",
-    "thong so ky thuat", "gia ban", "bao gia", "catalogue", "catalog",
+    "dung cu thi cong", "phu gia", "quy cach", "thong so", "ky thuat",
+    "gia ban", "bao gia", "catalogue", "catalog", "tds",
+    # câu hỏi tư vấn thi công/định mức thường KHÔNG nhắc tên sản phẩm
+    # (VD "1 túi dùng được bao nhiêu m2", "gạch 60x60 ron 3mm cần bao
+    # nhiêu") — thiếu các từ này thì AI không được nạp kiến thức sản phẩm
+    "keo", "ron", "gach", "dinh muc", "thi cong", "m2", "met vuong",
+    "pha nuoc", "ty le pha", "nha tam", "nha ve sinh", "ngoai that",
+    "noi that", "nam moc", "han su dung", "bao quan",
 )
 
 
+def _tu_ten_san_pham() -> set[str]:
+    """Các từ đặc trưng trong TÊN sản phẩm đã nhập ở Info AI — câu hỏi nhắc
+    tới tên sản phẩm (dù không chứa từ khoá chung nào) cũng phải nạp ngữ
+    cảnh sản phẩm."""
+    from models import SanPhamAI
+    bo_qua = {"bricon", "keo", "va", "cho", "loai"}
+    return {
+        t for (ten,) in db.session.query(SanPhamAI.ten).all()
+        for t in _chuan_hoa_khong_dau(ten).split() if len(t) > 3 and t not in bo_qua
+    }
+
+
 def _can_boi_canh_san_pham(van_ban: str) -> bool:
-    tin_chuan = _chuan_hoa_khong_dau(van_ban)
-    return any(cum in tin_chuan for cum in _TU_KHOA_SAN_PHAM)
+    tin_chuan = re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban))
+    tu = set(tin_chuan.split())
+    # So cụm từ khoá theo NGUYÊN TỪ (không so chuỗi con) để "ron" không
+    # khớp nhầm vào "trong", "keo" không khớp "keodan"...
+    chuoi_bao = f" {' '.join(tin_chuan.split())} "
+    if any(f" {cum} " in chuoi_bao for cum in _TU_KHOA_SAN_PHAM):
+        return True
+    return bool(tu & _tu_ten_san_pham())
 
 
 def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
@@ -539,20 +566,32 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
 
     if can_san_pham:
         from models import SanPhamAI
-        ds_sp_anh = [sp for sp in SanPhamAI.query.order_by(SanPhamAI.ten).all() if sp.anh]
-        if ds_sp_anh:
-            dong.append(
-                "--- Sản phẩm có ảnh minh hoạ kèm theo (TDS, bảng định mức, bảng "
-                "màu...) — mỗi ảnh có nhãn ghi rõ trước dấu ':' để biết đúng loại "
-                "ảnh nào ---\n" +
-                "\n\n".join(
-                    f"## {sp.ten}\n{(sp.mo_ta or '').strip()}\n"
-                    + " | ".join(
+        # Nạp MỌI sản phẩm (trước đây lọc "if sp.anh" nên sản phẩm chưa có
+        # ảnh bị bỏ qua hoàn toàn — AI không hề đọc được mô tả của nó). Mỗi
+        # sản phẩm tách bằng dấu ranh giới rõ ràng để AI không lẫn thông
+        # số giữa các sản phẩm cùng nhóm (VD keo chà ron màu vs nội thất).
+        ds_sp = SanPhamAI.query.order_by(SanPhamAI.ten).all()
+        if ds_sp:
+            khoi = []
+            for sp in ds_sp:
+                phan = [f"===== SẢN PHẨM: {sp.ten} =====",
+                        (sp.mo_ta or "(chưa có mô tả)").strip()]
+                if sp.anh:
+                    phan.append("Ảnh kèm theo: " + " | ".join(
                         f"{(a.nhan + ': ') if a.nhan else ''}[media:{a.duong_dan}]"
-                        for a in sp.anh
-                    )
-                    for sp in ds_sp_anh
-                )
+                        for a in sp.anh))
+                phan.append(f"===== HẾT SẢN PHẨM: {sp.ten} =====")
+                khoi.append("\n".join(phan))
+            dong.append(
+                "--- Danh mục sản phẩm BRICON (kiến thức sản phẩm do Admin nhập ở "
+                "Info AI). QUY TẮC: mỗi sản phẩm nằm giữa 2 dòng ===== — thông "
+                "số/phạm vi/định mức của sản phẩm nào CHỈ áp dụng cho đúng sản phẩm "
+                "đó, không lấy chéo sang sản phẩm khác. Câu hỏi chưa rõ đang nói "
+                "sản phẩm nào (VD chỉ nói \"keo chà ron\" mà có nhiều loại) thì hỏi "
+                "lại cho rõ. Trong mô tả có thể có các mục \"Quy tắc/Nguyên tắc cho "
+                "bot\", \"Câu trả lời mẫu\" — PHẢI tuân thủ khi trả lời; khi tính "
+                "định mức thì tra đúng bảng số liệu có sẵn, không tự suy ra số mới "
+                "---\n" + "\n\n".join(khoi)
             )
 
     if nd.la_admin_sep:
@@ -843,6 +882,9 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     }
 
 
+_SO_ANH_TOI_DA = 6  # tối đa số ảnh hiện kèm 1 câu trả lời
+
+
 def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
     """Khớp trực tiếp (KHÔNG qua AI) khi người hỏi xin xem ảnh 1 sản phẩm
     cụ thể (TDS, bảng định mức, bảng màu...) — cùng lý do tách khỏi luồng
@@ -899,36 +941,40 @@ def _thu_khop_anh_san_pham(tin_nhan: str, ngu_canh: str = "") -> dict | None:
         return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
     sp = xep_hang[0][1]
 
-    if len(sp.anh) == 1:
-        anh = sp.anh[0]
+    # Chấm điểm theo từ ĐẶC TRƯNG RIÊNG của từng nhãn (loại bỏ các từ trùng
+    # với tên sản phẩm, vì những từ đó lặp lại ở MỌI nhãn của cùng 1 sản
+    # phẩm nên không phân biệt được ảnh nào với ảnh nào). Có nhãn khớp thì
+    # trả TẤT CẢ ảnh cùng điểm cao nhất (VD hỏi "TDS" mà có 2 ảnh TDS thì
+    # trả cả 2); không nhãn nào khớp (chỉ hỏi chung "ảnh keo chà ron màu")
+    # thì trả TOÀN BỘ ảnh của sản phẩm — trước đây chỉ trả được 1 ảnh.
+    tu_ten_sp = set(_chuan_hoa_khong_dau(sp.ten).split())
+    xep_hang_anh = []
+    for a in sp.anh:
+        if not a.nhan:
+            continue
+        tu_nhan_rieng = set(_chuan_hoa_khong_dau(a.nhan).split()) - tu_ten_sp
+        so_khop = len(tu_nhan_rieng & tin_tu)
+        if so_khop:
+            xep_hang_anh.append((so_khop, a))
+    if xep_hang_anh:
+        cao_nhat = max(d for d, _ in xep_hang_anh)
+        cac_anh = [a for d, a in xep_hang_anh if d == cao_nhat]
     else:
-        # Chấm điểm theo từ ĐẶC TRƯNG RIÊNG của từng nhãn (loại bỏ các từ
-        # trùng với tên sản phẩm, vì những từ đó lặp lại ở MỌI nhãn của
-        # cùng 1 sản phẩm nên không phân biệt được ảnh nào với ảnh nào —
-        # VD nhãn "TDS Keo chà ron..." và "Bảng định mức... keo chà ron..."
-        # đều chứa "keo chà ron" như tên sản phẩm). Lấy nhãn có điểm cao
-        # nhất và không bị hoà điểm với nhãn khác.
-        tu_ten_sp = set(_chuan_hoa_khong_dau(sp.ten).split())
-        xep_hang_anh = []
-        for a in sp.anh:
-            if not a.nhan:
-                continue
-            tu_nhan_rieng = set(_chuan_hoa_khong_dau(a.nhan).split()) - tu_ten_sp
-            so_khop = len(tu_nhan_rieng & tin_tu_rong)
-            if so_khop:
-                xep_hang_anh.append((so_khop, a))
-        if not xep_hang_anh:
-            return None  # nhiều ảnh, chưa rõ đúng ảnh nào -> để AI tự chọn qua ngữ cảnh
-        xep_hang_anh.sort(key=lambda x: x[0], reverse=True)
-        if len(xep_hang_anh) > 1 and xep_hang_anh[0][0] == xep_hang_anh[1][0]:
-            return None  # khớp ngang nhau -> không đủ chắc chắn, để AI tự xử lý
-        anh = xep_hang_anh[0][1]
+        cac_anh = list(sp.anh)
+    cac_anh = cac_anh[:_SO_ANH_TOI_DA]
 
+    if len(cac_anh) == 1:
+        a = cac_anh[0]
+        tra_loi = f"Đây là ảnh {(a.nhan + ' ') if a.nhan else ''}của sản phẩm \"{sp.ten}\":"
+    else:
+        tra_loi = (f"Sản phẩm \"{sp.ten}\" có {len(cac_anh)} ảnh:\n"
+                   + "\n".join(f"{i}. {a.nhan or 'Ảnh ' + str(i)}"
+                               for i, a in enumerate(cac_anh, 1)))
     return {
-        "tra_loi": f"Đây là ảnh {(anh.nhan + ' ') if anh.nhan else ''}của sản phẩm \"{sp.ten}\":",
+        "tra_loi": tra_loi,
         "duong_dan": None,
         "nhan_nut": None,
-        "media": url_for("media", duong_dan=anh.duong_dan),
+        "media": [url_for("media", duong_dan=a.duong_dan) for a in cac_anh],
     }
 
 
@@ -1215,8 +1261,27 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
         "tra_loi": ket_qua.get("tra_loi") or "Bạn có thể nói rõ hơn ý bạn muốn hỏi không?",
         "duong_dan": ket_qua.get("duong_dan") or None,
         "nhan_nut": ket_qua.get("nhan_nut") or None,
-        "media": _duong_dan_media_da_xac_minh(nd, ket_qua.get("media")),
+        "media": _ds_media_da_xac_minh(nd, ket_qua.get("media")),
     }, None
+
+
+def _ds_media_da_xac_minh(nd: NguoiDung, media) -> list[str] | None:
+    """AI có thể trả media là 1 chuỗi hoặc 1 mảng nhiều đường dẫn (VD sản
+    phẩm có nhiều ảnh) — xác minh TỪNG đường dẫn, bỏ trùng, giữ tối đa
+    _SO_ANH_TOI_DA. Không còn đường dẫn hợp lệ nào thì trả None."""
+    if not media:
+        return None
+    ds = media if isinstance(media, list) else [media]
+    ket_qua = []
+    for d in ds:
+        if not isinstance(d, str):
+            continue
+        url = _duong_dan_media_da_xac_minh(nd, d.strip())
+        if url and url not in ket_qua:
+            ket_qua.append(url)
+        if len(ket_qua) >= _SO_ANH_TOI_DA:
+            break
+    return ket_qua or None
 
 
 def _duong_dan_media_da_xac_minh(nd: NguoiDung, duong_dan: str | None) -> str | None:
