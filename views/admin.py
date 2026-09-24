@@ -373,6 +373,9 @@ def _trang_thiet_lap(muc: str):
                .order_by(NguoiDung.ho_ten).all()):
         nv_theo_bot.setdefault(nd.bot_zalo_id, []).append(nd)
     return render_template("admin_thietlap.html", muc=muc,
+                           dong_goi_group_id=services.lay_cai_dat("dong_goi_group_id", ""),
+                           dong_goi_bot_id=services.lay_cai_dat("dong_goi_bot_id", ""),
+                           nhom_ql_mac_dinh=current_app.config["ZALO_GROUP_QL"],
                            ds=ds_bot,
                            nv_theo_bot=nv_theo_bot,
                            openai_api_key=services.lay_cai_dat("openai_api_key"),
@@ -382,6 +385,35 @@ def _trang_thiet_lap(muc: str):
                            gh_token=services.lay_cai_dat(
                                "tro_ly_gioi_han_token_ngay",
                                str(dich_vu_ai._GIOI_HAN_MAC_DINH_TOKEN_NGAY)))
+
+
+@bp.route("/thiet-lap/dong-goi", methods=["POST"])
+@chi_admin
+def luu_kenh_dong_goi():
+    """Chọn nhóm Zalo + bot nhận thông báo đóng gói. Bấm "Gửi thử" thì lưu
+    rồi gửi luôn 1 tin thử vào nhóm đó để kiểm tra bot đã vào được nhóm."""
+    group_id = (request.form.get("group_id") or "").strip()
+    bot_id = (request.form.get("bot_id") or "").strip()
+    if bot_id and not (bot_id.isdigit() and db.session.get(BotZalo, int(bot_id))):
+        flash("Bot không hợp lệ.", "error")
+        return redirect(url_for("admin.thiet_lap"))
+    services.dat_cai_dat("dong_goi_group_id", group_id)
+    services.dat_cai_dat("dong_goi_bot_id", bot_id)
+    db.session.commit()
+
+    if request.form.get("gui_thu") == "1":
+        chat_id, token = services.kenh_dong_goi()
+        ok = services.gui_zalo(chat_id, "📦 Tin thử — nhóm này sẽ nhận thông báo đóng gói "
+                                        "từ BRICON WORK.", token_ghi_de=token)
+        db.session.commit()
+        if ok:
+            flash("Đã lưu và gửi tin thử thành công — kiểm tra nhóm Zalo.", "success")
+        else:
+            flash("Đã lưu nhưng gửi thử THẤT BẠI — kiểm tra Group ID và chắc chắn bot đã "
+                  "được thêm vào nhóm (xem chi tiết ở tab Log Zalo).", "error")
+    else:
+        flash("Đã lưu cấu hình thông báo đóng gói.", "success")
+    return redirect(url_for("admin.thiet_lap"))
 
 
 @bp.route("/thiet-lap/muc/ai")

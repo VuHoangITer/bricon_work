@@ -702,7 +702,7 @@ def bao_duyet_de_xuat(dx: "DeXuat"):
 
 
 def bao_goi_hang(gh: "GoiHang"):
-    """Báo vào nhóm QL mỗi khi có 1 lần đóng gói mới — giữ thói quen xem
+    """Báo vào nhóm được cấu hình (kenh_dong_goi, mặc định nhóm QL) mỗi khi có 1 lần đóng gói mới — giữ thói quen xem
     ảnh ngay trong nhóm như trước, nhưng giờ có sẵn mã vận đơn + tên người
     gói trong tin nhắn, nên nhóm có thể Ctrl+F/tìm ngay trong Zalo mà
     không cần vào web; web (/dong-goi) vẫn là nơi tra cứu chính xác vì
@@ -719,9 +719,27 @@ def bao_goi_hang(gh: "GoiHang"):
         f"Ảnh: {so_anh}\n"
         f"{gh.tao_luc.strftime('%H:%M %d/%m/%Y')}"
     )
-    gui_nhom_ql(nd)
+    chat_id, token = kenh_dong_goi()
+    gui_zalo(chat_id, nd, token_ghi_de=token)
     for a in gh.anh[:5]:
-        gui_anh_nhom_ql(f"{base}/media-cong-khai/{a.duong_dan}")
+        gui_zalo_anh(chat_id, f"{base}/media-cong-khai/{a.duong_dan}", token_ghi_de=token)
+
+
+def kenh_dong_goi() -> tuple[str, str]:
+    """(chat_id, bot token) nhận thông báo đóng gói — Admin chọn ở Hệ thống
+    → Bot Zalo → "Thông báo đóng gói" (VD nhóm kho riêng + bot đang có mặt
+    trong nhóm đó). Bỏ trống thì dùng nhóm QL + bot QL như trước."""
+    from models import BotZalo
+    chat_id = (lay_cai_dat("dong_goi_group_id") or "").strip() or current_app.config["ZALO_GROUP_QL"]
+    token = ""
+    bot_id = lay_cai_dat("dong_goi_bot_id")
+    if bot_id and bot_id.isdigit():
+        bot = db.session.get(BotZalo, int(bot_id))
+        if bot and bot.dang_hoat_dong:
+            token = bot.token
+    if not token:
+        token = current_app.config["ZALO_BOT_TOKEN_QL"] or current_app.config["ZALO_DEFAULT_BOT_TOKEN"]
+    return chat_id, token
 
 
 def lay_cac_chat_gan_day(token: str) -> tuple[list[dict], str | None, str]:
