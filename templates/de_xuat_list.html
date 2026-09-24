@@ -23,6 +23,37 @@
 </div>
 {% endif %}
 
+<form class="the" method="get" style="margin-bottom:18px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <select name="loai" onchange="this.form.submit()" style="flex:1;min-width:150px">
+      <option value="">Mọi loại đề xuất</option>
+      {% for ma, nhan in LoaiDeXuat.NHAN.items() %}
+      <option value="{{ ma }}" {{ 'selected' if f_loai == ma }}>{{ nhan }}</option>
+      {% endfor %}
+    </select>
+    {% if nhan_vien %}
+    <select name="nguoi" onchange="this.form.submit()" style="flex:1;min-width:170px">
+      <option value="">Mọi nhân viên</option>
+      {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f_nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="trang_thai" onchange="this.form.submit()" style="flex:1;min-width:150px">
+      <option value="">Mọi trạng thái</option>
+      {% for ma, nhan in TrangThaiDeXuat.NHAN.items() %}
+      <option value="{{ ma }}" {{ 'selected' if f_trang_thai == ma }}>{{ nhan }}</option>
+      {% endfor %}
+    </select>
+    <input type="month" name="thang" value="{{ f_thang }}" onchange="this.form.submit()" style="flex:1;min-width:150px" title="Lọc theo tháng gửi đề xuất">
+    {% if dang_loc %}<a href="{{ url_for('de_xuat.danh_sach') }}" class="nut nut--phu nut--nho">✕ Bỏ lọc</a>{% endif %}
+  </div>
+  {% if current_user.la_quan_ly and so_tam_ung_da_duyet %}
+  <p style="margin:10px 0 0;font-size:.84rem;color:var(--muc-mo)">
+    💰 Tạm ứng đã duyệt{{ ' (theo bộ lọc)' if dang_loc }}: <b style="color:var(--muc)">{{ so_tam_ung_da_duyet }} đề xuất ·
+    {{ "{:,}".format(tong_tam_ung_da_duyet).replace(",", ".") }} đ</b>
+  </p>
+  {% endif %}
+</form>
+
 {% if can_duyet %}
 <div class="tieu-khu"><h2>Cần tôi duyệt</h2><span class="dem">{{ can_duyet|length }}</span></div>
 <div class="the the--khong-dem bang-cuon" style="margin-bottom:18px">
@@ -47,13 +78,14 @@
 <div class="tieu-khu"><h2>Lịch sử đề xuất</h2><span class="dem">{{ giam_sat|length }}</span></div>
 <div class="the the--khong-dem bang-cuon" style="margin-bottom:18px">
   <table>
-    <thead><tr><th>Loại</th><th>Người đề xuất</th><th>Nội dung</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
+    <thead><tr><th>Loại</th><th>Người đề xuất</th><th>Nội dung</th><th>Chi phí</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
     <tbody>
     {% for dx in giam_sat %}
       <tr onclick="location.href='{{ url_for('de_xuat.chi_tiet', id=dx.id) }}'" style="cursor:pointer">
         <td>{{ dx.ten_loai }}</td>
         <td>{{ dx.nguoi_de_xuat.ho_ten }}</td>
         <td style="max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere">{{ dx.noi_dung|van_ban_link }}</td>
+        <td style="white-space:nowrap">{{ ("{:,}".format(dx.chi_phi_du_kien|int).replace(",", ".") ~ " đ") if dx.chi_phi_du_kien is not none else "—" }}</td>
         <td>{{ dx.tao_luc.strftime('%H:%M %d/%m') }}</td>
         <td><span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span></td>
       </tr>
@@ -63,6 +95,11 @@
 </div>
 {% endif %}
 
+{% if dang_loc and not can_duyet and not giam_sat and current_user.la_quan_ly %}
+<div class="trong" style="margin-bottom:18px"><strong>Không có đề xuất nào khớp bộ lọc</strong>Thử bỏ bớt điều kiện lọc.</div>
+{% endif %}
+
+{% if not current_user.la_admin_sep %}
 <div class="tieu-khu"><h2>Đề xuất của tôi</h2><span class="dem">{{ cua_toi|length }}</span></div>
 <div class="the the--khong-dem bang-cuon">
   <table>
@@ -76,9 +113,10 @@
         <td><span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span></td>
       </tr>
     {% else %}
-      <tr><td colspan="4" style="color:var(--muc-mo)">Chưa có đề xuất nào.</td></tr>
+      <tr><td colspan="4" style="color:var(--muc-mo)">{{ 'Không có đề xuất nào khớp bộ lọc.' if dang_loc else 'Chưa có đề xuất nào.' }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
 </div>
+{% endif %}
 {% endblock %}

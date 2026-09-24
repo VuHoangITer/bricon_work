@@ -36,7 +36,7 @@ def _de_xuat_giam_sat():
     else:
         return []
     return q.filter(DeXuat.trang_thai != TrangThaiDeXuat.CHO_DUYET) \
-        .order_by(DeXuat.tao_luc.desc()).limit(100).all()
+        .order_by(DeXuat.tao_luc.desc()).limit(500).all()
 
 
 def _duoc_xem(dx: DeXuat) -> bool:
@@ -84,13 +84,65 @@ def _luu_dinh_kem_de_xuat(dx: DeXuat, giai_doan: str, ten_truong: str = "dinh_ke
     return so_luu
 
 
+def _loc_de_xuat(ds: list[DeXuat], loai: str, nguoi: int | None, trang_thai: str,
+                 thang: str) -> list[DeXuat]:
+    """Lọc 1 danh sách đề xuất theo bộ lọc trên trang (loại / nhân viên /
+    trạng thái / tháng 'YYYY-MM'). Lọc trong Python vì danh sách vốn đã giới
+    hạn theo phạm vi quyền của người xem và không lớn."""
+    if loai in LoaiDeXuat.NHAN:
+        ds = [d for d in ds if d.loai == loai]
+    if nguoi:
+        ds = [d for d in ds if d.nguoi_de_xuat_id == nguoi]
+    if trang_thai in TrangThaiDeXuat.NHAN:
+        ds = [d for d in ds if d.trang_thai == trang_thai]
+    if thang:
+        ds = [d for d in ds if d.tao_luc and d.tao_luc.strftime("%Y-%m") == thang]
+    return ds
+
+
+def _tong_tien(ds: list[DeXuat]) -> int:
+    return int(sum(d.chi_phi_du_kien or 0 for d in ds))
+
+
 @bp.route("/")
 @login_required
 def danh_sach():
+    f_loai = request.args.get("loai", "")
+    f_nguoi = request.args.get("nguoi", type=int)
+    f_trang_thai = request.args.get("trang_thai", "")
+    f_thang = (request.args.get("thang") or "").strip()
+    if f_thang and not (len(f_thang) == 7 and f_thang[4] == "-"):
+        f_thang = ""
+
     cua_toi = DeXuat.query.filter_by(nguoi_de_xuat_id=current_user.id).order_by(DeXuat.tao_luc.desc()).all()
     can_duyet = _de_xuat_can_duyet()
     giam_sat = _de_xuat_giam_sat()
-    return render_template("de_xuat_list.html", cua_toi=cua_toi, can_duyet=can_duyet, giam_sat=giam_sat)
+
+    # Danh sách nhân viên cho ô lọc = những người có đề xuất trong phạm vi
+    # current_user được xem (không lộ tên ngoài phạm vi quyền).
+    nhan_vien = []
+    if current_user.la_quan_ly:
+        thay = {d.nguoi_de_xuat_id: d.nguoi_de_xuat for d in can_duyet + giam_sat if d.nguoi_de_xuat}
+        nhan_vien = sorted(thay.values(), key=lambda n: n.ho_ten)
+
+    dang_loc = bool(f_loai or f_nguoi or f_trang_thai or f_thang)
+    cua_toi = _loc_de_xuat(cua_toi, f_loai, None, f_trang_thai, f_thang)
+    can_duyet = _loc_de_xuat(can_duyet, f_loai, f_nguoi, "", f_thang)
+    if f_trang_thai and f_trang_thai != TrangThaiDeXuat.CHO_DUYET:
+        can_duyet = []  # đang lọc Đã duyệt/Từ chối -> ẩn mục "Cần tôi duyệt"
+    giam_sat = _loc_de_xuat(giam_sat, f_loai, f_nguoi, f_trang_thai, f_thang)
+
+    # Tổng tiền tạm ứng ĐÃ DUYỆT theo đúng bộ lọc hiện tại (Sếp hay cần biết
+    # "tháng này đã duyệt tạm ứng bao nhiêu tiền, cho ai").
+    tam_ung_da_duyet = [d for d in giam_sat
+                        if d.loai == LoaiDeXuat.TAM_UNG and d.trang_thai == TrangThaiDeXuat.DA_DUYET]
+    return render_template(
+        "de_xuat_list.html", cua_toi=cua_toi, can_duyet=can_duyet, giam_sat=giam_sat,
+        nhan_vien=nhan_vien, f_loai=f_loai, f_nguoi=f_nguoi, f_trang_thai=f_trang_thai,
+        f_thang=f_thang, dang_loc=dang_loc,
+        tong_tam_ung_da_duyet=_tong_tien(tam_ung_da_duyet), so_tam_ung_da_duyet=len(tam_ung_da_duyet),
+        LoaiDeXuat=LoaiDeXuat, TrangThaiDeXuat=TrangThaiDeXuat,
+    )
 
 
 @bp.route("/moi/<loai>", methods=["GET", "POST"])
