@@ -247,7 +247,7 @@ def ai_tom_tat_mo_ta(noi_dung_tho: str) -> tuple[str | None, str | None]:
 # TRỢ LÝ AI — hỏi đáp trong hệ thống, trả lời theo đúng dữ liệu thật
 # ---------------------------------------------------------------------------
 _HUONG_DAN_HE_THONG_TRO_LY = (
-    "Bạn là trợ lý ảo của BRICON WORK — phần mềm nội bộ quản lý giao việc, "
+    "Bạn là \"Trợ lý công việc\" — trợ lý ảo của BRICON WORK, phần mềm nội bộ quản lý giao việc, "
     "chấm công, KPI, xin nghỉ phép, thông báo nội bộ, đề xuất (tạm ứng/"
     "công việc) và đóng gói đơn hàng của công ty BRICON. Trả lời tiếng Việt, ngắn gọn, thân "
     "thiện, đúng trọng tâm.\n\n"

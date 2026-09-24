@@ -1,6 +1,6 @@
 {# Trợ lý AI dạng bong bóng chat nổi ở góc phải (kiểu Messenger) — include 1
    lần trong base.html nên có mặt ở MỌI trang sau khi đăng nhập:
-   - Nút tròn góc phải dưới; vừa vào web sẽ bật lời chào "Trợ lý BRICON…"
+   - Nút tròn góc phải dưới; vừa vào web sẽ bật lời chào "Trợ lý công việc…"
      (mỗi phiên trình duyệt chỉ chào 1 lần, bấm ✕ để tắt).
    - Bấm nút/lời chào -> mở khung chat. Lịch sử chat giữ nguyên khi chuyển
      trang (sessionStorage), bấm ⟳ để bắt đầu cuộc trò chuyện mới. #}
@@ -28,11 +28,16 @@
 {% endif %}
 {% set gh_tro_ly = lay_gioi_han_tro_ly() %}
 {% set ten_goi = current_user.ho_ten.split()[-1] if current_user.ho_ten else '' %}
+{% set anh_dd = anh_tro_ly() %}
+{% macro avatar_tro_ly() %}{% if anh_dd %}<img src="{{ anh_dd }}" alt="" class="tl-anh-dd">{% else %}{% include "_icon_tro_ly.html" %}{% endif %}{% endmacro %}
 
 <style>
   .tl-chat-nut { position:fixed; right:22px; bottom:22px; z-index:900; width:58px; height:58px; border-radius:50%;
     border:0; cursor:pointer; background:var(--chinh,#a9822a); color:#fff; font-size:1.6rem; display:grid; place-items:center;
     box-shadow:0 8px 24px rgba(28,28,26,.28); transition:transform .18s ease, box-shadow .18s ease; }
+  .tl-chat-nut .tl-icon-mo { width:100%; height:100%; display:grid; place-items:center; border-radius:50%; overflow:hidden; }
+  .tl-anh-dd { width:100%; height:100%; object-fit:cover; display:block; }
+  .tl-avatar-trong { width:100%; height:100%; display:grid; place-items:center; border-radius:50%; overflow:hidden; }
   .tl-chat-nut:hover { transform:scale(1.06); box-shadow:0 10px 28px rgba(28,28,26,.34); }
   .tl-chat-nut .tl-cham { position:absolute; top:4px; right:4px; width:13px; height:13px; border-radius:50%;
     background:#e5484d; border:2px solid #fff; display:none; }
@@ -101,20 +106,20 @@
   }
 </style>
 
-<div class="tl-loi-chao" id="tl-loi-chao" role="button" tabindex="0" aria-label="Mở Trợ lý BRICON">
+<div class="tl-loi-chao" id="tl-loi-chao" role="button" tabindex="0" aria-label="Mở Trợ lý công việc">
   <button type="button" class="tl-loi-chao-dong" id="tl-loi-chao-dong" aria-label="Tắt lời chào">✕</button>
-  <strong>🤖 Trợ lý BRICON</strong>
+  <strong>Trợ lý công việc</strong>
   Chào {{ ten_goi }}! Bạn cần trợ giúp gì không? Bấm vào đây để hỏi mình nhé.
 </div>
 
-<button type="button" class="tl-chat-nut" id="tl-chat-nut" aria-label="Mở Trợ lý BRICON" title="Trợ lý BRICON">
-  <span class="tl-icon-mo">🤖</span><span class="tl-icon-dong">✕</span><span class="tl-cham"></span>
+<button type="button" class="tl-chat-nut" id="tl-chat-nut" aria-label="Mở Trợ lý công việc" title="Trợ lý công việc">
+  <span class="tl-icon-mo">{{ avatar_tro_ly() }}</span><span class="tl-icon-dong">✕</span><span class="tl-cham"></span>
 </button>
 
-<section class="tl-chat-khung" id="tl-chat-khung" aria-label="Trợ lý BRICON">
+<section class="tl-chat-khung" id="tl-chat-khung" aria-label="Trợ lý công việc">
   <header class="tl-chat-dau">
-    <div class="tl-chat-avatar">🤖</div>
-    <div class="tl-chat-ten"><strong>Trợ lý Công Việc</strong><span>Online</span></div>
+    <div class="tl-chat-avatar"><span class="tl-avatar-trong">{{ avatar_tro_ly() }}</span></div>
+    <div class="tl-chat-ten"><strong>Trợ lý công việc</strong><span>Đang trực tuyến · trả lời theo dữ liệu thật</span></div>
     <div class="tl-chat-dau-nut">
       <button type="button" id="tl-chat-moi" title="Cuộc trò chuyện mới" aria-label="Cuộc trò chuyện mới">⟳</button>
       <button type="button" id="tl-chat-dong" title="Thu nhỏ" aria-label="Thu nhỏ">—</button>
@@ -139,7 +144,7 @@
   const KHOA = 'bricon_tro_ly_{{ current_user.id }}';
   const KHOA_CHAO = 'bricon_tro_ly_da_chao_{{ current_user.id }}';
   const GOI_Y = {{ goi_y_tro_ly|tojson }};
-  const LOI_CHAO_DAU = 'Xin chào {{ ten_goi }} 👋 Mình là Trợ lý BRICON. Mình có thể tra việc, chấm công, KPI, đề xuất, đóng gói, kiến thức sản phẩm… Bạn cần hỏi gì?';
+  const LOI_CHAO_DAU = 'Xin chào {{ ten_goi }} 👋 Mình là Trợ lý công việc. Mình có thể tra việc, chấm công, KPI, đề xuất, đóng gói, kiến thức sản phẩm… Bạn cần hỏi gì?';
 
   const body = document.body;
   const nut = document.getElementById('tl-chat-nut');
@@ -247,14 +252,14 @@
     anLoiChao();
     try { sessionStorage.setItem(KHOA_CHAO, '1'); } catch (e) { /* bỏ qua */ }
     body.classList.add('tl-chat-mo');
-    nut.setAttribute('aria-label', 'Thu nhỏ Trợ lý BRICON');
+    nut.setAttribute('aria-label', 'Thu nhỏ Trợ lý công việc');
     tt.mo = true; luu();
     cuonXuong();
     setTimeout(() => input.focus(), 150);
   }
   function dongChat() {
     body.classList.remove('tl-chat-mo');
-    nut.setAttribute('aria-label', 'Mở Trợ lý BRICON');
+    nut.setAttribute('aria-label', 'Mở Trợ lý công việc');
     tt.mo = false; luu();
   }
 

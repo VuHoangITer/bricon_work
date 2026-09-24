@@ -57,6 +57,32 @@
   </form>
 </div>
 
+<div class="the">
+  <h3 style="margin-top:0">Ảnh đại diện Trợ lý công việc</h3>
+  <p class="ai-mo-ta">Hiện ở nút chat tròn góc phải và đầu khung chat trên mọi trang. Nên dùng ảnh vuông
+    (VD logo công ty, ảnh nhân vật đại diện), tối thiểu 200×200px.</p>
+  {% set anh_hien_tai = anh_tro_ly() %}
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex:0 0 auto;background:var(--chinh);
+                display:grid;place-items:center;color:#fff;border:1px solid var(--vien)">
+      {% if anh_hien_tai %}<img src="{{ anh_hien_tai }}" alt="" style="width:100%;height:100%;object-fit:cover">
+      {% else %}{% include "_icon_tro_ly.html" %}{% endif %}
+    </div>
+    <form method="post" action="{{ url_for('admin.luu_anh_tro_ly') }}" enctype="multipart/form-data"
+          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;min-width:240px">
+      <input type="file" name="anh" accept="image/*" required style="flex:1;min-width:200px">
+      <button class="nut nut--nho" type="submit">Tải ảnh lên</button>
+    </form>
+    {% if anh_hien_tai %}
+    <form method="post" action="{{ url_for('admin.luu_anh_tro_ly') }}"
+          onsubmit="return confirm('Bỏ ảnh hiện tại, dùng biểu tượng mặc định?')">
+      <input type="hidden" name="dung_mac_dinh" value="1">
+      <button class="nut nut--phu nut--nho" type="submit">Dùng mặc định</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
 {# ================================= SẢN PHẨM ================================= #}
 {% elif muc == "san_pham" %}
 <p class="ai-mo-ta">{{ mo_ta_muc }}</p>

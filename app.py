@@ -2,7 +2,8 @@ import os
 from datetime import date, datetime
 
 import click
-from flask import (Flask, abort, jsonify, render_template, request, send_from_directory)
+from flask import (Flask, abort, jsonify, render_template, request, send_from_directory,
+                   url_for)
 from flask_login import current_user, login_required
 
 from config import Config
@@ -93,6 +94,11 @@ def create_app(config_class=Config):
         if agh:
             if not (current_user.id == agh.goi_hang.nguoi_goi_id or current_user.la_quan_ly):
                 abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        # Ảnh đại diện Trợ lý công việc — ai đăng nhập cũng thấy (nút chat nổi)
+        import services as _sv
+        if duong_dan == (_sv.lay_cai_dat("tro_ly_anh_dai_dien") or None):
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
         # Ảnh minh hoạ chức vụ — thông tin tổ chức chung, ai đăng nhập cũng xem được
@@ -201,7 +207,7 @@ def create_app(config_class=Config):
         {"ma": "cham_cong", "nhan": "Cấu hình chấm công", "icon": "📍", "chi_admin": False,
          "tab": [("admin.diem_cham_cong", "Điểm chấm công"), ("admin.ngay_nghi", "Ngày nghỉ")],
          "phu": []},
-        {"ma": "ai", "nhan": "Trợ lý AI", "icon": "🤖", "chi_admin": False,
+        {"ma": "ai", "nhan": "Trợ lý AI", "icon": "💬", "chi_admin": False,
          "tab": [("admin.info_ai", "Thông tin chung"), ("admin.info_ai_san_pham", "Sản phẩm"),
                  ("admin.info_ai_faq", "Câu hỏi thường gặp"), ("admin.info_ai_chuc_vu", "Chức vụ"),
                  ("admin.tro_ly_su_dung", "Thống kê sử dụng")],
@@ -230,6 +236,15 @@ def create_app(config_class=Config):
         return dich_vu_ai.trang_thai_gioi_han_tro_ly(nd)
 
     app.jinja_env.globals["lay_gioi_han_tro_ly"] = lay_gioi_han_tro_ly
+
+    def anh_tro_ly():
+        """URL ảnh đại diện Trợ lý công việc do Admin tải lên (Trợ lý AI →
+        Thông tin chung), hoặc None để dùng biểu tượng mặc định."""
+        import services
+        duong_dan = services.lay_cai_dat("tro_ly_anh_dai_dien")
+        return url_for("media", duong_dan=duong_dan) if duong_dan else None
+
+    app.jinja_env.globals["anh_tro_ly"] = anh_tro_ly
 
     @app.context_processor
     def bien_chung():

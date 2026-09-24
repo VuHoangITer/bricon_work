@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 import dich_vu_ai
 import services
 from extensions import db
-from models import (AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
+from models import (LoaiDinhKem, AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
                     DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI,
                     TroLySuDung, VaiTro, ngay_vn_hien_tai)
 
@@ -618,6 +618,42 @@ def info_ai_faq():
 @chi_admin
 def info_ai_chuc_vu():
     return _trang_info_ai("chuc_vu")
+
+
+@bp.route("/info-ai/anh-tro-ly", methods=["POST"])
+@chi_admin
+def luu_anh_tro_ly():
+    """Ảnh đại diện của Trợ lý công việc (hiện ở nút chat nổi + đầu khung
+    chat). Tải ảnh mới thì thay ảnh cũ (xoá luôn file cũ trên đĩa); tick
+    "dùng mặc định" thì bỏ ảnh, quay về biểu tượng mặc định."""
+    cu = services.lay_cai_dat("tro_ly_anh_dai_dien")
+
+    def _xoa_file_cu():
+        if cu:
+            duong_dan = os.path.join(current_app.config["UPLOAD_ROOT"], *cu.split("/"))
+            if os.path.isfile(duong_dan):
+                os.remove(duong_dan)
+
+    if request.form.get("dung_mac_dinh") == "1":
+        _xoa_file_cu()
+        services.dat_cai_dat("tro_ly_anh_dai_dien", "")
+        db.session.commit()
+        flash("Đã chuyển về ảnh đại diện mặc định.", "success")
+        return redirect(url_for("admin.info_ai"))
+
+    f = request.files.get("anh")
+    if not f or not f.filename:
+        flash("Chưa chọn ảnh.", "error")
+        return redirect(url_for("admin.info_ai"))
+    if services.phan_loai(f.filename, f.mimetype) != LoaiDinhKem.ANH:
+        flash("Tệp vừa chọn không phải ảnh.", "error")
+        return redirect(url_for("admin.info_ai"))
+    duong_dan, _ = services.luu_file(f, "tro-ly")
+    _xoa_file_cu()
+    services.dat_cai_dat("tro_ly_anh_dai_dien", duong_dan)
+    db.session.commit()
+    flash("Đã cập nhật ảnh đại diện Trợ lý công việc.", "success")
+    return redirect(url_for("admin.info_ai"))
 
 
 @bp.route("/info-ai/chung", methods=["POST"])
