@@ -1129,15 +1129,13 @@ def _thoi_luong_cho(tu: datetime, den: datetime) -> str:
     return f"{max(1, giay // 60)} phút"
 
 
-def noi_dung_bao_cao_sang(hom_nay: date | None = None) -> str:
-    """Soạn bản tin sáng cho nhóm QL — tách riêng khỏi hàm gửi để xem trước/
-    chạy thử được. Mỗi dòng cần xử lý đều kèm TÊN người cụ thể."""
-    from models import XinNghi
-    hom_nay = hom_nay or ngay_vn_hien_tai()
-    bay_gio = gio_vn_hien_tai()
-    thu = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"][hom_nay.weekday()]
+_THU_VN = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
-    # ---- chấm công: chỉ tính người PHẢI chấm công (trừ Admin/Sếp) --------
+
+def _du_lieu_cham_cong(hom_nay: date) -> dict:
+    """Số liệu chấm công trong ngày dùng chung cho báo cáo sáng + chiều. Chỉ
+    tính người PHẢI chấm công (trừ Admin/Sếp)."""
+    from models import XinNghi
     can_cham = (NguoiDung.query.filter(NguoiDung.dang_hoat_dong.is_(True),
                                        NguoiDung.vai_tro.notin_((VaiTro.ADMIN, VaiTro.SEP)))
                 .order_by(NguoiDung.ho_ten).all())
@@ -1145,35 +1143,84 @@ def noi_dung_bao_cao_sang(hom_nay: date | None = None) -> str:
     cham = {c.nguoi_dung_id: c for c in ChamCong.query.filter_by(ngay=hom_nay).all()
             if c.nguoi_dung_id in id_can_cham}
     co_mat = [n for n in can_cham if cham.get(n.id) and cham[n.id].gio_vao]
-    di_tre = [n for n in co_mat if cham[n.id].di_tre]
 
-    nghi_theo_nguoi: dict[int, list[str]] = {}
+    nghi: dict[int, list[str]] = {}
     for x in XinNghi.query.filter_by(ngay=hom_nay).all():
         if x.nguoi_dung_id in id_can_cham:
-            nghi_theo_nguoi.setdefault(x.nguoi_dung_id, []).append(x.buoi)
-    ten_theo_id = {n.id: n for n in can_cham}
+            nghi.setdefault(x.nguoi_dung_id, []).append(x.buoi)
 
-    def _nhan_nghi(ds_buoi: list[str]) -> str:
+    def nhan_nghi(ds_buoi: list[str]) -> str:
         if BuoiNghi.CA_NGAY in ds_buoi or {BuoiNghi.SANG, BuoiNghi.CHIEU} <= set(ds_buoi):
             return "cả ngày"
         return "buổi sáng" if BuoiNghi.SANG in ds_buoi else "buổi chiều"
 
+    return {
+        "can_cham": can_cham, "cham": cham, "co_mat": co_mat,
+        "di_tre": [n for n in co_mat if cham[n.id].di_tre],
+        "ve_som": [n for n in co_mat if cham[n.id].ve_som and cham[n.id].gio_ra],
+        "nghi": {i: nhan_nghi(b) for i, b in nghi.items()},
+        "ten": {n.id: n for n in can_cham},
+    }
+
+
+def _dong_nghi_phep(cc: dict) -> str | None:
+    if not cc["nghi"]:
+        return None
+    return f"• Nghỉ phép ({len(cc['nghi'])}): " + ", ".join(
+        f"{cc['ten'][i].ho_ten} – {nhan}" for i, nhan in cc["nghi"].items())
+
+
+def _dong_cho_duyet(bay_gio: datetime, so_viec_hien: int = 0) -> list[str]:
+    """Dòng tổng chờ duyệt + (tuỳ chọn) liệt kê vài việc chờ LÂU NHẤT."""
+    cho_duyet = (CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET)
+                 .order_by(CongViec.gui_doi_chung_luc).all())
+    if not cho_duyet:
+        return ["🟢 Không có việc nào đang chờ duyệt"]
+    cu_nhat = next((v.gui_doi_chung_luc for v in cho_duyet if v.gui_doi_chung_luc), None)
+    dong = [f"🟡 Tổng chờ duyệt: {len(cho_duyet)} việc"
+            + (f" – cũ nhất đã chờ {_thoi_luong_cho(cu_nhat, bay_gio)}" if cu_nhat else "")]
+    if so_viec_hien:
+        for v in cho_duyet[:so_viec_hien]:
+            cho = f" ({_thoi_luong_cho(v.gui_doi_chung_luc, bay_gio)})" if v.gui_doi_chung_luc else ""
+            dong.append(f"• [{v.ma}] {v.tieu_de} — {v.nguoi_nhan.ho_ten}{cho}")
+        con_lai = len(cho_duyet) - so_viec_hien
+        base = current_app.config["BASE_URL"]
+        if con_lai > 0:
+            dong.append(f"• … và {con_lai} việc khác → {base}/viec?trang_thai=cho_duyet")
+        else:
+            dong.append(f"👉 Duyệt tại: {base}/viec?trang_thai=cho_duyet")
+    else:
+        theo_nguoi_giao: dict[str, int] = {}
+        for v in cho_duyet:
+            ten = v.nguoi_giao.ho_ten if v.nguoi_giao else "—"
+            theo_nguoi_giao[ten] = theo_nguoi_giao.get(ten, 0) + 1
+        dong.append("• Theo người giao: " + " · ".join(
+            f"{t}: {sl}" for t, sl in sorted(theo_nguoi_giao.items(), key=lambda x: -x[1])))
+    return dong
+
+
+def noi_dung_bao_cao_sang(hom_nay: date | None = None) -> str:
+    """Soạn bản tin sáng cho nhóm QL — tách riêng khỏi hàm gửi để xem trước/
+    chạy thử được. Mỗi dòng cần xử lý đều kèm TÊN người cụ thể."""
+    hom_nay = hom_nay or ngay_vn_hien_tai()
+    bay_gio = gio_vn_hien_tai()
+    cc = _du_lieu_cham_cong(hom_nay)
+
     # Chưa chấm công = phải có mặt buổi sáng nhưng chưa chấm vào (người nghỉ
     # cả ngày / nghỉ buổi sáng thì không tính là thiếu).
-    chua_cham = [n for n in can_cham if n not in co_mat and (
-        n.id not in nghi_theo_nguoi or _nhan_nghi(nghi_theo_nguoi[n.id]) == "buổi chiều")]
+    chua_cham = [n for n in cc["can_cham"] if n not in cc["co_mat"]
+                 and cc["nghi"].get(n.id) in (None, "buổi chiều")]
 
-    dong = [f"📋 BÁO CÁO SÁNG – {thu} {hom_nay:%d/%m/%Y}", ""]
-    dong.append(f"👥 Chấm công: {len(co_mat)}/{len(can_cham)} người có mặt")
-    if di_tre:
-        dong.append(f"• Đi trễ ({len(di_tre)}): " + ", ".join(
-            f"{n.ho_ten} ({cham[n.id].gio_vao:%H:%M})" for n in di_tre))
-    if nghi_theo_nguoi:
-        dong.append(f"• Nghỉ phép ({len(nghi_theo_nguoi)}): " + ", ".join(
-            f"{ten_theo_id[i].ho_ten} – {_nhan_nghi(b)}" for i, b in nghi_theo_nguoi.items()))
+    dong = [f"📋 BÁO CÁO SÁNG – {_THU_VN[hom_nay.weekday()]} {hom_nay:%d/%m/%Y}", ""]
+    dong.append(f"👥 Chấm công: {len(cc['co_mat'])}/{len(cc['can_cham'])} người có mặt")
+    if cc["di_tre"]:
+        dong.append(f"• Đi trễ ({len(cc['di_tre'])}): " + ", ".join(
+            f"{n.ho_ten} ({cc['cham'][n.id].gio_vao:%H:%M})" for n in cc["di_tre"]))
+    if _dong_nghi_phep(cc):
+        dong.append(_dong_nghi_phep(cc))
     if chua_cham:
         dong.append(f"• Chưa chấm công ({len(chua_cham)}): " + ", ".join(n.ho_ten for n in chua_cham))
-    if not (di_tre or nghi_theo_nguoi or chua_cham):
+    if not (cc["di_tre"] or cc["nghi"] or chua_cham):
         dong.append("• Đủ quân, không ai đi trễ ✅")
 
     # ---- việc hạn hôm nay: CÙNG điều kiện với Dashboard ------------------
@@ -1203,21 +1250,7 @@ def noi_dung_bao_cao_sang(hom_nay: date | None = None) -> str:
     else:
         dong.append(f"🟢 {nhan_ngay_truoc} không có việc nào bị 0★")
 
-    # ---- chờ duyệt: tách theo người giao + việc chờ lâu nhất --------------
-    cho_duyet = CongViec.query.filter_by(trang_thai=TrangThai.CHO_DUYET).all()
-    if cho_duyet:
-        cu_nhat = min((v.gui_doi_chung_luc for v in cho_duyet if v.gui_doi_chung_luc), default=None)
-        dong.append(f"🟡 Chờ duyệt: {len(cho_duyet)} việc"
-                    + (f" – cũ nhất đã chờ {_thoi_luong_cho(cu_nhat, bay_gio)}" if cu_nhat else ""))
-        theo_nguoi_giao: dict[str, int] = {}
-        for v in cho_duyet:
-            ten = v.nguoi_giao.ho_ten if v.nguoi_giao else "—"
-            theo_nguoi_giao[ten] = theo_nguoi_giao.get(ten, 0) + 1
-        dong.append("• Theo người giao: " + " · ".join(
-            f"{t}: {sl}" for t, sl in sorted(theo_nguoi_giao.items(), key=lambda x: -x[1])))
-    else:
-        dong.append("🟢 Không có việc nào chờ duyệt")
-
+    dong += _dong_cho_duyet(bay_gio)
     dong += ["", f"👉 Xem chi tiết: {current_app.config['BASE_URL']}",
              "Chúc cả nhà một ngày làm việc hiệu quả! 💪"]
     return "\n".join(dong)
@@ -1231,69 +1264,98 @@ def bao_cao_sang_cho_sep():
     gui_nhom_ql(noi_dung_bao_cao_sang())
 
 
-def bao_cao_chieu_cho_sep():
-    """17h30: báo cáo tóm tắt cuối ngày cho Sếp/Quản lý — gửi vào nhóm QL.
-
-    Không còn đếm "việc quá hạn" nữa — hệ thống đã tự động đóng + chấm 0★
-    MỌI việc quá hạn ngay khi phát hiện (before_request mỗi lần mở trang +
-    cron mỗi 5 phút), nên tới giờ báo cáo (17h30) gần như không bao giờ
-    còn việc nào thực sự ở trạng thái "quá hạn chưa xử lý" — con số đó chỉ
-    gây hiểu lầm. Thay bằng liệt kê từng việc đã bị 0★ hôm nay (tức đã bị
-    hệ thống tự đóng do không nộp đúng hạn) kèm link, và liệt kê luôn từng
-    việc đang chờ duyệt kèm link để sếp bấm vào duyệt ngay từ Zalo.
-    """
-    if la_hom_nay_nghi():
-        return
-    from models import XinNghi
-    hom_nay = ngay_vn_hien_tai()
+def noi_dung_bao_cao_chieu(hom_nay: date | None = None) -> str:
+    """Soạn báo cáo cuối ngày cho nhóm QL. Khác bản cũ:
+    - Việc hạn hôm nay tách rõ đã duyệt / chờ duyệt / 0★ / còn đang làm —
+      việc bị tự đóng 0★ KHÔNG còn bị tính chung vào "đã hoàn thành".
+    - Có chất lượng trong ngày: số việc đã chấm + sao trung bình + người
+      cao/thấp nhất.
+    - Chờ duyệt chỉ liệt kê 5 việc chờ lâu nhất, còn lại gom 1 link — tránh
+      tin Zalo dài vài chục dòng."""
+    hom_nay = hom_nay or ngay_vn_hien_tai()
+    bay_gio = gio_vn_hien_tai()
     dau_ngay = datetime.combine(hom_nay, datetime.min.time())
     cuoi_ngay = datetime.combine(hom_nay, datetime.max.time())
+    cc = _du_lieu_cham_cong(hom_nay)
 
-    co_mat = ChamCong.query.filter_by(ngay=hom_nay).filter(ChamCong.gio_vao.isnot(None)).count()
-    di_tre = ChamCong.query.filter_by(ngay=hom_nay, di_tre=True).count()
-    ve_som = ChamCong.query.filter_by(ngay=hom_nay, ve_som=True).count()
-    xin_nghi_hom_nay = XinNghi.query.filter_by(ngay=hom_nay).count()
-    viec_hom_nay = CongViec.query.filter(CongViec.han >= dau_ngay, CongViec.han <= cuoi_ngay).count()
-    hoan_thanh_hom_nay = CongViec.query.filter(
-        CongViec.trang_thai == TrangThai.HOAN_THANH,
-        CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
-    ).count()
+    # Vắng = không chấm vào cả ngày mà không có phép cả ngày.
+    vang = [n for n in cc["can_cham"] if n not in cc["co_mat"] and cc["nghi"].get(n.id) != "cả ngày"]
 
-    khong_dung_han = CongViec.query.filter(
-        CongViec.so_sao_cuoi == 0,
-        CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
-    ).order_by(CongViec.hoan_thanh_luc).all()
-    cho_duyet_ds = CongViec.query.filter_by(
-        trang_thai=TrangThai.CHO_DUYET
-    ).order_by(CongViec.gui_doi_chung_luc).all()
+    dong = [f"📊 BÁO CÁO CUỐI NGÀY – {_THU_VN[hom_nay.weekday()]} {hom_nay:%d/%m/%Y}", ""]
+    dong.append(f"👥 Chấm công: {len(cc['co_mat'])}/{len(cc['can_cham'])} người đi làm")
+    if cc["di_tre"]:
+        dong.append(f"• Đi trễ ({len(cc['di_tre'])}): " + ", ".join(
+            f"{n.ho_ten} ({cc['cham'][n.id].gio_vao:%H:%M})" for n in cc["di_tre"]))
+    if cc["ve_som"]:
+        dong.append(f"• Về sớm ({len(cc['ve_som'])}): " + ", ".join(
+            f"{n.ho_ten} ({cc['cham'][n.id].gio_ra:%H:%M})" for n in cc["ve_som"]))
+    if _dong_nghi_phep(cc):
+        dong.append(_dong_nghi_phep(cc))
+    if vang:
+        dong.append(f"• Vắng không phép ({len(vang)}): " + ", ".join(
+            n.ho_ten + ({"buổi sáng": " (vắng buổi chiều)", "buổi chiều": " (vắng buổi sáng)"}
+                        .get(cc["nghi"].get(n.id), "")) for n in vang))
+    if not (cc["di_tre"] or cc["ve_som"] or cc["nghi"] or vang):
+        dong.append("• Đủ quân, đúng giờ ✅")
 
-    nd = (
-        f"📊 Tóm tắt cuối ngày – BRICON {hom_nay:%d/%m/%Y}\n\n"
-        f"🧑‍💼 {co_mat} nhân viên có mặt hôm nay\n"
-        f"🕐 {di_tre} người đi trễ · 🏃 {ve_som} người về sớm\n"
-        f"📝 {xin_nghi_hom_nay} đơn xin nghỉ hôm nay\n"
-        f"📅 {viec_hom_nay} công việc hôm nay · ✅ {hoan_thanh_hom_nay} đã hoàn thành\n\n"
-    )
-
-    if khong_dung_han:
-        nd += f"🔴 {len(khong_dung_han)} việc không hoàn thành đúng hạn — 0★:\n" + "\n".join(
-            f"• [{v.ma}] {v.tieu_de} — {v.nguoi_nhan.ho_ten}\n  {v.link}"
-            for v in khong_dung_han
-        )
+    # ---- việc hạn hôm nay (cùng điều kiện với Dashboard) -----------------
+    viec_hn = CongViec.query.filter(dieu_kien_viec_trong_ngay(hom_nay),
+                                    CongViec.trang_thai != TrangThai.HUY).all()
+    da_duyet = [v for v in viec_hn if v.trang_thai == TrangThai.HOAN_THANH and (v.so_sao_cuoi or 0) > 0]
+    khong_nop = [v for v in viec_hn if v.trang_thai == TrangThai.HOAN_THANH and v.so_sao_cuoi == 0]
+    cho_duyet_hn = [v for v in viec_hn if v.trang_thai == TrangThai.CHO_DUYET]
+    dang_lam = [v for v in viec_hn if v.trang_thai in TrangThai.CHUA_XONG]
+    dong.append("")
+    if viec_hn:
+        dong.append(f"📅 Việc hạn hôm nay: {len(viec_hn)} việc")
+        if da_duyet:
+            tb = sum(v.so_sao_cuoi for v in da_duyet) / len(da_duyet)
+            dong.append(f"• ✅ Đã duyệt: {len(da_duyet)} (TB {tb:.1f}★)")
+        if cho_duyet_hn:
+            dong.append(f"• 🟡 Chờ duyệt: {len(cho_duyet_hn)}")
+        if dang_lam:
+            dong.append(f"• ⏳ Chưa tới hạn/đang làm: {len(dang_lam)}")
+        if khong_nop:
+            dong.append(f"• 🔴 0★ – không nộp ({len(khong_nop)}):")
+            for v in khong_nop[:5]:
+                dong.append(f"   {v.nguoi_nhan.ho_ten} – [{v.ma}] {v.tieu_de}")
+            if len(khong_nop) > 5:
+                dong.append(f"   … và {len(khong_nop) - 5} việc khác")
+        else:
+            dong.append("• 🟢 Không ai bị 0★")
     else:
-        nd += "🔴 Không có việc nào bị 0★ hôm nay."
-    nd += "\n\n"
+        dong.append("📅 Hôm nay không có việc nào tới hạn")
 
-    if cho_duyet_ds:
-        nd += f"🟡 {len(cho_duyet_ds)} việc đang chờ duyệt:\n" + "\n".join(
-            f"• [{v.ma}] {v.tieu_de} — {v.nguoi_nhan.ho_ten}\n  {v.link}"
-            for v in cho_duyet_ds
-        )
-    else:
-        nd += "🟡 Không có việc nào đang chờ duyệt."
+    # ---- chất lượng: mọi việc được CHẤM hôm nay (kể cả việc ngày trước
+    #      mới được duyệt hôm nay, kể cả 0★ tự đóng) -------------------------
+    da_cham = CongViec.query.filter(
+        CongViec.trang_thai == TrangThai.HOAN_THANH, CongViec.so_sao_cuoi.isnot(None),
+        CongViec.hoan_thanh_luc >= dau_ngay, CongViec.hoan_thanh_luc <= cuoi_ngay,
+    ).all()
+    if da_cham:
+        tb = sum(v.so_sao_cuoi for v in da_cham) / len(da_cham)
+        dong.append("")
+        dong.append(f"⭐ Đã chấm hôm nay: {len(da_cham)} việc · TB {tb:.1f}★")
+        theo_nguoi: dict[str, list[int]] = {}
+        for v in da_cham:
+            theo_nguoi.setdefault(v.nguoi_nhan.ho_ten, []).append(v.so_sao_cuoi)
+        if len(theo_nguoi) >= 2:
+            tb_nguoi = sorted(((sum(d) / len(d), t) for t, d in theo_nguoi.items()), reverse=True)
+            cao, thap = tb_nguoi[0], tb_nguoi[-1]
+            if cao[0] != thap[0]:
+                dong.append(f"• Cao nhất: {cao[1]} {cao[0]:.1f}★ · Thấp nhất: {thap[1]} {thap[0]:.1f}★")
 
-    nd += "\n\nMột ngày làm việc nữa đã hoàn tất!"
-    gui_nhom_ql(nd)
+    dong.append("")
+    dong += _dong_cho_duyet(bay_gio, so_viec_hien=5)
+    dong += ["", "Một ngày làm việc nữa đã hoàn tất! 🙌"]
+    return "\n".join(dong)
+
+
+def bao_cao_chieu_cho_sep():
+    """17h30: báo cáo tóm tắt cuối ngày cho Sếp/Quản lý — gửi vào nhóm QL."""
+    if la_hom_nay_nghi():
+        return
+    gui_nhom_ql(noi_dung_bao_cao_chieu())
 
 
 def bao_cao_thieu_sot():
@@ -1350,104 +1412,201 @@ def _dong_viec_kem_link(v: CongViec, ghi_chu: str = "") -> str:
     return f"• [{v.ma}] {v.tieu_de}{phu}\n  {v.link}"
 
 
+def _ngay_lam_viec_sau(ngay: date) -> date:
+    """Ngày làm việc kế tiếp SAU 'ngay' (bỏ Chủ nhật/ngày lễ)."""
+    d = ngay + timedelta(days=1)
+    for _ in range(10):
+        if not la_ngay_nghi(d):
+            return d
+        d += timedelta(days=1)
+    return ngay + timedelta(days=1)
+
+
+_ICON_UU_TIEN = {DoUuTien.CAO: "🔴", DoUuTien.THUONG: "🟠", DoUuTien.THAP: "⚪"}
+
+
+def _dong_viec_ban_tin(i: int, v: CongViec, kem_link: bool = True) -> str:
+    han = f" — trước {v.han:%H:%M}" if v.han else ""
+    dong = f"{i}. {_ICON_UU_TIEN.get(v.do_uu_tien, '⚪')} [{v.ma}] {v.tieu_de}{han}"
+    return dong + (f"\n   {v.link}" if kem_link else "")
+
+
+def _tom_tat_ket_qua(viec: list[CongViec]) -> str | None:
+    """"4 việc – 3 đạt (TB 4.3★) · 1 chờ duyệt · 1 bị 0★" — việc bị 0★ KHÔNG
+    tính là đạt/hoàn thành."""
+    if not viec:
+        return None
+    dat = [v for v in viec if v.trang_thai == TrangThai.HOAN_THANH and (v.so_sao_cuoi or 0) > 0]
+    khong = [v for v in viec if v.trang_thai == TrangThai.HOAN_THANH and v.so_sao_cuoi == 0]
+    cho = [v for v in viec if v.trang_thai == TrangThai.CHO_DUYET]
+    con = [v for v in viec if v.trang_thai in TrangThai.CHUA_XONG]
+    phan = []
+    if dat:
+        phan.append(f"✅ {len(dat)} đạt (TB {sum(v.so_sao_cuoi for v in dat) / len(dat):.1f}★)")
+    if cho:
+        phan.append(f"🟡 {len(cho)} chờ duyệt")
+    if con:
+        phan.append(f"⏳ {len(con)} đang làm")
+    if khong:
+        phan.append(f"🔴 {len(khong)} bị 0★")
+    return f"{len(viec)} việc – " + " · ".join(phan)
+
+
+SO_NGAY_NHAC_VIEC_0_SAO = 7  # nhắc lại việc bị 0★ trong bao nhiêu ngày gần nhất
+
+
+def _viec_0_sao_chua_lam_bu(nv: NguoiDung) -> list[CongViec]:
+    """Việc của nv bị hệ thống tự đóng 0★ (quá hạn không nộp) trong
+    SO_NGAY_NHAC_VIEC_0_SAO ngày gần đây và CHƯA được mở lại — sếp hay đặt
+    hạn sớm, nhân viên làm xong trễ vẫn có thể xin mở lại để nộp đối chứng
+    (xem tasks.mo_lai_viec), nên cần nhắc để họ không quên làm bù."""
+    tu = gio_vn_hien_tai() - timedelta(days=SO_NGAY_NHAC_VIEC_0_SAO)
+    return (CongViec.query.filter(
+        CongViec.nguoi_nhan_id == nv.id,
+        CongViec.trang_thai == TrangThai.HOAN_THANH,
+        CongViec.so_sao_cuoi == 0,
+        CongViec.hoan_thanh_luc >= tu,
+    ).order_by(CongViec.hoan_thanh_luc.desc()).all())
+
+
+def _khoi_nhac_0_sao(nv: NguoiDung) -> list[str]:
+    ds = _viec_0_sao_chua_lam_bu(nv)
+    if not ds:
+        return []
+    dong = [f"🔴 VIỆC BỊ 0★ – CHƯA LÀM BÙ ({len(ds)})"]
+    for v in ds[:5]:
+        han = f" — hạn {v.han:%H:%M %d/%m}" if v.han else ""
+        dong.append(f"• [{v.ma}] {v.tieu_de}{han}\n  {v.link}")
+    if len(ds) > 5:
+        dong.append(f"… và {len(ds) - 5} việc khác")
+    nguoi_giao = sorted({v.nguoi_giao.ho_ten for v in ds if v.nguoi_giao})
+    dong.append("👉 Làm xong thì báo " + (", ".join(nguoi_giao) if nguoi_giao else "người giao")
+                + " mở lại việc để nộp đối chứng và được chấm lại sao.")
+    dong.append("")
+    return dong
+
+
 def _noi_dung_ban_tin_ca_nhan(nv: NguoiDung, buoi: str) -> str:
-    """buoi: 'sang' (08h00, tổng kết hôm qua) hoặc 'chieu' (17h30, tổng kết
-    hôm nay)."""
+    """Bản tin cá nhân gửi Zalo cho từng nhân viên.
+    - 'sang' (08:00): VIỆC HÔM NAY là chính (thay luôn tin "xem việc hôm nay"
+      riêng lẻ trước đây), việc bị làm lại, kết quả ngày làm việc trước.
+    - 'chieu' (17:30): chấm công vào/ra, kết quả hôm nay, việc ngày mai.
+    Không có gì thì không in dòng đó — tránh cả khối "0/0 · 0 · 0 · 0"."""
+    from models import XinNghi
     base = current_app.config["BASE_URL"]
     hom_nay = ngay_vn_hien_tai()
-    bay_gio = gio_vn_hien_tai()
-    ngay_xet = hom_nay - timedelta(days=1) if buoi == "sang" else hom_nay
-    tieu_de_ket_qua = "KẾT QUẢ HÔM QUA" if buoi == "sang" else "KẾT QUẢ HÔM NAY"
-    tieu_de_ban_tin = "BẢN TIN SÁNG" if buoi == "sang" else "BẢN TIN CHIỀU"
+    thu = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"][hom_nay.weekday()]
+    ten_goi = nv.ho_ten.split()[-1] if nv.ho_ten else ""
 
-    dong: list[str] = [
-        f"🗞️ BRICON – {tieu_de_ban_tin} của {nv.ho_ten}",
-        f"📅 {hom_nay:%d/%m/%Y}",
-        "",
-    ]
-
-    # ---- Chấm công hôm nay ------------------------------------------------
+    ds_buoi_nghi = [x.buoi for x in XinNghi.query.filter_by(nguoi_dung_id=nv.id, ngay=hom_nay).all()]
+    nghi_ca_ngay = BuoiNghi.CA_NGAY in ds_buoi_nghi or {BuoiNghi.SANG, BuoiNghi.CHIEU} <= set(ds_buoi_nghi)
+    nghi_sang = nghi_ca_ngay or BuoiNghi.SANG in ds_buoi_nghi
     cc = ChamCong.query.filter_by(nguoi_dung_id=nv.id, ngay=hom_nay).first()
-    dong.append("🟢 CHẤM CÔNG HÔM NAY")
-    if cc and cc.gio_vao:
-        if cc.di_tre:
-            dong.append(f"🔴 Có mặt lúc {cc.gio_vao:%H:%M} — đi trễ {cc.so_phut_tre} phút")
+
+    viec_hom_nay = CongViec.query.filter(
+        CongViec.nguoi_nhan_id == nv.id, dieu_kien_viec_trong_ngay(hom_nay),
+        CongViec.trang_thai != TrangThai.HUY).all()
+    lam_lai = CongViec.query.filter_by(nguoi_nhan_id=nv.id, trang_thai=TrangThai.LAM_LAI).all()
+
+    dong: list[str] = []
+    if buoi == "sang":
+        dong += [f"☀️ Chào buổi sáng, {ten_goi}! – {thu} {hom_nay:%d/%m}", ""]
+        if nghi_ca_ngay:
+            dong += ["🌴 Hôm nay bạn nghỉ phép cả ngày — nghỉ ngơi vui vẻ nhé!", ""]
+        elif nghi_sang:
+            dong += ["🌴 Sáng nay bạn nghỉ phép — nhớ chấm công khi vào làm buổi chiều.", ""]
+
+        can_lam = [v for v in viec_hom_nay if v.trang_thai in TrangThai.CHUA_XONG]
+        can_lam.sort(key=lambda v: (_thu_tu_uu_tien(v), v.han is None, v.han))
+        if can_lam:
+            dong.append(f"📅 VIỆC HÔM NAY ({len(can_lam)})")
+            dong += [_dong_viec_ban_tin(i, v) for i, v in enumerate(can_lam[:6], 1)]
+            if len(can_lam) > 6:
+                dong.append(f"… và {len(can_lam) - 6} việc khác → {base}/viec")
         else:
-            dong.append(f"✅ Có mặt lúc {cc.gio_vao:%H:%M} — đúng giờ")
-    elif cc and cc.nghi_khong_phep:
-        dong.append("🔴 Nghỉ không phép hôm nay")
-    else:
-        dong.append("⚪ Chưa chấm công vào — nhớ chấm công nhé!")
-    dong.append("")
-
-    # ---- Kết quả hôm qua / hôm nay -----------------------------------------
-    dieu_kien = dieu_kien_viec_trong_ngay(ngay_xet)
-    viec_ngay = CongViec.query.filter(
-        CongViec.nguoi_nhan_id == nv.id, dieu_kien
-    ).all()
-    da_danh_gia = [v for v in viec_ngay if v.trang_thai == TrangThai.HOAN_THANH and v.so_sao_cuoi]
-    khong_dung_han = [v for v in viec_ngay if v.trang_thai == TrangThai.HOAN_THANH and v.so_sao_cuoi == 0]
-    cho_duyet_ngay = [v for v in viec_ngay if v.trang_thai == TrangThai.CHO_DUYET]
-    tong_hoan_thanh = len(da_danh_gia) + len(khong_dung_han)
-
-    dong.append(f"📊 {tieu_de_ket_qua}")
-    dong.append(f"✅ Hoàn thành: {tong_hoan_thanh}/{len(viec_ngay)} công việc")
-    dong.append(f"⭐ Đã đánh giá: {len(da_danh_gia)} việc")
-    dong.append(f"🟡 Chờ đánh giá: {len(cho_duyet_ngay)} việc")
-    dong.append(f"🔴 Không hoàn thành đúng hạn — 0★: {len(khong_dung_han)} việc")
-    if khong_dung_han:
-        dong.extend(_dong_viec_kem_link(v) for v in khong_dung_han)
-    dong.append("")
-
-    # ---- Việc quan trọng hôm nay --------------------------------------------
-    dieu_kien_hom_nay = dieu_kien_viec_trong_ngay(hom_nay)
-    mo_hom_nay = (
-        CongViec.query.filter(
-            CongViec.nguoi_nhan_id == nv.id,
-            CongViec.trang_thai.in_(TrangThai.DANG_MO),
-            dieu_kien_hom_nay,
-        ).all()
-    )
-    mo_hom_nay.sort(key=lambda v: (_thu_tu_uu_tien(v), v.han is None, v.han))
-    top3 = mo_hom_nay[:3]
-    if top3:
-        dong.append("🎯 VIỆC QUAN TRỌNG HÔM NAY")
-        for i, v in enumerate(top3, 1):
-            han_hien = f"trước {v.han:%H:%M}" if v.han else "không đặt hạn"
-            dong.append(f"{i}. [{v.ma}] {v.tieu_de} — {han_hien}\n   {v.link}")
+            dong.append("📅 Hôm nay chưa có việc nào tới hạn.")
         dong.append("")
 
-    # ---- Cần xử lý ngay: việc bị yêu cầu làm lại, chưa nộp lại --------------
-    lam_lai_ds = CongViec.query.filter_by(
-        nguoi_nhan_id=nv.id, trang_thai=TrangThai.LAM_LAI
-    ).all()
-    if lam_lai_ds:
-        dong.append("⚠️ CẦN XỬ LÝ NGAY — bị yêu cầu làm lại")
-        for v in lam_lai_ds:
-            dg = v.danh_gia_theo_lan(v.lan_gui - 1)
-            tu_luc = f" (từ {dg.tao_luc:%H:%M %d/%m})" if dg else ""
-            dong.append(_dong_viec_kem_link(v, f"làm lại{tu_luc}"))
-        dong.append("")
-
-    # ---- Mức độ hiện tại (KPI tháng này) ------------------------------------
-    bang_kpi = tinh_kpi(hom_nay.replace(day=1), hom_nay, nv.id)
-    if bang_kpi:
-        o = bang_kpi[0]
-        if o["sao_tb"] is not None:
-            dong.append(f"⭐ MỨC ĐỘ HIỆN TẠI (tháng này): {o['sao_tb']:.1f}/5 sao — {o['xep_loai']}")
+        if lam_lai:
+            dong.append(f"⚠️ CẦN LÀM LẠI ({len(lam_lai)})")
+            for v in lam_lai:
+                dg = v.danh_gia_theo_lan(v.lan_gui - 1)
+                tu_luc = f" — sếp yêu cầu sửa lúc {dg.tao_luc:%H:%M %d/%m}" if dg else ""
+                dong.append(f"• [{v.ma}] {v.tieu_de}{tu_luc}\n  {v.link}")
             dong.append("")
 
-    dong.append("💪 Mục tiêu: Hoàn thành 100%, không phát sinh việc bị 0★.")
-    dong.append("")
-    dong.append(f"👉 Xem việc của bạn: {base}/viec")
-    dong.append(f"👉 Xem KPI: {base}/kpi")
+        dong += _khoi_nhac_0_sao(nv)
 
-    return "\n".join(dong)
+        ngay_truoc = _ngay_lam_viec_truoc(hom_nay)
+        viec_truoc = CongViec.query.filter(
+            CongViec.nguoi_nhan_id == nv.id, dieu_kien_viec_trong_ngay(ngay_truoc),
+            CongViec.trang_thai != TrangThai.HUY).all()
+        tom_tat = _tom_tat_ket_qua(viec_truoc)
+        if tom_tat:
+            nhan = "Hôm qua" if ngay_truoc == hom_nay - timedelta(days=1) else f"Ngày {ngay_truoc:%d/%m}"
+            dong.append(f"📊 {nhan}: {tom_tat}")
+
+    else:  # chiều
+        dong += [f"🌙 Tổng kết hôm nay, {ten_goi} – {thu} {hom_nay:%d/%m}", ""]
+        if nghi_ca_ngay:
+            dong.append("🌴 Chấm công: nghỉ phép cả ngày")
+        elif not (cc and cc.gio_vao):
+            dong.append("🔴 Chấm công: không có chấm công hôm nay"
+                        + (" (buổi sáng có phép)" if nghi_sang else ""))
+        else:
+            vao = f"vào {cc.gio_vao:%H:%M}" + (f" (trễ {cc.so_phut_tre}′)" if cc.di_tre else "")
+            if cc.gio_ra:
+                ra = f"ra {cc.gio_ra:%H:%M}" + (f" (sớm {cc.so_phut_som}′)" if cc.ve_som else "")
+            else:
+                ra = "⚠️ chưa chấm ra — nhớ chấm ra trước khi về!"
+            dong.append(f"🕐 Chấm công: {vao} · {ra}")
+        dong.append("")
+
+        tom_tat = _tom_tat_ket_qua(viec_hom_nay)
+        dong.append(f"📊 Việc hôm nay: {tom_tat}" if tom_tat else "📊 Hôm nay không có việc nào tới hạn.")
+        if lam_lai:
+            dong.append(f"⚠️ Còn {len(lam_lai)} việc cần làm lại: " + ", ".join(f"[{v.ma}]" for v in lam_lai))
+        dong.append("")
+        dong += _khoi_nhac_0_sao(nv)
+
+        ngay_sau = _ngay_lam_viec_sau(hom_nay)
+        viec_mai = (CongViec.query.filter(
+            CongViec.nguoi_nhan_id == nv.id, dieu_kien_viec_trong_ngay(ngay_sau),
+            CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).all())
+        viec_mai.sort(key=lambda v: (_thu_tu_uu_tien(v), v.han is None, v.han))
+        nhan_mai = "Ngày mai" if ngay_sau == hom_nay + timedelta(days=1) else f"{['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ Nhật'][ngay_sau.weekday()]} {ngay_sau:%d/%m}"
+        if viec_mai:
+            dong.append(f"📅 {nhan_mai} ({len(viec_mai)}):")
+            dong += [_dong_viec_ban_tin(i, v, kem_link=False) for i, v in enumerate(viec_mai[:6], 1)]
+            if len(viec_mai) > 6:
+                dong.append(f"… và {len(viec_mai) - 6} việc khác")
+        else:
+            dong.append(f"📅 {nhan_mai}: chưa có việc nào được giao.")
+
+    # ---- KPI tháng này ------------------------------------------------------
+    bang_kpi = tinh_kpi(hom_nay.replace(day=1), hom_nay, nv.id)
+    if bang_kpi and bang_kpi[0]["sao_tb"] is not None:
+        dong.append("")
+        dong.append(f"⭐ Tháng này: {bang_kpi[0]['xep_loai']} (TB {bang_kpi[0]['sao_tb']:.1f}★)")
+
+    if buoi == "sang" and not nghi_sang and not (cc and cc.gio_vao):
+        h, m = current_app.config["GIO_VAO"]
+        dong += ["", f"⏰ Nhớ chấm công trước {h:02d}:{m:02d} nhé!"]
+    dong += ["", f"👉 {base}/viec"]
+    # gộp các dòng trống liên tiếp (khi 1 khối không có nội dung)
+    gon: list[str] = []
+    for d in dong:
+        if d == "" and gon and gon[-1] == "":
+            continue
+        gon.append(d)
+    return "\n".join(gon)
 
 
 def gui_ban_tin_sang() -> int:
     """08h00: gửi bản tin cá nhân buổi sáng cho từng nhân viên/quản lý (trừ
-    Sếp/Admin) — tổng kết kết quả hôm qua + việc quan trọng hôm nay."""
+    Sếp/Admin) — việc hôm nay (đầy đủ, kèm link) + việc làm lại + kết quả
+    ngày làm việc trước. Đã bao gồm nội dung tin "nhắc xem việc hôm nay"
+    (nhac-viec-hom-nay) nên KHÔNG cần chạy cron đó nữa."""
     if la_hom_nay_nghi():
         return 0
     ds = _nhan_vien_khong_phai_admin_sep()
@@ -1846,7 +2005,8 @@ def bao_tu_dong_dong(viec: CongViec):
         f"🔒 Công việc đã tự động đóng do quá hạn không nộp đối chứng\n\n"
         f"[{viec.ma}] {viec.tieu_de}\n"
         f"Kết quả: 0★ — Không làm\n\n"
-        f"Việc đã bị khoá lại, chỉ Admin hoặc Ban giám đốc mới mở lại được.\n{viec.link}"
+        f"Nếu bạn vẫn làm xong việc này, hãy báo {viec.nguoi_giao.ho_ten} (người giao) "
+        f"mở lại việc để nộp đối chứng và được chấm lại sao.\n{viec.link}"
     )
     gui_cho_nhan_vien(viec.nguoi_nhan, nd_nv, viec)
 
