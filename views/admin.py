@@ -1,6 +1,6 @@
 import os
 import secrets
-from datetime import date
+from datetime import date, timedelta
 from functools import wraps
 
 from flask import (Blueprint, abort, current_app, flash, redirect, render_template,
@@ -473,7 +473,18 @@ def _trang_thiet_lap(muc: str):
                                       NguoiDung.dang_hoat_dong.is_(True))
                .order_by(NguoiDung.ho_ten).all()):
         nv_theo_bot.setdefault(nd.bot_zalo_id, []).append(nd)
+    ngay_hn = ngay_vn_hien_tai()
+    sinh_nhat_sap_toi = []
+    for i in range(31):
+        d = ngay_hn + timedelta(days=i)
+        for n in services.nguoi_sinh_nhat(d):
+            sinh_nhat_sap_toi.append((d, n))
     return render_template("admin_thietlap.html", muc=muc,
+                           sinh_nhat_bat=services.lay_cai_dat("sinh_nhat_bat", "1") == "1",
+                           sinh_nhat_bao_nhom=services.lay_cai_dat("sinh_nhat_bao_nhom", "1") == "1",
+                           sinh_nhat_loi_chuc=services.lay_cai_dat("sinh_nhat_loi_chuc", "")
+                                              or services.LOI_CHUC_SINH_NHAT_MAC_DINH,
+                           sinh_nhat_sap_toi=sinh_nhat_sap_toi[:8],
                            dong_goi_group_id=services.lay_cai_dat("dong_goi_group_id", ""),
                            dong_goi_bot_id=services.lay_cai_dat("dong_goi_bot_id", ""),
                            nhom_ql_mac_dinh=current_app.config["ZALO_GROUP_QL"],
@@ -651,6 +662,11 @@ def chay_thu_bao_cao(ten_lenh):
     elif ten_lenh == "ban-tin-chieu":
         so = services.gui_ban_tin_chieu()
         thong_bao = f"Đã gửi bản tin chiều cho {so} người."
+    elif ten_lenh == "sinh-nhat":
+        so = services.gui_chuc_mung_sinh_nhat()
+        thong_bao = (f"Đã chúc mừng sinh nhật {so} người." if so else
+                     "Hôm nay không có ai sinh nhật (hoặc tính năng đang tắt) — dùng nút "
+                     "\"Gửi thử lời chúc\" để xem mẫu.")
     elif ten_lenh == "bao-cao-sang":
         services.bao_cao_sang_cho_sep()
         thong_bao = "Đã gửi báo cáo sáng vào nhóm QL."
@@ -664,6 +680,26 @@ def chay_thu_bao_cao(ten_lenh):
         abort(404)
     db.session.commit()
     flash(thong_bao, "success")
+    return redirect(url_for("admin.thiet_lap_tin_tu_dong"))
+
+
+@bp.route("/thiet-lap/sinh-nhat", methods=["POST"])
+@chi_admin
+def luu_cai_dat_sinh_nhat():
+    services.dat_cai_dat("sinh_nhat_bat", "1" if request.form.get("bat") == "on" else "0")
+    services.dat_cai_dat("sinh_nhat_bao_nhom", "1" if request.form.get("bao_nhom") == "on" else "0")
+    mau = (request.form.get("loi_chuc") or "").strip()
+    services.dat_cai_dat("sinh_nhat_loi_chuc", mau)
+    db.session.commit()
+    if request.form.get("gui_thu") == "1":
+        # Gửi thử lời chúc (dựng theo tên người đang thao tác) vào nhóm QL
+        ok = services.gui_nhom_ql("[TIN THỬ — lời chúc sinh nhật]\n\n"
+                                  + services.noi_dung_chuc_sinh_nhat(current_user, mau or None))
+        db.session.commit()
+        flash("Đã lưu và gửi thử lời chúc vào nhóm quản lý." if ok
+              else "Đã lưu nhưng gửi thử thất bại — xem tab Log Zalo.", "success" if ok else "error")
+    else:
+        flash("Đã lưu cài đặt chúc mừng sinh nhật.", "success")
     return redirect(url_for("admin.thiet_lap_tin_tu_dong"))
 
 

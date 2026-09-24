@@ -1630,6 +1630,65 @@ def _noi_dung_ban_tin_ca_nhan(nv: NguoiDung, buoi: str) -> str:
     return "\n".join(gon)
 
 
+# ---------------------------------------------------------------------------
+# CHÚC MỪNG SINH NHẬT
+# ---------------------------------------------------------------------------
+LOI_CHUC_SINH_NHAT_MAC_DINH = (
+    "🎉🎂 Chúc mừng sinh nhật {ten}!\n\n"
+    "Thay mặt công ty BRICON, chúc {ten} tuổi mới thật nhiều sức khoẻ, "
+    "niềm vui và gặt hái nhiều thành công trong công việc lẫn cuộc sống.\n\n"
+    "Cảm ơn {ten} đã đồng hành cùng BRICON{tham_nien}! 💐"
+)
+
+
+def nguoi_sinh_nhat(ngay: date) -> list[NguoiDung]:
+    """Nhân viên đang làm có sinh nhật đúng 'ngay'. Người sinh 29/2 thì năm
+    không nhuận được chúc vào 28/2."""
+    import calendar
+    ds = NguoiDung.query.filter(NguoiDung.dang_hoat_dong.is_(True),
+                                NguoiDung.ngay_sinh.isnot(None)).all()
+    kq = []
+    for n in ds:
+        th, ng = n.ngay_sinh.month, n.ngay_sinh.day
+        if th == 2 and ng == 29 and not calendar.isleap(ngay.year):
+            ng = 28
+        if (th, ng) == (ngay.month, ngay.day):
+            kq.append(n)
+    return sorted(kq, key=lambda n: n.ho_ten)
+
+
+def noi_dung_chuc_sinh_nhat(nv: NguoiDung, mau: str | None = None) -> str:
+    mau = mau or lay_cai_dat("sinh_nhat_loi_chuc") or LOI_CHUC_SINH_NHAT_MAC_DINH
+    ten = nv.ho_ten.split()[-1] if nv.ho_ten else ""
+    tham_nien = f" suốt {nv.tham_nien} qua" if nv.tham_nien and nv.tham_nien != "dưới 1 tháng" else ""
+    try:
+        return mau.format(ten=ten, ho_ten=nv.ho_ten, tham_nien=tham_nien)
+    except (KeyError, IndexError, ValueError):
+        # Admin gõ sai placeholder ({abc}, ngoặc lẻ…) -> dùng mẫu mặc định
+        # thay vì làm hỏng cả đợt gửi.
+        return LOI_CHUC_SINH_NHAT_MAC_DINH.format(ten=ten, ho_ten=nv.ho_ten, tham_nien=tham_nien)
+
+
+def gui_chuc_mung_sinh_nhat(ngay: date | None = None) -> int:
+    """Chạy mỗi sáng (cron): chúc riêng từng người sinh nhật hôm nay qua Zalo
+    của họ + (tuỳ chọn) báo nhóm QL. Gửi CẢ Chủ nhật/ngày lễ — sinh nhật
+    không phụ thuộc lịch làm việc. Tắt được ở Hệ thống → Tin tự động."""
+    if lay_cai_dat("sinh_nhat_bat", "1") != "1":
+        return 0
+    ngay = ngay or ngay_vn_hien_tai()
+    ds = nguoi_sinh_nhat(ngay)
+    for nv in ds:
+        if nv.zalo_group_id:
+            gui_cho_nhan_vien(nv, noi_dung_chuc_sinh_nhat(nv))
+    if ds and lay_cai_dat("sinh_nhat_bao_nhom", "1") == "1":
+        gui_nhom_ql(
+            f"🎂 Hôm nay {ngay:%d/%m} là sinh nhật của:\n"
+            + "\n".join(f"• {n.ho_ten}" + (f" – {n.bo_phan.ten}" if n.bo_phan else "") for n in ds)
+            + "\n\nCả nhà cùng gửi lời chúc mừng nhé! 🎉"
+        )
+    return len(ds)
+
+
 def gui_ban_tin_sang() -> int:
     """08h00: gửi bản tin cá nhân buổi sáng cho từng nhân viên/quản lý (trừ
     Sếp/Admin) — việc hôm nay (đầy đủ, kèm link) + việc làm lại + kết quả

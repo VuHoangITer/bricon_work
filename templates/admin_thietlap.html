@@ -190,6 +190,35 @@
 
 {% elif muc == "tin_tu_dong" %}
 <div class="the">
+  <h3 style="margin-top:0">🎂 Chúc mừng sinh nhật tự động</h3>
+  <p style="color:var(--muc-mo);font-size:.85rem;margin-top:0">
+    Mỗi sáng 08:00 (kể cả Chủ nhật/ngày lễ), hệ thống gửi lời chúc riêng qua Zalo cho người có sinh nhật hôm đó
+    và báo nhóm quản lý. Sinh nhật lấy từ hồ sơ nhân viên (Nhân sự → Nhân viên).</p>
+  {% if sinh_nhat_sap_toi %}
+  <div style="font-size:.84rem;margin-bottom:12px;padding:10px 12px;background:var(--chinh-nhat);border-radius:10px">
+    <b>Sắp tới (30 ngày):</b>
+    {% for d, n in sinh_nhat_sap_toi %}{{ n.ho_ten }} – {{ d.strftime('%d/%m') }}{{ ' (hôm nay 🎉)' if d == hom_nay }}{{ ', ' if not loop.last }}{% endfor %}
+  </div>
+  {% endif %}
+  <form method="post" action="{{ url_for('admin.luu_cai_dat_sinh_nhat') }}">
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:8px">
+      <input type="checkbox" name="bat" {{ 'checked' if sinh_nhat_bat }} style="width:18px;height:18px;accent-color:var(--chinh)">
+      Bật chúc mừng sinh nhật tự động</label>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:12px">
+      <input type="checkbox" name="bao_nhom" {{ 'checked' if sinh_nhat_bao_nhom }} style="width:18px;height:18px;accent-color:var(--chinh)">
+      Báo cả nhóm quản lý để mọi người cùng chúc</label>
+    <div class="o-nhap"><label>Lời chúc gửi riêng cho nhân viên</label>
+      <textarea name="loi_chuc" rows="6">{{ sinh_nhat_loi_chuc }}</textarea>
+      <div class="goi-y">Dùng <code>{ten}</code> = tên gọi (VD "Linh"), <code>{ho_ten}</code> = họ tên đầy đủ,
+        <code>{tham_nien}</code> = " suốt 2 năm 3 tháng qua" (tự bỏ trống nếu chưa có ngày vào làm).</div></div>
+    <div class="hang-nut">
+      <button class="nut nut--nho" type="submit">Lưu</button>
+      <button class="nut nut--phu nut--nho" type="submit" name="gui_thu" value="1">Lưu & gửi thử lời chúc vào nhóm QL</button>
+    </div>
+  </form>
+</div>
+
+<div class="the">
   <h3>Tin Zalo tự động theo lịch</h3>
   <p style="color:var(--muc-mo);font-size:.85rem">
     Hệ thống tự gửi các tin dưới đây theo giờ cố định (cron trên VPS, tạm ngưng vào Chủ nhật/ngày lễ). Bấm vào 1 dòng để <b>gửi thử ngay</b>.
@@ -223,6 +252,12 @@
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
         <span>🗞️ Bản tin chiều (từng nhân viên)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 17:30</span>
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='sinh-nhat') }}">
+      <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
+        <span>🎂 Chúc mừng sinh nhật (người sinh nhật hôm nay)</span>
+        <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 08:00 mỗi ngày</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='bao-cao-sang') }}">

@@ -517,6 +517,15 @@ def create_app(config_class=Config):
         db.session.commit()
         click.echo(f"Đã gửi bản tin chiều cho {so_luong} người.")
 
+    @app.cli.command("chuc-mung-sinh-nhat")
+    def chuc_mung_sinh_nhat():
+        """Chạy bằng cron mỗi ngày lúc 08:00 (kể cả Chủ nhật/ngày lễ): chúc
+        mừng sinh nhật nhân viên qua Zalo + báo nhóm QL."""
+        import services
+        so = services.gui_chuc_mung_sinh_nhat()
+        db.session.commit()
+        click.echo(f"Đã chúc mừng sinh nhật {so} người.")
+
     @app.cli.command("bao-cao-sang")
     def bao_cao_sang():
         """Chạy bằng cron lúc 08:10 (sau mốc giờ vào 08:05): báo cáo nhanh đầu
