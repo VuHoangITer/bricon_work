@@ -952,20 +952,46 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
             return None
         return xep[0][1]
 
+    nhac_chuc_vu = bool({"chuc", "vu"} <= tin_tu or {"vi", "tri"} <= tin_tu
+                        or {"lo", "trinh"} <= tin_tu or {"danh", "gia"} <= tin_tu)
+    # Câu hỏi đang nói về SẢN PHẨM (keo, chà ron, gạch, chống thấm, tên sản
+    # phẩm đã nhập…) mà không nhắc gì tới chức vụ -> nhường cho bộ khớp ảnh
+    # sản phẩm, tránh "ảnh keo chà ron MÀU" khớp nhầm chức vụ "pha MÀU".
+    tu_san_pham = {"keo", "cha", "ron", "gach", "tds", "chong", "tham", "epoxy", "vua",
+                   "catalog", "catalogue"} | _tu_ten_san_pham()
+    if not nhac_chuc_vu and tin_tu & tu_san_pham:
+        return None
+
     # 1) Câu hỏi nêu rõ tên chức vụ -> chỉ xét ĐÚNG câu hiện tại (không đọc
     #    câu trả lời cũ của AI — từng khiến "giao việc/người nhận" trong câu
     #    trả lời trước kéo nhầm sang chức vụ "tài xế kiêm giao nhận").
     cv = _chon(tin_tu)
     if not cv:
         noi_dung_con_lai = tin_tu - tu_bo_qua - tu_chung
-        nhac_chuc_vu = bool({"chuc", "vu"} <= tin_tu or {"vi", "tri"} <= tin_tu
-                            or {"lo", "trinh"} <= tin_tu or {"danh", "gia"} <= tin_tu)
         if len(ung_vien) == 1 and (nhac_chuc_vu or not noi_dung_con_lai):
             # 2) Nhân viên thường (chỉ có đúng chức vụ của mình) hỏi kiểu
             #    "ảnh chức vụ của tôi", "phiếu đánh giá", "lộ trình" — hoặc
             #    chỉ gõ trơn "ảnh"/"phiếu". Hỏi ảnh thứ khác (VD "ảnh keo chà
             #    ron") thì KHÔNG trả ảnh chức vụ nữa.
             cv = ung_vien[0] if (nhac_chuc_vu or _chon(_tach_tu(ngu_canh)) or not ngu_canh) else None
+        elif (len(ung_vien) > 1 and not (noi_dung_con_lai - {"danh", "gia", "lo", "trinh"})
+              and (nhac_chuc_vu or "phieu" in tin_tu)):
+            # 4) Admin/Sếp hỏi CHUNG CHUNG "phiếu đánh giá nhân viên", "ảnh
+            #    các chức vụ", "lộ trình"… không nêu chức vụ nào -> trả TẤT
+            #    CẢ ảnh chức vụ (kèm danh sách tên) thay vì báo không có.
+            ds = sorted(ung_vien, key=lambda x: x.ten)
+            hien = ds[:_SO_ANH_TOI_DA]
+            tra_loi = (f"Có {len(ds)} chức vụ có ảnh/phiếu đã lưu:\n"
+                       + "\n".join(f"{i}. {c.ten}" for i, c in enumerate(hien, 1)))
+            if len(ds) > len(hien):
+                tra_loi += (f"\n… và {len(ds) - len(hien)} chức vụ khác — hỏi kèm tên chức vụ "
+                            f"để xem đúng phiếu cần tìm.")
+            return {
+                "tra_loi": tra_loi,
+                "duong_dan": None,
+                "nhan_nut": None,
+                "media": [url_for("media", duong_dan=c.anh) for c in hien],
+            }
         elif not noi_dung_con_lai:
             # 3) Chỉ gõ trơn "ảnh"/"cho xem ảnh" -> suy theo câu hỏi TRƯỚC
             #    của chính người dùng (ngu_canh chỉ chứa câu người dùng).

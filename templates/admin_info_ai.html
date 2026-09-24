@@ -69,9 +69,9 @@
       {% else %}{% include "_icon_tro_ly.html" %}{% endif %}
     </div>
     <form method="post" action="{{ url_for('admin.luu_anh_tro_ly') }}" enctype="multipart/form-data"
-          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;min-width:240px">
-      <input type="file" name="anh" accept="image/*" required style="flex:1;min-width:200px">
-      <button class="nut nut--nho" type="submit">Tải ảnh lên</button>
+          id="form-anh-tro-ly" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;min-width:240px">
+      <input type="file" name="anh" id="o-anh-tro-ly" accept="image/*" required style="flex:1;min-width:200px">
+      <span class="ai-goi-y" style="margin:0">Chọn ảnh xong sẽ mở khung để cắt cho vừa khung tròn.</span>
     </form>
     {% if anh_hien_tai %}
     <form method="post" action="{{ url_for('admin.luu_anh_tro_ly') }}"
@@ -82,6 +82,109 @@
     {% endif %}
   </div>
 </div>
+
+
+{# ---- Khung cắt ảnh đại diện (kéo để chọn vùng, thanh trượt để phóng to) ---- #}
+<div id="cat-anh" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(20,20,18,.6);
+     align-items:center;justify-content:center;padding:16px">
+  <div class="the" style="width:min(380px,100%);margin:0;text-align:center">
+    <h3 style="margin:0 0 4px">Cắt ảnh đại diện</h3>
+    <p class="ai-mo-ta" style="margin-bottom:12px">Kéo ảnh để chọn vùng hiển thị, dùng thanh trượt để phóng to/thu nhỏ.</p>
+    <canvas id="cat-anh-canvas" width="300" height="300"
+            style="width:300px;max-width:100%;aspect-ratio:1;border-radius:12px;background:#222;cursor:grab;touch-action:none"></canvas>
+    <input type="range" id="cat-anh-zoom" min="1" max="4" step="0.01" value="1" style="width:100%;margin:12px 0">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="nut nut--phu nut--nho" id="cat-anh-huy">Huỷ</button>
+      <button type="button" class="nut nut--nho" id="cat-anh-luu">Cắt &amp; lưu</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const oFile = document.getElementById('o-anh-tro-ly');
+  if (!oFile) return;
+  const form = document.getElementById('form-anh-tro-ly');
+  const hop = document.getElementById('cat-anh');
+  const cv = document.getElementById('cat-anh-canvas');
+  const ctx = cv.getContext('2d');
+  const zoom = document.getElementById('cat-anh-zoom');
+  const W = cv.width, R = W / 2 - 6;  // bán kính vòng tròn xem trước
+  let img = null, tiLe = 1, x = 0, y = 0, keo = null;
+
+  function gioiHan() {  // không cho kéo lộ khoảng trống trong vòng tròn
+    const w = img.width * tiLe, h = img.height * tiLe;
+    x = Math.min(W / 2 - R, Math.max(W / 2 + R - w, x));
+    y = Math.min(W / 2 - R, Math.max(W / 2 + R - h, y));
+  }
+  function ve() {
+    ctx.clearRect(0, 0, W, W);
+    ctx.drawImage(img, x, y, img.width * tiLe, img.height * tiLe);
+    ctx.save();  // làm tối phần ngoài vòng tròn
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.beginPath(); ctx.rect(0, 0, W, W); ctx.arc(W / 2, W / 2, R, 0, Math.PI * 2, true); ctx.fill('evenodd');
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(W / 2, W / 2, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  let tiLeGoc = 1;
+  function datZoom(z) {
+    const tamX = (W / 2 - x) / tiLe, tamY = (W / 2 - y) / tiLe;  // giữ tâm khi phóng to
+    tiLe = tiLeGoc * z;
+    x = W / 2 - tamX * tiLe; y = W / 2 - tamY * tiLe;
+    gioiHan(); ve();
+  }
+
+  oFile.addEventListener('change', () => {
+    const f = oFile.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    img = new Image();
+    img.onload = () => {
+      tiLeGoc = (2 * R) / Math.min(img.width, img.height);  // cạnh ngắn vừa khít vòng tròn
+      tiLe = tiLeGoc; zoom.value = 1;
+      x = (W - img.width * tiLe) / 2; y = (W - img.height * tiLe) / 2;
+      hop.style.display = 'flex'; ve();
+    };
+    img.src = url;
+  });
+  zoom.addEventListener('input', () => datZoom(parseFloat(zoom.value)));
+
+  function toaDo(e) {
+    const r = cv.getBoundingClientRect(), k = W / r.width;
+    return [(e.clientX - r.left) * k, (e.clientY - r.top) * k];
+  }
+  cv.addEventListener('pointerdown', (e) => { keo = toaDo(e); cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+  cv.addEventListener('pointermove', (e) => {
+    if (!keo || !img) return;
+    const [px, py] = toaDo(e);
+    x += px - keo[0]; y += py - keo[1]; keo = [px, py];
+    gioiHan(); ve();
+  });
+  cv.addEventListener('pointerup', () => { keo = null; cv.style.cursor = 'grab'; });
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoom.value = Math.min(4, Math.max(1, parseFloat(zoom.value) - e.deltaY * 0.002));
+    datZoom(parseFloat(zoom.value));
+  }, { passive: false });
+
+  document.getElementById('cat-anh-huy').addEventListener('click', () => {
+    hop.style.display = 'none'; oFile.value = '';
+  });
+  document.getElementById('cat-anh-luu').addEventListener('click', () => {
+    const KT = 512, ra = document.createElement('canvas');  // xuất ảnh vuông 512x512
+    ra.width = ra.height = KT;
+    const k = KT / (2 * R);
+    ra.getContext('2d').drawImage(img, (x - (W / 2 - R)) * k, (y - (W / 2 - R)) * k,
+                                  img.width * tiLe * k, img.height * tiLe * k);
+    ra.toBlob((blob) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], 'anh-tro-ly.png', { type: 'image/png' }));
+      oFile.files = dt.files;
+      form.submit();
+    }, 'image/png');
+  });
+})();
+</script>
 
 {# ================================= SẢN PHẨM ================================= #}
 {% elif muc == "san_pham" %}
