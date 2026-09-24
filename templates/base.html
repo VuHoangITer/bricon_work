@@ -39,7 +39,10 @@
       <a href="{{ url_for('dong_goi.moi') }}" class="side-link {{ 'active' if request.blueprint == 'dong_goi' }}"><span class="side-icon">📦</span><span>Đóng gói</span></a>
       {% if current_user.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) %}
       <div class="side-nav-label side-nav-label--spaced">Quản trị</div>
-      <a href="{{ url_for('admin.nhan_vien') }}" class="side-link {{ 'active' if request.blueprint == 'admin' }}"><span class="side-icon">⚙</span><span>Quản trị hệ thống</span></a>
+      {% set nhom_dang_mo = nhom_quan_tri_hien_tai() %}
+      {% for nhom in NHOM_QUAN_TRI if not nhom.chi_admin or current_user.vai_tro == VaiTro.ADMIN %}
+      <a href="{{ url_for(nhom.tab[0][0]) }}" class="side-link {{ 'active' if nhom_dang_mo and nhom_dang_mo.ma == nhom.ma }}"><span class="side-icon">{{ nhom.icon }}</span><span>{{ nhom.nhan }}</span></a>
+      {% endfor %}
       {% endif %}
     </nav>
   </aside>

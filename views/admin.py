@@ -360,13 +360,19 @@ def thiet_lap():
         flash("Đã lưu bot Zalo.", "success")
         return redirect(url_for("admin.thiet_lap"))
 
+    return _trang_thiet_lap("bot")
+
+
+def _trang_thiet_lap(muc: str):
+    """Thiết lập tách 3 mục riêng (Bot Zalo / OpenAI & hạn mức / Tin tự
+    động), mỗi mục 1 tab — trước đây dồn chung 1 trang rất khó phân biệt."""
     ds_bot = BotZalo.query.order_by(BotZalo.ten).all()
     nv_theo_bot: dict[int, list[NguoiDung]] = {}
     for nd in (NguoiDung.query.filter(NguoiDung.bot_zalo_id.isnot(None),
                                       NguoiDung.dang_hoat_dong.is_(True))
                .order_by(NguoiDung.ho_ten).all()):
         nv_theo_bot.setdefault(nd.bot_zalo_id, []).append(nd)
-    return render_template("admin_thietlap.html",
+    return render_template("admin_thietlap.html", muc=muc,
                            ds=ds_bot,
                            nv_theo_bot=nv_theo_bot,
                            openai_api_key=services.lay_cai_dat("openai_api_key"),
@@ -378,6 +384,18 @@ def thiet_lap():
                                str(dich_vu_ai._GIOI_HAN_MAC_DINH_TOKEN_NGAY)))
 
 
+@bp.route("/thiet-lap/muc/ai")
+@chi_admin
+def thiet_lap_ai():
+    return _trang_thiet_lap("ai")
+
+
+@bp.route("/thiet-lap/muc/tin-tu-dong")
+@chi_admin
+def thiet_lap_tin_tu_dong():
+    return _trang_thiet_lap("tin_tu_dong")
+
+
 @bp.route("/thiet-lap/ai", methods=["POST"])
 @chi_admin
 def luu_cai_dat_ai():
@@ -385,7 +403,7 @@ def luu_cai_dat_ai():
     services.dat_cai_dat("openai_api_key", key)
     db.session.commit()
     flash("Đã lưu API key AI." if key else "Đã xoá API key AI.", "success")
-    return redirect(url_for("admin.thiet_lap"))
+    return redirect(url_for("admin.thiet_lap_ai"))
 
 
 @bp.route("/thiet-lap/ai-gioi-han", methods=["POST"])
@@ -397,12 +415,12 @@ def luu_gioi_han_tro_ly():
     gh_token = request.form.get("gh_token", type=int)
     if gh_cau_hoi is None or gh_cau_hoi < 0 or gh_token is None or gh_token < 0:
         flash("Hạn mức phải là số nguyên không âm.", "error")
-        return redirect(url_for("admin.thiet_lap"))
+        return redirect(url_for("admin.thiet_lap_ai"))
     services.dat_cai_dat("tro_ly_gioi_han_cau_hoi_ngay", str(gh_cau_hoi))
     services.dat_cai_dat("tro_ly_gioi_han_token_ngay", str(gh_token))
     db.session.commit()
     flash("Đã lưu hạn mức Trợ lý AI.", "success")
-    return redirect(url_for("admin.thiet_lap"))
+    return redirect(url_for("admin.thiet_lap_ai"))
 
 
 # ---------------------------------------------------------------------------
@@ -513,7 +531,7 @@ def chay_thu_bao_cao(ten_lenh):
         abort(404)
     db.session.commit()
     flash(thong_bao, "success")
-    return redirect(url_for("admin.thiet_lap"))
+    return redirect(url_for("admin.thiet_lap_tin_tu_dong"))
 
 
 @bp.route("/thiet-lap/<int:bot_id>/xoa", methods=["POST"])
@@ -563,16 +581,43 @@ def xoa_webhook(bot_id):
     return redirect(url_for("admin.thiet_lap"))
 
 
+def _trang_info_ai(muc: str):
+    """Trang Kiến thức AI tách thành 4 mục riêng (Thông tin chung / Sản phẩm /
+    FAQ / Chức vụ), mỗi mục 1 tab — thay vì dồn tất cả form vào 1 trang dài."""
+    faq = services.lay_cai_dat("faq_bricon", "") or ""
+    return render_template(
+        "admin_info_ai.html", muc=muc,
+        thong_tin_chung=services.lay_cai_dat("thong_tin_chung_cong_ty", ""),
+        thong_tin_san_pham=services.lay_cai_dat("thong_tin_san_pham", ""),
+        faq=faq,
+        so_cau_faq=len(dich_vu_ai.tach_cau_faq(faq)),
+        ds_chuc_vu=ChucVu.query.order_by(ChucVu.ten).all() if muc == "chuc_vu" else [],
+        ds_san_pham_ai=SanPhamAI.query.order_by(SanPhamAI.ten).all() if muc == "san_pham" else [],
+    )
+
+
 @bp.route("/info-ai")
 @chi_admin
 def info_ai():
-    return render_template(
-        "admin_info_ai.html",
-        thong_tin_chung=services.lay_cai_dat("thong_tin_chung_cong_ty", ""),
-        thong_tin_san_pham=services.lay_cai_dat("thong_tin_san_pham", ""),
-        ds_chuc_vu=ChucVu.query.order_by(ChucVu.ten).all(),
-        ds_san_pham_ai=SanPhamAI.query.order_by(SanPhamAI.ten).all(),
-    )
+    return _trang_info_ai("chung")
+
+
+@bp.route("/info-ai/muc/san-pham")
+@chi_admin
+def info_ai_san_pham():
+    return _trang_info_ai("san_pham")
+
+
+@bp.route("/info-ai/muc/faq")
+@chi_admin
+def info_ai_faq():
+    return _trang_info_ai("faq")
+
+
+@bp.route("/info-ai/muc/chuc-vu")
+@chi_admin
+def info_ai_chuc_vu():
+    return _trang_info_ai("chuc_vu")
 
 
 @bp.route("/info-ai/chung", methods=["POST"])
@@ -585,6 +630,24 @@ def luu_thong_tin_chung():
     return redirect(url_for("admin.info_ai"))
 
 
+@bp.route("/info-ai/faq", methods=["POST"])
+@chi_admin
+def luu_faq():
+    """Lưu bộ Câu hỏi thường gặp (FAQ) cho Trợ lý AI — dán nguyên văn
+    dạng Markdown, mỗi câu hỏi bắt đầu bằng dòng "## <câu hỏi>". Trợ lý chỉ
+    lấy vài câu LIÊN QUAN NHẤT với câu đang hỏi, không nạp cả bộ."""
+    noi_dung = (request.form.get("faq") or "").strip()
+    services.dat_cai_dat("faq_bricon", noi_dung)
+    db.session.commit()
+    so_cau = len(dich_vu_ai.tach_cau_faq(noi_dung))
+    if noi_dung and not so_cau:
+        flash("Đã lưu nhưng KHÔNG tách được câu hỏi nào — mỗi câu hỏi phải bắt đầu "
+              "bằng 1 dòng \"## Câu hỏi...\".", "error")
+    else:
+        flash(f"Đã lưu FAQ: {so_cau} câu hỏi.", "success")
+    return redirect(url_for("admin.info_ai_faq"))
+
+
 @bp.route("/info-ai/san-pham", methods=["POST"])
 @chi_admin
 def luu_thong_tin_san_pham():
@@ -592,7 +655,7 @@ def luu_thong_tin_san_pham():
     services.dat_cai_dat("thong_tin_san_pham", noi_dung)
     db.session.commit()
     flash("Đã lưu thông tin sản phẩm.", "success")
-    return redirect(url_for("admin.info_ai"))
+    return redirect(url_for("admin.info_ai_san_pham"))
 
 
 @bp.route("/info-ai/san-pham-ai", methods=["POST"])
@@ -611,7 +674,7 @@ def luu_san_pham_ai(spid=None):
     ten = (request.form.get("ten") or "").strip()
     if not ten:
         flash("Cần nhập tên sản phẩm.", "error")
-        return redirect(url_for("admin.info_ai"))
+        return redirect(url_for("admin.info_ai_san_pham"))
 
     sp.ten = ten
     sp.mo_ta = (request.form.get("mo_ta") or "").strip()
@@ -626,7 +689,7 @@ def luu_san_pham_ai(spid=None):
         db.session.add(sp)
     db.session.commit()
     flash("Đã lưu sản phẩm.", "success")
-    return redirect(url_for("admin.info_ai"))
+    return redirect(url_for("admin.info_ai_san_pham"))
 
 
 @bp.route("/info-ai/san-pham-ai/<int:spid>/xoa", methods=["POST"])
@@ -643,7 +706,7 @@ def xoa_san_pham_ai(spid):
     db.session.delete(sp)
     db.session.commit()
     flash(f"Đã xoá sản phẩm {ten}.", "success")
-    return redirect(url_for("admin.info_ai"))
+    return redirect(url_for("admin.info_ai_san_pham"))
 
 
 @bp.route("/info-ai/san-pham-ai/anh/<int:anh_id>/xoa", methods=["POST"])
@@ -658,7 +721,7 @@ def xoa_anh_san_pham_ai(anh_id):
     db.session.delete(a)
     db.session.commit()
     flash("Đã xoá ảnh.", "success")
-    return redirect(url_for("admin.info_ai"))
+    return redirect(url_for("admin.info_ai_san_pham"))
 
 
 @bp.route("/info-ai/chuc-vu", methods=["POST"])
@@ -670,12 +733,12 @@ def luu_chuc_vu():
     ten = (request.form.get("ten") or "").strip()
     if not ten:
         flash("Cần nhập tên chức vụ.", "error")
-        return redirect(url_for("admin.info_ai"))
+        return redirect(url_for("admin.info_ai_chuc_vu"))
 
     trung = ChucVu.query.filter(db.func.lower(ChucVu.ten) == ten.lower()).first()
     if trung and trung.id != cv.id:
         flash(f"Chức vụ {ten} đã tồn tại.", "error")
-        return redirect(url_for("admin.info_ai"))
+        return redirect(url_for("admin.info_ai_chuc_vu"))
 
     cv.ten = ten
     cv.mo_ta = (request.form.get("mo_ta") or "").strip()
@@ -689,7 +752,7 @@ def luu_chuc_vu():
         db.session.add(cv)
     db.session.commit()
     flash("Đã lưu chức vụ.", "success")
-    return redirect(url_for("admin.info_ai"))
+    return redirect(url_for("admin.info_ai_chuc_vu"))
 
 
 @bp.route("/info-ai/chuc-vu/<int:cvid>/xoa", methods=["POST"])
@@ -700,9 +763,9 @@ def xoa_chuc_vu(cvid):
     if so_nv:
         flash(f"Không thể xoá {cv.ten} vì đang gán cho {so_nv} nhân viên. "
               f"Đổi chức vụ cho họ trước (ở trang Nhân viên).", "error")
-        return redirect(url_for("admin.info_ai"))
+        return redirect(url_for("admin.info_ai_chuc_vu"))
     ten = cv.ten
     db.session.delete(cv)
     db.session.commit()
     flash(f"Đã xoá chức vụ {ten}.", "success")
-    return redirect(url_for("admin.info_ai"))
+    return redirect(url_for("admin.info_ai_chuc_vu"))

@@ -191,9 +191,40 @@ def create_app(config_class=Config):
 
     app.jinja_env.globals["phien_ban_static"] = phien_ban_static
 
+    # Nhóm menu Quản trị — dùng chung cho sidebar (base.html) và thanh tab
+    # trong từng trang (_tab_quan_tri.html). Mỗi nhóm: (mã, nhãn sidebar,
+    # icon, chỉ Admin thấy?, [(endpoint, nhãn tab), ...]). Endpoint phụ (VD
+    # trang Tìm Group ID) khai báo ở "phu" để sidebar vẫn sáng đúng nhóm.
+    NHOM_QUAN_TRI = [
+        {"ma": "nhan_su", "nhan": "Nhân sự", "icon": "👥", "chi_admin": False,
+         "tab": [("admin.nhan_vien", "Nhân viên"), ("admin.bo_phan", "Bộ phận")], "phu": []},
+        {"ma": "cham_cong", "nhan": "Cấu hình chấm công", "icon": "📍", "chi_admin": False,
+         "tab": [("admin.diem_cham_cong", "Điểm chấm công"), ("admin.ngay_nghi", "Ngày nghỉ")],
+         "phu": []},
+        {"ma": "ai", "nhan": "Trợ lý AI", "icon": "🤖", "chi_admin": False,
+         "tab": [("admin.info_ai", "Thông tin chung"), ("admin.info_ai_san_pham", "Sản phẩm"),
+                 ("admin.info_ai_faq", "Câu hỏi thường gặp"), ("admin.info_ai_chuc_vu", "Chức vụ"),
+                 ("admin.tro_ly_su_dung", "Thống kê sử dụng")],
+         "phu": []},
+        {"ma": "he_thong", "nhan": "Hệ thống", "icon": "⚙", "chi_admin": True,
+         "tab": [("admin.thiet_lap", "Bot Zalo"), ("admin.thiet_lap_ai", "OpenAI & hạn mức"),
+                 ("admin.thiet_lap_tin_tu_dong", "Tin tự động"), ("admin.log_zalo", "Log Zalo")],
+         "phu": ["admin.lay_group_id"]},
+    ]
+
+    def nhom_quan_tri_hien_tai():
+        """Nhóm Quản trị chứa trang đang mở (theo request.endpoint), hoặc None."""
+        ep = request.endpoint
+        for n in NHOM_QUAN_TRI:
+            if ep in [e for e, _ in n["tab"]] or ep in n["phu"]:
+                return n
+        return None
+
     @app.context_processor
     def bien_chung():
         return {
+            "NHOM_QUAN_TRI": NHOM_QUAN_TRI,
+            "nhom_quan_tri_hien_tai": nhom_quan_tri_hien_tai,
             "TrangThai": TrangThai,
             "VaiTro": VaiTro,
             "LoaiDinhKem": LoaiDinhKem,

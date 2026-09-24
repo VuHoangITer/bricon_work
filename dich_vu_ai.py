@@ -513,6 +513,70 @@ def _tu_ten_san_pham() -> set[str]:
     }
 
 
+# ---------------------------------------------------------------------------
+# FAQ — Câu hỏi thường gặp. KHÔNG nạp cả bộ (vài chục câu, hàng chục nghìn
+# ký tự → tốn token, nhanh hết hạn mức ngày của nhân viên); mỗi lần hỏi chỉ
+# chấm điểm độ trùng từ giữa câu đang hỏi và từng câu FAQ, lấy vài câu cao
+# điểm nhất. Đơn giản, không cần embedding/vector DB — đủ tốt với vài chục
+# tới vài trăm câu.
+# ---------------------------------------------------------------------------
+_TU_BO_QUA_FAQ = {
+    "la", "va", "co", "khong", "ko", "k", "cua", "cho", "voi", "thi", "nhu", "the", "nao",
+    "gi", "bao", "nhieu", "duoc", "dung", "su", "cac", "mot", "nhung", "nay", "do", "khi",
+    "de", "o", "tai", "toi", "minh", "em", "anh", "chi", "ban", "a", "nhe", "vay", "sao",
+    "hay", "hoac", "neu", "trong", "ra", "vao", "len", "di", "can", "phai", "lam", "rang",
+    "thuong", "bricon", "tra", "loi", "hoi", "vui", "long",
+}
+_SO_CAU_FAQ_TOI_DA = 4
+
+
+def _tu_faq(van_ban: str) -> set[str]:
+    tu = re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban)).split()
+    return {t for t in tu if t not in _TU_BO_QUA_FAQ and (len(t) > 1 or t.isdigit())}
+
+
+def tach_cau_faq(noi_dung: str) -> list[dict]:
+    """Tách bộ FAQ Markdown thành từng câu: mỗi câu bắt đầu bằng dòng "## ..."
+    (bỏ số thứ tự đầu dòng nếu có), phần trả lời là các dòng sau cho tới câu
+    kế tiếp. Dòng "---" / phần trước câu đầu tiên bị bỏ qua."""
+    ds, hien_tai = [], None
+    for dong in (noi_dung or "").splitlines():
+        m = re.match(r"^\s*##\s+(.*\S)\s*$", dong)
+        if m and not dong.lstrip().startswith("###"):
+            if hien_tai:
+                ds.append(hien_tai)
+            hoi = re.sub(r"^\d+\s*[.)]\s*", "", m.group(1)).strip()
+            hien_tai = {"hoi": hoi, "dap": []}
+        elif hien_tai is not None:
+            if dong.strip() == "---":
+                continue
+            hien_tai["dap"].append(dong)
+    if hien_tai:
+        ds.append(hien_tai)
+    for c in ds:
+        c["dap"] = "\n".join(c["dap"]).strip()
+    return [c for c in ds if c["hoi"] and c["dap"]]
+
+
+def _faq_lien_quan(van_ban: str, so_cau: int = _SO_CAU_FAQ_TOI_DA) -> list[dict]:
+    """Chọn tối đa so_cau câu FAQ trùng từ nhiều nhất với van_ban. Từ trùng
+    ở phần CÂU HỎI nặng gấp 3 phần trả lời; mã sản phẩm (UB102, UB601D...)
+    trùng khớp được cộng đậm vì gần như chắc chắn đúng câu cần tìm."""
+    cac_cau = tach_cau_faq(lay_cai_dat("faq_bricon", "") or "")
+    tu_hoi = _tu_faq(van_ban)
+    if not cac_cau or not tu_hoi:
+        return []
+    xep = []
+    for c in cac_cau:
+        tu_q, tu_a = _tu_faq(c["hoi"]), _tu_faq(c["dap"])
+        diem = 3 * len(tu_hoi & tu_q) + len(tu_hoi & (tu_a - tu_q))
+        diem += 6 * len({t for t in tu_hoi & (tu_q | tu_a) if re.search(r"[a-z]\d|\d[a-z]", t)})
+        if diem >= 4:  # tối thiểu ~ 1 từ khớp câu hỏi + 1 từ khớp trả lời
+            xep.append((diem, c))
+    xep.sort(key=lambda x: x[0], reverse=True)
+    return [c for _, c in xep[:so_cau]]
+
+
 def _can_boi_canh_san_pham(van_ban: str) -> bool:
     tin_chuan = re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban))
     tu = set(tin_chuan.split())
@@ -557,6 +621,18 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
     if thong_tin_chung:
         dong.append("--- Thông tin chung công ty (áp dụng cho mọi người) ---\n"
                     + thong_tin_chung)
+
+    # FAQ: chỉ tìm theo CÂU ĐANG HỎI (phần đầu van_ban_gan_day), không theo
+    # cả lịch sử — tránh kéo lại FAQ của câu hỏi trước không còn liên quan.
+    cau_faq = _faq_lien_quan(van_ban_gan_day.split("\n")[0])
+    if cau_faq:
+        dong.append(
+            "--- Câu hỏi thường gặp (FAQ chính thức của BRICON) liên quan tới câu "
+            "đang hỏi — ưu tiên trả lời theo đúng nội dung này nếu khớp câu hỏi, "
+            "không khớp thì bỏ qua. Nếu FAQ mâu thuẫn với phần kiến thức riêng "
+            "của 1 sản phẩm cụ thể bên dưới, thì với sản phẩm đó ưu tiên phần "
+            "kiến thức riêng ---\n" +
+            "\n\n".join(f"H: {c['hoi']}\nĐ: {c['dap']}" for c in cau_faq))
 
     thong_tin_san_pham = lay_cai_dat("thong_tin_san_pham")
     can_san_pham = _can_boi_canh_san_pham(van_ban_gan_day)
@@ -1224,7 +1300,7 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
         ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
         return ket_qua_anh_sp, None
 
-    van_ban_gan_day = tin_nhan + " " + ngu_canh_gan_day
+    van_ban_gan_day = tin_nhan.replace("\n", " ") + "\n" + ngu_canh_gan_day
     boi_canh = _boi_canh_tro_ly(nd, van_ban_gan_day)
     messages = [{"role": "system",
                 "content": _HUONG_DAN_HE_THONG_TRO_LY + "\n\nDữ liệu hiện tại:\n" + boi_canh}]

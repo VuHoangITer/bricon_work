@@ -1,152 +1,209 @@
 {% extends "base.html" %}
-{% block title %}Info AI · Quản trị{% endblock %}
+{% set TIEU_DE_MUC = {
+  "chung": ("Thông tin chung", "Chế độ, chính sách, giờ làm, hotline… áp dụng cho mọi nhân viên. Trợ lý AI luôn đọc phần này."),
+  "san_pham": ("Sản phẩm", "Kiến thức từng sản phẩm (mô tả, thông số, định mức) kèm ảnh TDS/bảng định mức. Trợ lý AI chỉ đọc khi câu hỏi liên quan sản phẩm."),
+  "faq": ("Câu hỏi thường gặp", "Bộ FAQ chính thức. Mỗi lần hỏi, Trợ lý AI tự chọn vài câu liên quan nhất — thêm bao nhiêu câu cũng không tốn thêm token."),
+  "chuc_vu": ("Chức vụ", "Mô tả công việc, lương, chế độ riêng từng vị trí. Nhân viên chỉ được Trợ lý AI trả lời về đúng chức vụ của mình."),
+} %}
+{% set tieu_de, mo_ta_muc = TIEU_DE_MUC[muc] %}
+{% block title %}{{ tieu_de }} · Trợ lý AI{% endblock %}
 {% block content %}
+<style>
+  .ai-mo-ta { color:var(--muc-mo); font-size:.84rem; margin:0 0 12px; }
+  .ai-goi-y { color:var(--muc-mo); font-size:.78rem; margin:6px 0 0; }
+  .ai-hang-tieu-de { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 12px; }
+  .ai-hang-tieu-de h2 { margin:0; font-size:1rem; display:flex; align-items:center; gap:8px; }
+  .ai-them { margin-bottom:14px; }
+  .ai-them > summary { list-style:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+    padding:8px 14px; border-radius:8px; background:var(--chinh); color:#fff; font-weight:600; font-size:.8rem; }
+  .ai-them > summary::-webkit-details-marker { display:none; }
+  .ai-them[open] > summary { background:var(--muc-mo); }
+  .ai-them[open] > summary .ai-them-nhan::after { content:" — đóng"; }
+  .ai-them .the { margin-top:10px; }
+  .ai-muc > summary { cursor:pointer; display:flex; align-items:center; gap:8px; list-style:none; }
+  .ai-muc > summary::-webkit-details-marker { display:none; }
+  .ai-muc > summary::after { margin-left:auto; }
+  .ai-muc .ai-tom-tat { color:var(--muc-mo); font-size:.78rem; font-weight:400; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; max-width:48ch; }
+  .ai-muc-than { margin-top:14px; padding-top:14px; border-top:1px solid var(--vien); }
+  .ai-hang-nut { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:4px; }
+  .ai-anh { position:relative; }
+  .ai-anh span { position:absolute; left:4px; right:4px; bottom:4px; background:rgba(28,28,26,.72); color:#fff;
+    font-size:.66rem; padding:2px 6px; border-radius:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ai-anh form { position:absolute; top:4px; right:4px; }
+  .ai-anh button { border:0; border-radius:50%; width:22px; height:22px; line-height:22px; padding:0; cursor:pointer;
+    background:rgba(184,72,63,.92); color:#fff; font-size:.8rem; }
+  @media (max-width:640px) { .ai-muc .ai-tom-tat { display:none; } }
+</style>
+
 <div class="page-head">
   <div class="page-head-copy">
-    <h1>Info AI</h1>
-    <p>Nạp thông tin cho Trợ lý AI trả lời đúng — thông tin chung áp dụng cho mọi người,
-       thông tin chức vụ chỉ dùng riêng cho đúng người thuộc chức vụ đó, không lẫn nhau.</p>
+    <h1>Trợ lý AI</h1>
+    <p>Nạp kiến thức cho Trợ lý AI trả lời đúng theo dữ liệu thật của công ty.</p>
   </div>
 </div>
 
-<div class="tab-quan-tri">
-  <a class="tab-quan-tri-nut" href="{{ url_for('admin.nhan_vien') }}">Nhân viên</a>
-  <a class="tab-quan-tri-nut" href="{{ url_for('admin.bo_phan') }}">Bộ phận</a>
-  <a class="tab-quan-tri-nut" href="{{ url_for('admin.diem_cham_cong') }}">Điểm chấm công</a>
-  <a class="tab-quan-tri-nut" href="{{ url_for('admin.ngay_nghi') }}">Ngày nghỉ</a>
-  <a class="tab-quan-tri-nut" href="{{ url_for('admin.log_zalo') }}">Log Zalo</a>
-  <a class="tab-quan-tri-nut" href="{{ url_for('admin.thiet_lap') }}">Thiết lập</a>
-  <a class="tab-quan-tri-nut active" href="{{ url_for('admin.info_ai') }}">Info AI</a>
-  <a class="tab-quan-tri-nut" href="{{ url_for('admin.tro_ly_su_dung') }}">Trợ lý AI</a>
-</div>
+{% include "_tab_quan_tri.html" %}
 
+{# ============================== THÔNG TIN CHUNG ============================== #}
+{% if muc == "chung" %}
 <div class="the">
-  <h3>Thông tin chung công ty</h3>
-  <p style="color:var(--muc-mo);font-size:.85rem">Chế độ, chính sách, lương chung... áp dụng cho mọi nhân viên khi hỏi Trợ lý AI.</p>
+  <p class="ai-mo-ta">{{ mo_ta_muc }}</p>
   <form method="post" action="{{ url_for('admin.luu_thong_tin_chung') }}">
     <div class="o-nhap">
-      <textarea name="thong_tin_chung" rows="8" placeholder="VD: Công ty làm việc từ 8h05 tới 17h30, nghỉ trưa 12h-13h. Lương thử việc 85% lương chính thức trong 2 tháng đầu. Thưởng Tết theo thâm niên...">{{ thong_tin_chung }}</textarea>
+      <textarea name="thong_tin_chung" rows="14" placeholder="VD: Công ty làm việc từ 8h05 tới 17h30 (Thứ 2 - Thứ 7), nghỉ trưa 12h-13h.&#10;Hotline: 0901.180.094 · Email: info@bricon.vn&#10;Lương thử việc 85% lương chính thức trong 2 tháng đầu...">{{ thong_tin_chung }}</textarea>
     </div>
-    <button class="nut nut--rong" type="submit">Lưu thông tin chung</button>
+    <button class="nut" type="submit">Lưu thông tin chung</button>
   </form>
 </div>
 
-<div class="the">
-  <h3>Thông tin sản phẩm</h3>
-  <p style="color:var(--muc-mo);font-size:.85rem">Danh mục, mô tả, thông số sản phẩm công ty. Tách riêng khỏi
-    "Thông tin chung" — Trợ lý AI CHỈ đọc phần này khi câu hỏi thực sự liên quan tới sản phẩm, đỡ tốn token cho
-    những câu hỏi khác (chấm công, KPI, nghỉ phép...).</p>
-  <form method="post" action="{{ url_for('admin.luu_thong_tin_san_pham') }}">
-    <div class="o-nhap">
-      <textarea name="thong_tin_san_pham" rows="8" placeholder="VD: 1. KEO DÁN GẠCH&#10;- Keo Dán Gạch Bricon Nội Thất: dùng khu vực khô ráo trong nhà, khổ gạch ≤80x80cm...">{{ thong_tin_san_pham }}</textarea>
-    </div>
-    <button class="nut nut--rong" type="submit">Lưu thông tin sản phẩm</button>
-  </form>
-</div>
+{# ================================= SẢN PHẨM ================================= #}
+{% elif muc == "san_pham" %}
+<p class="ai-mo-ta">{{ mo_ta_muc }}</p>
 
-<details class="the the--them" open>
-  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm sản phẩm (có ảnh)</summary>
-  <p style="color:var(--muc-mo);font-size:.85rem;margin-top:8px">Dùng cho từng sản phẩm cần kèm ảnh minh hoạ
-    (TDS, bảng định mức, bảng màu...) — không cần gõ tay vào ô "Thông tin sản phẩm" ở trên. Có thể chọn nhiều ảnh
-    cùng lúc; nếu các ảnh chọn cùng 1 lần là cùng loại (VD: đều là ảnh TDS) thì gõ chung 1 nhãn cho tất cả.</p>
-  <form method="post" action="{{ url_for('admin.luu_san_pham_ai') }}" enctype="multipart/form-data" style="margin-top:14px">
-    <div class="o-nhap"><label>Tên sản phẩm</label>
-      <input name="ten" required placeholder="VD: Keo Chà Ron Bột Bricon"></div>
-    <div class="o-nhap"><label>Nội dung (mô tả, công dụng, thông số...)</label>
-      <textarea name="mo_ta" rows="6" placeholder="VD: Keo chà ron bột gốc xi măng, mạch ron 1-6mm, đóng gói 1kg/túi..."></textarea></div>
-    <div class="o-nhap"><label>Nhãn cho (các) ảnh bên dưới — không bắt buộc</label>
-      <input name="nhan_anh" placeholder="VD: TDS, Bảng định mức, Bảng màu..."></div>
-    <div class="o-nhap"><label>Chọn ảnh — có thể chọn nhiều ảnh cùng lúc</label>
-      <input type="file" name="anh" accept="image/*" multiple></div>
-    <button class="nut nut--rong" type="submit">Lưu sản phẩm</button>
-  </form>
+<details class="ai-them">
+  <summary><span class="ai-them-nhan">+ Thêm sản phẩm</span></summary>
+  <div class="the">
+    <form method="post" action="{{ url_for('admin.luu_san_pham_ai') }}" enctype="multipart/form-data">
+      <div class="o-nhap"><label>Tên sản phẩm</label>
+        <input type="text" name="ten" required placeholder="VD: Keo Chà Ron Bricon Nội Thất"></div>
+      <div class="o-nhap"><label>Nội dung (mô tả, công dụng, thông số, định mức…)</label>
+        <textarea name="mo_ta" rows="8" placeholder="Dán nguyên tài liệu kiến thức sản phẩm vào đây — có thể dùng Markdown."></textarea></div>
+      <div class="o-nhap"><label>Ảnh (không bắt buộc) — chọn được nhiều ảnh</label>
+        <input type="file" name="anh" accept="image/*" multiple></div>
+      <div class="o-nhap"><label>Nhãn cho các ảnh vừa chọn</label>
+        <input type="text" name="nhan_anh" placeholder="VD: TDS, Bảng định mức, Bảng màu…">
+        <p class="ai-goi-y">Các ảnh chọn cùng 1 lần dùng chung nhãn này. Ảnh khác loại thì thêm ở lần lưu sau.</p></div>
+      <button class="nut" type="submit">Lưu sản phẩm</button>
+    </form>
+  </div>
 </details>
 
-<div class="tieu-khu"><h2>Danh sách sản phẩm (có ảnh)</h2><span class="dem">{{ ds_san_pham_ai|length }}</span></div>
+<div class="ai-hang-tieu-de"><h2>Danh sách sản phẩm <span class="dem">{{ ds_san_pham_ai|length }}</span></h2></div>
 
 {% for sp in ds_san_pham_ai %}
-<details class="the">
-  <summary style="cursor:pointer"><strong>{{ sp.ten }}</strong>
-    {% if sp.anh %}<span class="dem">{{ sp.anh|length }} ảnh</span>{% endif %}</summary>
-
-  {% if sp.anh %}
-  <div class="o-nhap" style="margin-top:14px"><label>Ảnh hiện tại</label>
-    <div class="luoi-tep">
-      {% for a in sp.anh %}
-      <div class="tep" style="position:relative">
-        <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.nhan or sp.ten }}">
-        {% if a.nhan %}<span style="position:absolute;left:4px;bottom:4px;background:rgba(28,28,26,.72);
-          color:#fff;font-size:.68rem;padding:2px 6px;border-radius:4px">{{ a.nhan }}</span>{% endif %}
+<details class="the ai-muc">
+  <summary>
+    <strong>{{ sp.ten }}</strong>
+    {% if sp.anh %}<span class="dem">{{ sp.anh|length }} ảnh</span>{% endif %}
+    <span class="ai-tom-tat">{{ (sp.mo_ta or 'Chưa có nội dung')|replace('#','')|truncate(90) }}</span>
+  </summary>
+  <div class="ai-muc-than">
+    {% if sp.anh %}
+    <div class="o-nhap"><label>Ảnh hiện tại — bấm ✕ để xoá ảnh</label>
+      <div class="luoi-tep">
+        {% for a in sp.anh %}
+        <div class="tep ai-anh">
+          <a href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener">
+            <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.nhan or sp.ten }}"></a>
+          {% if a.nhan %}<span title="{{ a.nhan }}">{{ a.nhan }}</span>{% endif %}
+          <form method="post" action="{{ url_for('admin.xoa_anh_san_pham_ai', anh_id=a.id) }}"
+                onsubmit="return confirm('Xoá ảnh {{ (a.nhan or '')|e }} này?')">
+            <button type="submit" title="Xoá ảnh">✕</button>
+          </form>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
-    <div class="hang-nut" style="margin-top:8px;flex-wrap:wrap">
-      {% for a in sp.anh %}
-      <form method="post" action="{{ url_for('admin.xoa_anh_san_pham_ai', anh_id=a.id) }}"
-            onsubmit="return confirm('Xoá ảnh {{ a.nhan or '' }} này?')">
-        <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">
-          Xoá {{ a.nhan or ('ảnh ' ~ loop.index) }}</button>
-      </form>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
+    {% endif %}
 
-  <form method="post" action="{{ url_for('admin.luu_san_pham_ai', spid=sp.id) }}" enctype="multipart/form-data"
-        style="margin-top:{{ '0' if sp.anh else '14px' }}">
-    <div class="o-nhap"><label>Tên sản phẩm</label><input name="ten" value="{{ sp.ten }}" required></div>
-    <div class="o-nhap"><label>Nội dung</label><textarea name="mo_ta" rows="6">{{ sp.mo_ta or '' }}</textarea></div>
-    <div class="o-nhap"><label>Nhãn cho ảnh mới thêm — không bắt buộc</label>
-      <input name="nhan_anh" placeholder="VD: TDS, Bảng định mức, Bảng màu..."></div>
-    <div class="o-nhap"><label>Thêm ảnh mới (không bắt buộc) — có thể chọn nhiều ảnh</label>
-      <input type="file" name="anh" accept="image/*" multiple></div>
-    <button class="nut nut--nho" type="submit">Lưu</button>
-  </form>
-  <form method="post" action="{{ url_for('admin.xoa_san_pham_ai', spid=sp.id) }}" style="margin-top:10px"
-        onsubmit="return confirm('Xoá sản phẩm {{ sp.ten }} (kèm toàn bộ ảnh)?')">
-    <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá sản phẩm</button>
-  </form>
+    <form method="post" action="{{ url_for('admin.luu_san_pham_ai', spid=sp.id) }}" enctype="multipart/form-data">
+      <div class="o-nhap"><label>Tên sản phẩm</label><input type="text" name="ten" value="{{ sp.ten }}" required></div>
+      <div class="o-nhap"><label>Nội dung</label><textarea name="mo_ta" rows="10">{{ sp.mo_ta or '' }}</textarea></div>
+      <div class="o-nhap"><label>Thêm ảnh mới (không bắt buộc)</label>
+        <input type="file" name="anh" accept="image/*" multiple>
+        <input type="text" name="nhan_anh" placeholder="Nhãn cho ảnh mới — VD: TDS, Bảng định mức…" style="margin-top:6px"></div>
+      <div class="ai-hang-nut">
+        <button class="nut nut--nho" type="submit">Lưu thay đổi</button>
+      </div>
+    </form>
+    <form method="post" action="{{ url_for('admin.xoa_san_pham_ai', spid=sp.id) }}" style="margin-top:8px"
+          onsubmit="return confirm('Xoá sản phẩm {{ sp.ten|e }} (kèm toàn bộ ảnh)?')">
+      <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá sản phẩm</button>
+    </form>
+  </div>
 </details>
 {% else %}
-<div class="trong"><strong>Chưa có sản phẩm nào có ảnh</strong>Thêm sản phẩm đầu tiên ở khối bên trên.</div>
+<div class="trong"><strong>Chưa có sản phẩm nào</strong>Bấm “+ Thêm sản phẩm” ở trên để thêm sản phẩm đầu tiên.</div>
 {% endfor %}
 
-<details class="the the--them" open>
-  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm chức vụ</summary>
-  <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data" style="margin-top:14px">
-    <div class="o-nhap"><label>Tên chức vụ</label>
-      <input name="ten" required placeholder="VD: Nhân viên kinh doanh"></div>
-    <div class="o-nhap"><label>Mô tả (công việc, lương, chế độ riêng của chức vụ này)</label>
-      <textarea name="mo_ta" rows="6" placeholder="VD: Lương cứng 6 triệu + hoa hồng 2% doanh số. Nhiệm vụ: tìm khách hàng mới, chăm sóc đại lý..."></textarea></div>
-    <div class="o-nhap"><label>Ảnh minh hoạ (lộ trình thăng tiến, sơ đồ...) — không bắt buộc</label>
-      <input type="file" name="anh" accept="image/*"></div>
-    <button class="nut nut--rong" type="submit">Lưu chức vụ</button>
-  </form>
+<details class="the ai-muc" style="margin-top:22px">
+  <summary><strong>Ghi chú chung về sản phẩm</strong>
+    <span class="ai-tom-tat">{{ 'Văn bản tự do, không gắn với 1 sản phẩm cụ thể' if not thong_tin_san_pham else thong_tin_san_pham|truncate(70) }}</span></summary>
+  <div class="ai-muc-than">
+    <p class="ai-mo-ta">Thông tin dùng chung cho nhiều sản phẩm (danh mục tổng, chính sách giá…). Kiến thức riêng
+      từng sản phẩm nên nhập ở danh sách phía trên.</p>
+    <form method="post" action="{{ url_for('admin.luu_thong_tin_san_pham') }}">
+      <div class="o-nhap"><textarea name="thong_tin_san_pham" rows="8">{{ thong_tin_san_pham }}</textarea></div>
+      <button class="nut nut--nho" type="submit">Lưu ghi chú</button>
+    </form>
+  </div>
 </details>
 
-<div class="tieu-khu"><h2>Danh sách chức vụ</h2><span class="dem">{{ ds_chuc_vu|length }}</span></div>
+{# =================================== FAQ ==================================== #}
+{% elif muc == "faq" %}
+<div class="the">
+  <div class="ai-hang-tieu-de"><h2>Bộ câu hỏi <span class="dem">{{ so_cau_faq }} câu</span></h2></div>
+  <p class="ai-mo-ta">{{ mo_ta_muc }}</p>
+  <form method="post" action="{{ url_for('admin.luu_faq') }}">
+    <div class="o-nhap">
+      <textarea name="faq" rows="18" placeholder="## 1. Keo chà ron Bricon có bao nhiêu màu?&#10;Keo chà ron Bricon có sẵn 30 màu...&#10;&#10;## 2. Hạn bảo hành sản phẩm bao lâu?&#10;5 năm kể từ ngày sản xuất...">{{ faq }}</textarea>
+      <p class="ai-goi-y">Mỗi câu hỏi bắt đầu bằng 1 dòng <code>## Câu hỏi…</code>, câu trả lời ở các dòng bên dưới.</p>
+    </div>
+    <button class="nut" type="submit">Lưu FAQ</button>
+  </form>
+</div>
+
+{# ================================= CHỨC VỤ ================================== #}
+{% elif muc == "chuc_vu" %}
+<p class="ai-mo-ta">{{ mo_ta_muc }}</p>
+
+<details class="ai-them">
+  <summary><span class="ai-them-nhan">+ Thêm chức vụ</span></summary>
+  <div class="the">
+    <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data">
+      <div class="o-nhap"><label>Tên chức vụ</label>
+        <input type="text" name="ten" required placeholder="VD: Nhân viên kinh doanh"></div>
+      <div class="o-nhap"><label>Mô tả (công việc, lương, chế độ riêng)</label>
+        <textarea name="mo_ta" rows="8" placeholder="VD: Lương cứng 6 triệu + hoa hồng 2% doanh số. Nhiệm vụ: tìm khách hàng mới, chăm sóc đại lý..."></textarea></div>
+      <div class="o-nhap"><label>Ảnh minh hoạ (lộ trình, sơ đồ…) — không bắt buộc</label>
+        <input type="file" name="anh" accept="image/*"></div>
+      <button class="nut" type="submit">Lưu chức vụ</button>
+    </form>
+  </div>
+</details>
+
+<div class="ai-hang-tieu-de"><h2>Danh sách chức vụ <span class="dem">{{ ds_chuc_vu|length }}</span></h2></div>
 
 {% for cv in ds_chuc_vu %}
-<details class="the">
-  <summary style="cursor:pointer"><strong>{{ cv.ten }}</strong></summary>
-  <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data" style="margin-top:14px">
-    <input type="hidden" name="id" value="{{ cv.id }}">
-    <div class="o-nhap"><label>Tên chức vụ</label><input name="ten" value="{{ cv.ten }}" required></div>
-    <div class="o-nhap"><label>Mô tả</label><textarea name="mo_ta" rows="6">{{ cv.mo_ta or '' }}</textarea></div>
-    {% if cv.anh %}
-    <div class="o-nhap"><label>Ảnh hiện tại</label>
-      <img src="{{ url_for('media', duong_dan=cv.anh) }}" alt="{{ cv.ten }}" style="max-width:260px;border-radius:var(--bk-n);display:block"></div>
-    {% endif %}
-    <div class="o-nhap"><label>{{ 'Đổi ảnh khác' if cv.anh else 'Ảnh minh hoạ' }} (không bắt buộc)</label>
-      <input type="file" name="anh" accept="image/*"></div>
-    <button class="nut nut--nho" type="submit">Lưu</button>
-  </form>
-  <form method="post" action="{{ url_for('admin.xoa_chuc_vu', cvid=cv.id) }}" style="margin-top:10px"
-        onsubmit="return confirm('Xoá chức vụ {{ cv.ten }}?')">
-    <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá chức vụ</button>
-  </form>
+<details class="the ai-muc">
+  <summary>
+    <strong>{{ cv.ten }}</strong>
+    {% if cv.anh %}<span class="dem">có ảnh</span>{% endif %}
+    <span class="ai-tom-tat">{{ (cv.mo_ta or 'Chưa có mô tả')|truncate(90) }}</span>
+  </summary>
+  <div class="ai-muc-than">
+    <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data">
+      <input type="hidden" name="id" value="{{ cv.id }}">
+      <div class="o-nhap"><label>Tên chức vụ</label><input type="text" name="ten" value="{{ cv.ten }}" required></div>
+      <div class="o-nhap"><label>Mô tả</label><textarea name="mo_ta" rows="8">{{ cv.mo_ta or '' }}</textarea></div>
+      {% if cv.anh %}
+      <div class="o-nhap"><label>Ảnh hiện tại</label>
+        <a href="{{ url_for('media', duong_dan=cv.anh) }}" target="_blank" rel="noopener">
+          <img src="{{ url_for('media', duong_dan=cv.anh) }}" alt="{{ cv.ten }}" style="max-width:220px;border-radius:var(--bk-n);display:block"></a></div>
+      {% endif %}
+      <div class="o-nhap"><label>{{ 'Đổi ảnh khác' if cv.anh else 'Ảnh minh hoạ' }} (không bắt buộc)</label>
+        <input type="file" name="anh" accept="image/*"></div>
+      <button class="nut nut--nho" type="submit">Lưu thay đổi</button>
+    </form>
+    <form method="post" action="{{ url_for('admin.xoa_chuc_vu', cvid=cv.id) }}" style="margin-top:8px"
+          onsubmit="return confirm('Xoá chức vụ {{ cv.ten|e }}?')">
+      <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá chức vụ</button>
+    </form>
+  </div>
 </details>
 {% else %}
-<div class="trong"><strong>Chưa có chức vụ nào</strong>Thêm chức vụ đầu tiên ở khối bên trên.</div>
+<div class="trong"><strong>Chưa có chức vụ nào</strong>Bấm “+ Thêm chức vụ” ở trên để thêm chức vụ đầu tiên.</div>
 {% endfor %}
+{% endif %}
 {% endblock %}

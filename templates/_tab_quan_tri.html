@@ -1,0 +1,12 @@
+{# Thanh tab trong trang Quản trị — CHỈ hiện các tab thuộc cùng nhóm với
+   trang đang mở (Nhân sự / Cấu hình chấm công / Trợ lý AI / Hệ thống), thay
+   vì dồn cả 8 tab vào 1 hàng. Danh sách nhóm định nghĩa ở app.py
+   (NHOM_QUAN_TRI). #}
+{% set nhom = nhom_quan_tri_hien_tai() %}
+{% if nhom %}
+<div class="tab-quan-tri">
+  {% for ep, nhan in nhom.tab %}
+  <a class="tab-quan-tri-nut {{ 'active' if request.endpoint == ep }}" href="{{ url_for(ep) }}">{{ nhan }}</a>
+  {% endfor %}
+</div>
+{% endif %}
