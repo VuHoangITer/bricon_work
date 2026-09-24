@@ -33,7 +33,7 @@
       <tr>
         <td>{{ dx.ten_loai }}</td>
         <td>{{ dx.nguoi_de_xuat.ho_ten }}</td>
-        <td style="max-width:320px;white-space:pre-wrap">{{ dx.noi_dung }}</td>
+        <td style="max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere">{{ dx.noi_dung|van_ban_link }}</td>
         <td>{{ dx.tao_luc.strftime('%H:%M %d/%m') }}</td>
         <td><a href="{{ url_for('de_xuat.chi_tiet', id=dx.id) }}" class="nut nut--nho nut--phu">Xem & duyệt</a></td>
       </tr>
@@ -53,7 +53,7 @@
       <tr onclick="location.href='{{ url_for('de_xuat.chi_tiet', id=dx.id) }}'" style="cursor:pointer">
         <td>{{ dx.ten_loai }}</td>
         <td>{{ dx.nguoi_de_xuat.ho_ten }}</td>
-        <td style="max-width:320px;white-space:pre-wrap">{{ dx.noi_dung }}</td>
+        <td style="max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere">{{ dx.noi_dung|van_ban_link }}</td>
         <td>{{ dx.tao_luc.strftime('%H:%M %d/%m') }}</td>
         <td><span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span></td>
       </tr>
@@ -71,7 +71,7 @@
     {% for dx in cua_toi %}
       <tr onclick="location.href='{{ url_for('de_xuat.chi_tiet', id=dx.id) }}'" style="cursor:pointer">
         <td>{{ dx.ten_loai }}</td>
-        <td style="max-width:320px;white-space:pre-wrap">{{ dx.noi_dung }}</td>
+        <td style="max-width:320px;white-space:pre-wrap;overflow-wrap:anywhere">{{ dx.noi_dung|van_ban_link }}</td>
         <td>{{ dx.tao_luc.strftime('%H:%M %d/%m/%Y') }}</td>
         <td><span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span></td>
       </tr>

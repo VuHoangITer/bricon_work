@@ -30,7 +30,7 @@
 <div class="the">
   <div class="dong-tt"><span>Người đề xuất</span><span>{{ dx.nguoi_de_xuat.ho_ten }}</span></div>
   <div class="dong-tt"><span>Thời gian đề xuất</span><span>{{ dx.tao_luc.strftime('%H:%M %d/%m/%Y') }}</span></div>
-  <div class="dong-tt" style="align-items:flex-start"><span>Nội dung</span><span style="white-space:pre-wrap;text-align:right">{{ dx.noi_dung }}</span></div>
+  <div class="dong-tt" style="align-items:flex-start"><span>Nội dung</span><span style="white-space:pre-wrap;text-align:right;overflow-wrap:anywhere;min-width:0">{{ dx.noi_dung|van_ban_link }}</span></div>
   {% if dx.chi_phi_du_kien is not none %}
   <div class="dong-tt"><span>Chi phí dự kiến</span><span>{{ "{:,}".format(dx.chi_phi_du_kien|int).replace(",", ".") }} đ</span></div>
   {% endif %}
@@ -39,7 +39,7 @@
   {% if dx.trang_thai != 'cho_duyet' %}
   <div class="dong-tt"><span>Người duyệt</span><span>{{ dx.nguoi_duyet.ho_ten if dx.nguoi_duyet else '—' }}</span></div>
   <div class="dong-tt"><span>Thời gian duyệt</span><span>{{ dx.duyet_luc.strftime('%H:%M %d/%m/%Y') if dx.duyet_luc else '—' }}</span></div>
-  <div class="dong-tt" style="align-items:flex-start"><span>Ý kiến</span><span style="white-space:pre-wrap;text-align:right">{{ dx.y_kien_duyet or '—' }}</span></div>
+  <div class="dong-tt" style="align-items:flex-start"><span>Ý kiến</span><span style="white-space:pre-wrap;text-align:right;overflow-wrap:anywhere;min-width:0">{{ (dx.y_kien_duyet or '—')|van_ban_link }}</span></div>
   {% endif %}
 </div>
 

@@ -175,6 +175,16 @@ def bao_tu_choi_xin_nghi(xn: "XinNghi", nguoi_xoa: NguoiDung):
     gui_cho_nhan_vien(xn.nguoi_dung, nd)
 
 
+def _pdf_txt(s) -> str:
+    """Chuẩn hoá văn bản NGƯỜI DÙNG GÕ trước khi đưa vào Paragraph của
+    reportlab: reportlab đọc chuỗi như XML, nên ký tự &, <, > (rất hay gặp
+    trong link, VD "?a=1&b=2") làm hỏng việc tạo PDF -> phải escape; xuống
+    dòng đổi thành <br/>. Link dài không dấu cách vẫn tự ngắt dòng nhờ
+    splitLongWords mặc định của reportlab."""
+    from xml.sax.saxutils import escape
+    return escape(str(s or "")).replace("\n", "<br/>")
+
+
 def _dang_ky_font_unicode():
     """Đăng ký font DejaVu Sans (có dấu tiếng Việt) cho reportlab — chỉ cần
     làm 1 lần. Font mặc định của reportlab (Helvetica...) không có dấu
@@ -332,7 +342,7 @@ def tao_pdf_don_xin_nghi(nguoi_dung: NguoiDung, ngay_dau: date, ngay_cuoi: date,
         khoang_ngay = f"từ ngày {ngay_dau:%d/%m/%Y} đến ngày {ngay_cuoi:%d/%m/%Y}"
     noi_dung.append(Paragraph(
         f"Kính đề Ban Giám đốc cho tôi nghỉ phép {so_ngay_hien}, {khoang_ngay}.", kieu_thuong))
-    noi_dung.append(Paragraph(f"<b>Lý do:</b> {ly_do}", kieu_thuong))
+    noi_dung.append(Paragraph(f"<b>Lý do:</b> {_pdf_txt(ly_do)}", kieu_thuong))
 
     if ban_giao_cho:
         chuc_vu_bgc = f" ({ban_giao_cho.chuc_vu.ten})" if ban_giao_cho.chuc_vu else ""
@@ -530,7 +540,7 @@ def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
 
     # ------------------------------------------------ nội dung đề xuất
     noi_dung_pdf.append(Paragraph("NỘI DUNG ĐỀ XUẤT", kieu_de_muc))
-    noi_dung_pdf.append(Paragraph(dx.noi_dung.replace("\n", "<br/>"), kieu_thuong))
+    noi_dung_pdf.append(Paragraph(_pdf_txt(dx.noi_dung), kieu_thuong))
     if dx.chi_phi_du_kien is not None:
         noi_dung_pdf.append(Paragraph(
             f"<b>Chi phí dự kiến:</b> {int(dx.chi_phi_du_kien):,} đ".replace(",", "."), kieu_thuong))
@@ -553,7 +563,7 @@ def tao_pdf_de_xuat(dx: "DeXuat") -> bytes:
     kieu_tt_tieu_de = ParagraphStyle("tt_tieu_de", fontName="DejaVu-Bold", fontSize=10, textColor=o_chu)
     kieu_tt_nd = ParagraphStyle("tt_nd", fontName="DejaVu", fontSize=10, textColor=DEN, leading=14)
     o_y_kien = Table([[
-        [Paragraph(dong_trang_thai, kieu_tt_tieu_de), Spacer(1, 4), Paragraph(dong_noi_dung, kieu_tt_nd)]
+        [Paragraph(dong_trang_thai, kieu_tt_tieu_de), Spacer(1, 4), Paragraph(_pdf_txt(dong_noi_dung), kieu_tt_nd)]
     ]], colWidths=[rong_trang])
     o_y_kien.setStyle(TableStyle([
         ("BOX", (0, 0), (0, 0), 0.75, o_chu),

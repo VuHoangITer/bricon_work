@@ -261,6 +261,31 @@ def create_app(config_class=Config):
             "hom_nay": ngay_vn_hien_tai(),
         }
 
+    @app.template_filter("van_ban_link")
+    def f_van_ban_link(van_ban):
+        """Hiện văn bản người dùng gõ (nội dung đề xuất, ý kiến…): escape an
+        toàn + biến link thành thẻ <a> rút gọn (VD "shopee.vn/product/78…")
+        — link dài hàng trăm ký tự không dấu cách từng làm tràn cả trang."""
+        import re as _re
+        from markupsafe import Markup, escape
+
+        def _thay(m):
+            url = m.group(0)
+            ngan = _re.sub(r"^https?://(www\.)?", "", url)
+            if len(ngan) > 40:
+                ngan = ngan[:38] + "…"
+            return (f'<a href="{escape(url)}" target="_blank" rel="noopener noreferrer" '
+                    f'title="{escape(url)}" style="color:var(--chinh-dam);text-decoration:underline;'
+                    f'word-break:break-all">🔗 {escape(ngan)}</a>')
+
+        phan, cuoi = [], 0
+        for m in _re.finditer(r"https?://[^\s<>\"']+", van_ban or ""):
+            phan.append(str(escape(van_ban[cuoi:m.start()])))
+            phan.append(_thay(m))
+            cuoi = m.end()
+        phan.append(str(escape((van_ban or "")[cuoi:])))
+        return Markup("".join(phan))
+
     @app.template_filter("gio")
     def f_gio(dt):
         return dt.strftime("%H:%M %d/%m/%Y") if dt else "—"
