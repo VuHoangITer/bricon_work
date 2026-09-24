@@ -324,6 +324,21 @@ def create_app(config_class=Config):
         so_viec, so_ghi_chu = services.tach_ghi_chu_nop_cu()
         click.echo(f"Đã xử lý {so_viec} công việc, tách {so_ghi_chu} ghi chú.")
 
+    @app.cli.command("sua-tre-0-phut")
+    def sua_tre_0_phut():
+        """Chạy 1 LẦN (thủ công) sau khi deploy bản sửa tính trễ theo phút:
+        vá các bản ghi cũ bị "Trễ 0′" (chấm trong đúng phút mốc, VD 08:05:xx)
+        thành đúng giờ, và "Về sớm 0′" (ra trong phút ngay trước mốc, VD
+        17:29:xx) thành về sớm 1 phút — khớp quy tắc mới. Chạy lại nhiều lần
+        vẫn an toàn."""
+        from models import ChamCong
+        so_tre = ChamCong.query.filter_by(di_tre=True, so_phut_tre=0).update(
+            {"di_tre": False}, synchronize_session=False)
+        so_som = ChamCong.query.filter_by(ve_som=True, so_phut_som=0).update(
+            {"so_phut_som": 1}, synchronize_session=False)
+        db.session.commit()
+        click.echo(f"Đã sửa {so_tre} bản ghi 'Trễ 0′' và {so_som} bản ghi 'Về sớm 0′'.")
+
     @app.cli.command("don-dep-log-zalo")
     def don_dep_log_zalo():
         """Chạy bằng cron lúc 00:05 mỗi ngày trên Ubuntu VPS: xoá sạch log

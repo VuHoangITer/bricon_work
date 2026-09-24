@@ -244,8 +244,8 @@ def ai_tom_tat_mo_ta(noi_dung_tho: str) -> tuple[str | None, str | None]:
 # ---------------------------------------------------------------------------
 _HUONG_DAN_HE_THONG_TRO_LY = (
     "Bạn là trợ lý ảo của BRICON WORK — phần mềm nội bộ quản lý giao việc, "
-    "chấm công, KPI, xin nghỉ phép, thông báo nội bộ và đề xuất (tạm ứng/"
-    "công việc) của công ty BRICON. Trả lời tiếng Việt, ngắn gọn, thân "
+    "chấm công, KPI, xin nghỉ phép, thông báo nội bộ, đề xuất (tạm ứng/"
+    "công việc) và đóng gói đơn hàng của công ty BRICON. Trả lời tiếng Việt, ngắn gọn, thân "
     "thiện, đúng trọng tâm.\n\n"
 
     "ĐỊNH DẠNG tra_loi: nếu câu trả lời có từ 2 ý/mục trở lên (VD: liệt kê "
@@ -278,7 +278,13 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "tệp), kết quả báo lại qua Zalo. Sếp/Quản trị không cần gửi đề xuất.\n"
     "- Xem/gửi thông báo nội bộ: menu Thông báo — chỉ Sếp/Quản lý mới gửi "
     "được thông báo tới nhân viên, mọi người đều xem được thông báo đã "
-    "gửi.\n\n"
+    "gửi.\n"
+    "- Đóng gói đơn hàng: menu Đóng gói → quét mã vận đơn bằng camera (hoặc "
+    "gõ tay) → chụp ảnh kiện hàng đã gói (được nhiều ảnh) → Lưu, hệ thống "
+    "ghi nhận người gói và gửi ảnh vào nhóm Zalo quản lý. Tra cứu ai gói đơn "
+    "nào: trang Đóng gói → gõ mã vận đơn. Mọi câu hỏi về dữ liệu đóng gói "
+    "(đơn nào đã gói, ai gói, hôm nay gói bao nhiêu đơn...) → gọi tool "
+    "tra_cuu_dong_goi.\n\n"
 
     "DỮ LIỆU: chỉ dùng đúng dữ liệu thật cung cấp bên dưới cho số liệu/tên "
     "việc/lịch sử cụ thể — không bịa. Nếu có công cụ (tool/function) phù hợp "
@@ -332,11 +338,15 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "- \"/de-xuat/\" — trang đề xuất (danh sách của mình, cần duyệt, lịch sử)\n"
     "- \"/de-xuat/moi/tam_ung\" — gửi đề xuất tạm ứng mới\n"
     "- \"/de-xuat/moi/cong_viec\" — gửi đề xuất công việc mới\n"
+    "- \"/dong-goi/\" — lịch sử + tra cứu đóng gói theo mã vận đơn\n"
+    "- \"/dong-goi/moi\" — ghi nhận đóng gói mới (quét mã + chụp ảnh)\n"
     "Nếu câu hỏi không cần gợi ý bấm đi đâu (VD: chỉ hỏi thông tin chung, "
     "chào hỏi), để duong_dan và nhan_nut là null.\n\n"
 
     "MEDIA: dữ liệu bên dưới có thể kèm theo các đoạn dạng [media:đường-dẫn] "
-    "ngay sau 1 việc hoặc 1 chức vụ có đối chứng/ảnh minh hoạ. Người hỏi "
+    "ngay sau 1 việc hoặc 1 chức vụ có đối chứng/ảnh minh hoạ; kết quả tool "
+    "tra_cuu_dong_goi cũng có trường 'anh' chứa đường dẫn ảnh kiện hàng — "
+    "dùng y hệt như [media:...]. Người hỏi "
     "muốn XEM/HIỆN 1 ảnh/video/ghi âm cụ thể và có đúng 1 đoạn [media:...] "
     "liên quan trong dữ liệu → COPY Y NGUYÊN chuỗi đường dẫn đó (không kèm "
     "chữ \"media:\" hay dấu ngoặc) vào trường media. Đây CHỈ là chọn 1 đường "
@@ -434,13 +444,21 @@ def _kiem_tra_media_hop_le(nd: NguoiDung, duong_dan: str) -> str | None:
     quyền xem việc đó, hoặc khớp ảnh minh hoạ 1 Chức vụ (ai xem cũng được).
     Không bao giờ tin thẳng đường dẫn do AI đưa ra — luôn xác minh lại ở
     đây trước khi trả về cho trình duyệt."""
-    from models import ChucVu, DinhKem
+    from models import AnhGoiHang, AnhSanPhamAI, ChucVu, DinhKem
     dk = DinhKem.query.filter_by(duong_dan=duong_dan).first()
     if dk:
         return duong_dan if nd.duoc_xem_viec(dk.cong_viec) else None
     cv = ChucVu.query.filter_by(anh=duong_dan).first()
     if cv:
         return duong_dan
+    # Ảnh sản phẩm — thông tin chung công ty, ai đăng nhập cũng xem được
+    # (cùng quy tắc với route /media).
+    if AnhSanPhamAI.query.filter_by(duong_dan=duong_dan).first():
+        return duong_dan
+    # Ảnh đóng gói — người gói hoặc Quản lý trở lên (cùng quy tắc /media).
+    agh = AnhGoiHang.query.filter_by(duong_dan=duong_dan).first()
+    if agh:
+        return duong_dan if (agh.goi_hang.nguoi_goi_id == nd.id or nd.la_quan_ly) else None
     return None
 
 
@@ -1002,7 +1020,99 @@ def _tra_cuu_de_xuat_cho_ai(nd: NguoiDung, trang_thai: str | None = None,
     }
 
 
-_CAC_HAM_CONG_CU = {"tra_cuu_de_xuat": _tra_cuu_de_xuat_cho_ai}
+_CONG_CU_TRO_LY.append({
+    "type": "function",
+    "function": {
+        "name": "tra_cuu_dong_goi",
+        "description": (
+            "Tra cứu lịch sử ĐÓNG GÓI đơn hàng (mã vận đơn, ai gói, lúc nào, ảnh "
+            "kiện hàng) trong ĐÚNG phạm vi người đang hỏi được xem — tự giới hạn "
+            "theo quyền (nhân viên thường chỉ thấy đơn chính mình gói; Quản lý/"
+            "Sếp/Admin thấy toàn bộ). GỌI tool này cho MỌI câu hỏi về đóng gói/"
+            "gói hàng/đơn hàng/mã vận đơn/ai gói đơn nào — dữ liệu này KHÔNG có "
+            "sẵn trong system prompt. Kết quả có trường 'anh' là danh sách đường "
+            "dẫn ảnh — muốn hiện ảnh thì copy y nguyên 1 đường dẫn vào trường media."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ma_van_don": {
+                    "type": "string",
+                    "description": "Mã vận đơn (hoặc 1 phần mã) cần tìm. Bỏ qua nếu không lọc theo mã.",
+                },
+                "ten_nguoi_goi": {
+                    "type": "string",
+                    "description": "Tên (hoặc 1 phần tên) người gói. Bỏ qua nếu không lọc theo người.",
+                },
+                "tu_ngay": {
+                    "type": "string",
+                    "description": "Lọc từ ngày, dạng YYYY-MM-DD (tính theo giờ Việt Nam). VD hỏi 'hôm nay' thì tu_ngay = den_ngay = ngày hôm nay.",
+                },
+                "den_ngay": {
+                    "type": "string",
+                    "description": "Lọc tới hết ngày này, dạng YYYY-MM-DD.",
+                },
+            },
+        },
+    },
+})
+
+
+def _tra_cuu_dong_goi_cho_ai(nd: NguoiDung, ma_van_don: str | None = None,
+                             ten_nguoi_goi: str | None = None, tu_ngay: str | None = None,
+                             den_ngay: str | None = None, **_bo_qua) -> dict:
+    """Hàm THẬT được thực thi khi OpenAI gọi tool 'tra_cuu_dong_goi'. Phân
+    quyền GIỐNG HỆT views/dong_goi.py danh_sach(): không phải quản lý thì
+    chỉ thấy đơn chính mình gói — tool không nhận tham số phạm vi nên AI
+    không thể tự mở rộng ra ngoài quyền của nd."""
+    from datetime import date
+    from models import GoiHang
+
+    q = GoiHang.query.join(NguoiDung, GoiHang.nguoi_goi_id == NguoiDung.id)
+    if not nd.la_quan_ly:
+        q = q.filter(GoiHang.nguoi_goi_id == nd.id)
+    if ma_van_don and str(ma_van_don).strip():
+        q = q.filter(GoiHang.ma_van_don.ilike(f"%{str(ma_van_don).strip()}%"))
+    if ten_nguoi_goi and str(ten_nguoi_goi).strip() and nd.la_quan_ly:
+        q = q.filter(NguoiDung.ho_ten.ilike(f"%{str(ten_nguoi_goi).strip()}%"))
+
+    def _doc_ngay(s):
+        try:
+            return date.fromisoformat(str(s).strip()[:10]) if s else None
+        except ValueError:
+            return None
+
+    d_tu, d_den = _doc_ngay(tu_ngay), _doc_ngay(den_ngay)
+    if d_tu:
+        q = q.filter(GoiHang.tao_luc >= datetime.combine(d_tu, datetime.min.time()))
+    if d_den:
+        q = q.filter(GoiHang.tao_luc <= datetime.combine(d_den, datetime.max.time()))
+
+    tong = q.count()
+    ds = q.order_by(GoiHang.tao_luc.desc()).limit(30).all()
+    return {
+        "tong_so_khop": tong,
+        "so_tra_ve": len(ds),
+        "luu_y": ("Chỉ trả tối đa 30 lần gói mới nhất. Cùng 1 mã có thể gói nhiều "
+                  "lần (gói lại/gói bù) — bản MỚI NHẤT là lần gửi đi thực tế."),
+        "pham_vi": "toàn công ty" if nd.la_quan_ly else "chỉ đơn do chính người đang hỏi gói",
+        "danh_sach": [
+            {
+                "ma_van_don": gh.ma_van_don,
+                "nguoi_goi": gh.nguoi_goi.ho_ten if gh.nguoi_goi else None,
+                "luc": gh.tao_luc.strftime("%H:%M %d/%m/%Y") if gh.tao_luc else None,
+                "so_anh": len(gh.anh),
+                "anh": [a.duong_dan for a in gh.anh[:3]],
+            }
+            for gh in ds
+        ],
+    }
+
+
+_CAC_HAM_CONG_CU = {
+    "tra_cuu_de_xuat": _tra_cuu_de_xuat_cho_ai,
+    "tra_cuu_dong_goi": _tra_cuu_dong_goi_cho_ai,
+}
 _SO_VONG_GOI_TOOL_TOI_DA = 3  # chặn lặp vô hạn nếu model cứ đòi gọi tool mãi
 
 

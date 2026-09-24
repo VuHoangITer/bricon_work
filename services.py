@@ -1541,8 +1541,12 @@ def trung_toa_do_dang_ngo(nguoi_dung_id: int, lat: float, lng: float, so_ngay: i
 
 def tinh_di_tre(gio: datetime, gio_chuan: tuple[int, int] | None = None,
                 phut_tre_cho_phep: int | None = None) -> tuple[bool, int]:
+    """So trễ theo PHÚT (bỏ giây) — đúng như giờ HH:MM hiển thị cho người
+    dùng. Trước đây so cả giây nên chấm 08:05:30 (hiện là 08:05) vẫn bị
+    tính "trễ 0 phút" so với mốc 08:05:00, vô lý với người xem."""
+    gio = gio.replace(second=0, microsecond=0)
     h, m = gio_chuan or current_app.config["GIO_VAO"]
-    chuan = gio.replace(hour=h, minute=m, second=0, microsecond=0)
+    chuan = gio.replace(hour=h, minute=m)
     phut = (phut_tre_cho_phep if phut_tre_cho_phep is not None
            else current_app.config["PHUT_TRE_CHO_PHEP"])
     han_mem = chuan + timedelta(minutes=phut)
@@ -1552,8 +1556,11 @@ def tinh_di_tre(gio: datetime, gio_chuan: tuple[int, int] | None = None,
 
 
 def tinh_ve_som(gio: datetime, gio_chuan: tuple[int, int] | None = None) -> tuple[bool, int]:
+    """So về sớm theo PHÚT (bỏ giây), cùng quy tắc với tinh_di_tre — tránh
+    trường hợp "về sớm 0 phút" (VD ra lúc 17:29:40, hiện là 17:29)."""
+    gio = gio.replace(second=0, microsecond=0)
     h, m = gio_chuan or current_app.config["GIO_RA"]
-    chuan = gio.replace(hour=h, minute=m, second=0, microsecond=0)
+    chuan = gio.replace(hour=h, minute=m)
     if gio >= chuan:
         return False, 0
     return True, int((chuan - gio).total_seconds() // 60)
