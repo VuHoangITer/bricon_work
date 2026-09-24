@@ -480,7 +480,8 @@ def create_app(config_class=Config):
 
     @app.cli.command("bao-cao-sang")
     def bao_cao_sang():
-        """Chạy bằng cron lúc 08:10: báo cáo nhanh đầu ngày vào nhóm QL."""
+        """Chạy bằng cron lúc 08:10 (sau mốc giờ vào 08:05): báo cáo nhanh đầu
+        ngày vào nhóm QL."""
         import services
         if services.la_hom_nay_nghi():
             click.echo("Ngày nghỉ (Chủ nhật/lễ), bỏ qua — không gửi báo cáo sáng hôm nay.")
