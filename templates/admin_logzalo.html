@@ -9,7 +9,7 @@
 {% include "_tab_quan_tri.html" %}
 
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the">
     <thead><tr><th>Lúc</th><th>Chat id</th><th>Kết quả</th><th>Nội dung</th></tr></thead>
     <tbody>
     {% for l in ds %}
@@ -18,7 +18,7 @@
         <td style="font-family:ui-monospace,monospace;font-size:.78rem">{{ l.chat_id or '—' }}</td>
         <td><span class="nhan" data-tt="{{ 'hoan_thanh' if l.thanh_cong else 'lam_lai' }}">
           {{ 'OK' if l.thanh_cong else 'Lỗi' }}</span></td>
-        <td style="white-space:normal;max-width:340px">
+        <td class="o-rong" style="white-space:normal;max-width:340px">
           {{ (l.noi_dung or '')|truncate(90) }}
           {% if not l.thanh_cong %}
           <div style="color:var(--lam-lai);font-size:.76rem">{{ (l.phan_hoi or '')|truncate(120) }}</div>

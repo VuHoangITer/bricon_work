@@ -35,15 +35,15 @@
 
 <div class="tieu-khu"><h2>Ngày lễ đã khai báo</h2><span class="dem">{{ ds|length }}</span></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the">
     <thead><tr><th>Ngày</th><th>Thứ</th><th>Tên</th><th></th></tr></thead>
     <tbody>
     {% for nnl in ds %}
       <tr>
         <td>{{ nnl.ngay.strftime('%d/%m/%Y') }}</td>
         <td>{{ ['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ nhật'][nnl.ngay.weekday()] }}</td>
-        <td>{{ nnl.ten }}</td>
-        <td style="text-align:right">
+        <td class="o-rong">{{ nnl.ten }}</td>
+        <td class="o-hanh-dong" style="text-align:right">
           <form method="post" action="{{ url_for('admin.xoa_ngay_nghi', id=nnl.id) }}"
                 onsubmit="return confirm('Xoá ngày nghỉ {{ nnl.ten }} ({{ nnl.ngay.strftime('%d/%m/%Y') }})? Sau khi xoá, ngày này lại tính là ngày làm việc bình thường.')">
             <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá</button>

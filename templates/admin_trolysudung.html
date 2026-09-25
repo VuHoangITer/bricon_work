@@ -10,15 +10,15 @@
 
 {% include "_tab_quan_tri.html" %}
 
-<form class="the" method="get" style="display:flex;gap:8px">
-  <input type="month" name="thang" value="{{ thang }}">
+<form class="the" method="get" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px">
+  <input type="month" name="thang" value="{{ thang }}" style="width:100%;min-width:0">
   <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Xem</button>
   <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('admin.xuat_tro_ly_su_dung', thang=thang) }}">⬇ Xuất Excel</a>
 </form>
 
 <div class="tieu-khu"><h2>Hôm nay</h2></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the">
     <thead><tr><th>Nhân viên</th><th>Vai trò</th><th class="so">Câu hỏi hôm nay</th><th class="so">Token hôm nay</th><th>Trạng thái</th></tr></thead>
     <tbody>
     {% for s in su_dung_hom_nay %}
@@ -26,7 +26,7 @@
       {% set het_cau_hoi = bi_gioi_han and gh_cau_hoi > 0 and s.so_cau_hoi >= gh_cau_hoi %}
       {% set het_token = bi_gioi_han and gh_token > 0 and s.so_token >= gh_token %}
       <tr>
-        <td>{{ s.nguoi_dung.ho_ten }} <span style="color:var(--muc-mo);font-size:.8rem">({{ s.nguoi_dung.ma_dinh_danh }})</span></td>
+        <td class="o-tieu-de">{{ s.nguoi_dung.ho_ten }} <span style="color:var(--muc-mo);font-size:.8rem">({{ s.nguoi_dung.ma_dinh_danh }})</span></td>
         <td>{{ s.nguoi_dung.ten_vai_tro }}</td>
         <td class="so">{{ s.so_cau_hoi }}{% if bi_gioi_han and gh_cau_hoi > 0 %} / {{ gh_cau_hoi }}{% endif %}</td>
         <td class="so">{{ s.so_token }}{% if bi_gioi_han and gh_token > 0 %} / {{ gh_token }}{% endif %}</td>
@@ -45,12 +45,12 @@
 
 <div class="tieu-khu"><h2>Tổng hợp tháng {{ thang }}</h2></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the bang-the--3">
     <thead><tr><th>Nhân viên</th><th>Vai trò</th><th class="so">Tổng câu hỏi</th><th class="so">Tổng token</th></tr></thead>
     <tbody>
     {% for o in tong %}
       <tr>
-        <td>{{ o.ho_ten }} <span style="color:var(--muc-mo);font-size:.8rem">({{ o.ma }})</span></td>
+        <td class="o-tieu-de">{{ o.ho_ten }} <span style="color:var(--muc-mo);font-size:.8rem">({{ o.ma }})</span></td>
         <td>{{ o.vai_tro }}</td>
         <td class="so">{{ o.so_cau_hoi }}</td>
         <td class="so">{{ o.so_token }}</td>
@@ -64,13 +64,12 @@
 
 <div class="tieu-khu"><h2>Chi tiết theo ngày</h2></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
-    <thead><tr><th>Ngày</th><th>Nhân viên</th><th class="so">Câu hỏi</th><th class="so">Token</th></tr></thead>
+  <table class="bang-the bang-the--3">
+    <thead><tr><th>Nhân viên · Ngày</th><th class="so">Câu hỏi</th><th class="so">Token</th></tr></thead>
     <tbody>
     {% for s in chi_tiet %}
       <tr>
-        <td>{{ s.ngay.strftime('%d/%m/%Y') }}</td>
-        <td>{{ s.nguoi_dung.ho_ten }}</td>
+        <td class="o-tieu-de">{{ s.nguoi_dung.ho_ten }} <span style="font-weight:500;color:var(--muc-nhat)">· {{ s.ngay.strftime('%d/%m/%Y') }}</span></td>
         <td class="so">{{ s.so_cau_hoi }}</td>
         <td class="so">{{ s.so_token }}</td>
       </tr>

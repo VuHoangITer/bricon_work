@@ -7,7 +7,7 @@
   .nv-bang td { vertical-align:middle; }
   .nv-bang tr.nv-dong { cursor:pointer; }
   .nv-bang tr.nv-dong:hover td { background:var(--chinh-nhat, #f6efdf); }
-  .nv-bang tr.nv-nhom td { background:#faf9f6; font-weight:700; font-size:.78rem; color:var(--chinh-dam);
+  .nv-bang tr.nv-nhom td { grid-column:1 / -1; background:#faf9f6; font-weight:700; font-size:.78rem; color:var(--chinh-dam);
     text-transform:uppercase; letter-spacing:.04em; padding-top:14px; }
   .nv-ten { display:flex; align-items:center; gap:10px; min-width:190px; }
   .nv-ten strong { display:block; font-size:.88rem; }
@@ -102,7 +102,7 @@
 
 {% if nhom_nhan_vien %}
 <div class="the the--khong-dem bang-cuon">
-  <table class="nv-bang">
+  <table class="nv-bang bang-the bang-the--3">
     <thead><tr>
       <th>Nhân viên</th><th>Chức vụ</th><th>Vai trò</th><th>Ngày vào làm</th><th>Sinh nhật</th>
       <th title="Hợp đồng · Bàn giao · Cam kết">Giấy tờ</th><th>Zalo</th>
@@ -112,7 +112,7 @@
       <tr class="nv-nhom"><td colspan="7">{{ ten_bo_phan }} · {{ ds_nhom|length }}</td></tr>
       {% for n in ds_nhom %}
       <tr class="nv-dong{{ ' nv-mo' if not n.dang_hoat_dong }}" onclick="location.href='{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}'">
-        <td><div class="nv-ten">
+        <td class="o-tieu-de"><div class="nv-ten">
           {{ avatar(n) }}
           <span><strong>{{ n.ho_ten }}</strong><small>{{ n.ma_dinh_danh }}{% if not n.dang_hoat_dong %} · đã nghỉ{% endif %}</small></span>
         </div></td>

@@ -12,14 +12,14 @@
   <button class="nut" type="submit" style="flex:0 0 auto">Thêm</button>
 </form>
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the">
     <thead><tr><th>Bộ phận</th><th class="so">Số nhân viên</th><th></th></tr></thead>
     <tbody>
     {% for b in ds %}
       <tr>
-        <td>{{ b.ten }}</td>
+        <td class="o-tieu-de">{{ b.ten }}</td>
         <td class="so">{{ b.nhan_vien|length }}</td>
-        <td style="text-align:right">
+        <td class="o-hanh-dong" style="text-align:right">
           <form method="post" action="{{ url_for('admin.xoa_bo_phan', bo_phan_id=b.id) }}"
                 onsubmit="return confirm('Xoá bộ phận {{ b.ten }}?')">
             <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá</button>

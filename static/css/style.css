@@ -521,7 +521,11 @@ details.the[open] > summary::after { content:"−"; }
   table.bang-the td.o-tieu-de::before { display:none; }
   table.bang-the td.o-rong, table.bang-the td[colspan], table.bang-the td:not([data-nhan]) { grid-column:1 / -1; }
   table.bang-the td:empty { display:none; }
+  table.bang-the td.o-hanh-dong { text-align:left !important; }
   table.bang-the .ghi-nhan { display:flex; }
+  .tab-quan-tri { flex-wrap:wrap; overflow:visible; gap:6px; border-bottom:0; margin-bottom:16px; }
+  .tab-quan-tri-nut { margin:0; padding:7px 12px; border:1px solid var(--vien); border-radius:999px; background:#fff; font-size:.8rem; }
+  .tab-quan-tri-nut.active { background:var(--chinh-nhat); border-color:var(--chinh); color:var(--chinh-dam); }
   .bo-loc { gap:0; }
   .bo-loc-tim { order:-1; }
   .bo-loc-nut { display:inline-flex; }

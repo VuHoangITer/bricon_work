@@ -21,14 +21,14 @@
 </div>
 {% else %}
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the">
     <thead><tr><th>Tên</th><th>Loại</th><th>Chat ID</th></tr></thead>
     <tbody>
     {% for c in ket_qua %}
       <tr>
-        <td>{{ c.ten }}</td>
+        <td class="o-tieu-de">{{ c.ten }}</td>
         <td>{{ c.loai }}</td>
-        <td style="font-family:ui-monospace,monospace">{{ c.chat_id }}</td>
+        <td class="o-rong" style="font-family:ui-monospace,monospace">{{ c.chat_id }}</td>
       </tr>
     {% endfor %}
     </tbody>
