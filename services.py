@@ -2258,6 +2258,16 @@ def xoa_file_ho_so(h) -> None:
         pass
 
 
+def _xoa_file_tuong_doi(duong_dan: str | None) -> None:
+    """Xoá 1 file theo đường dẫn tương đối so với UPLOAD_ROOT (bỏ qua nếu trống/không còn)."""
+    if not duong_dan:
+        return
+    try:
+        os.remove(os.path.join(current_app.config["UPLOAD_ROOT"], *duong_dan.split("/")))
+    except OSError:
+        pass
+
+
 def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
     """Xoá vĩnh viễn 1 nhân viên và TOÀN BỘ dữ liệu gắn với chính họ —
     không thể khôi phục. Chỉ gọi từ route đã tự kiểm tra quyền Admin thuần.
@@ -2294,12 +2304,44 @@ def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
         db.session.delete(cc)
 
     for x in XinNghi.query.filter_by(nguoi_dung_id=nd.id).all():
-        duong_dan = os.path.join(current_app.config["UPLOAD_ROOT"], *x.anh_minh_chung.split("/"))
-        try:
-            os.remove(duong_dan)
-        except OSError:
-            pass
+        _xoa_file_tuong_doi(x.anh_minh_chung)
         db.session.delete(x)
+    # Đơn nghỉ của người KHÁC có bàn giao việc cho người này: gỡ tên.
+    for x in XinNghi.query.filter_by(ban_giao_cho_id=nd.id).all():
+        x.ban_giao_cho_id = None
+
+    from models import DeXuat, DinhKem, DinhKemDeXuat, GoiHang, TroLySuDung
+    # File người này tải lên trong việc của người KHÁC: giữ file, đổi người
+    # tải thành admin (cột không cho để trống).
+    for d in DinhKem.query.filter_by(nguoi_tai_len_id=nd.id).all():
+        d.nguoi_tai_len_id = admin_thuc_hien.id
+
+    # Đề xuất người này GỬI: xoá hẳn kèm PDF, chữ ký, file đính kèm.
+    for dx in DeXuat.query.filter_by(nguoi_de_xuat_id=nd.id).all():
+        for d in dx.dinh_kem:
+            _xoa_file_tuong_doi(d.duong_dan)
+        _xoa_file_tuong_doi(dx.duong_dan_pdf)
+        _xoa_file_tuong_doi(dx.duong_dan_chu_ky_de_xuat)
+        _xoa_file_tuong_doi(dx.duong_dan_chu_ky_duyet)
+        db.session.delete(dx)
+    # Đề xuất người này DUYỆT cho người khác / file họ đính kèm lúc duyệt:
+    # giữ nguyên (PDF đã in chữ ký), chỉ chuyển liên kết sang admin.
+    for dx in DeXuat.query.filter_by(nguoi_duyet_id=nd.id).all():
+        dx.nguoi_duyet_id = admin_thuc_hien.id
+    for d in DinhKemDeXuat.query.filter_by(nguoi_tai_len_id=nd.id).all():
+        d.nguoi_tai_len_id = admin_thuc_hien.id
+
+    # Lịch sử đóng gói của người này: xoá kèm ảnh.
+    for g in GoiHang.query.filter_by(nguoi_goi_id=nd.id).all():
+        for a in g.anh:
+            _xoa_file_tuong_doi(a.duong_dan)
+        db.session.delete(g)
+
+    # Thông báo người này đăng: giữ, chuyển người đăng sang admin.
+    for tb in ThongBao.query.filter_by(nguoi_dang_id=nd.id).all():
+        tb.nguoi_dang_id = admin_thuc_hien.id
+
+    TroLySuDung.query.filter_by(nguoi_dung_id=nd.id).delete(synchronize_session=False)
 
     for lz in LogZalo.query.filter_by(nguoi_dung_id=nd.id).all():
         lz.nguoi_dung_id = None
