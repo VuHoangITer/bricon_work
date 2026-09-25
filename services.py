@@ -757,6 +757,19 @@ def kenh_dong_goi() -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 SO_NGAY_NHAC_DON_SHOPEE = 7      # đơn tạo quá số ngày này thì thôi nhắc
 PHUT_TRAM_MAT_KET_NOI = 15       # quá số phút không nhận nhịp tim -> cảnh báo
+GIO_BAT_DAU_BAO_SHOPEE = "08:00"  # chỉ gửi Zalo đơn Shopee trong giờ làm,
+GIO_KET_THUC_BAO_SHOPEE = "17:30"  # không gửi Chủ nhật / ngày lễ
+
+
+def trong_gio_bao_shopee() -> bool:
+    """True nếu đang trong giờ làm (08:00–17:30) của ngày làm việc. Ngoài
+    giờ / Chủ nhật / lễ: KHÔNG gửi Zalo gì về đơn Shopee (đơn vẫn lưu vào
+    web bình thường) — tin nhắc đầu tiên lúc 08:00 ngày làm việc kế tiếp sẽ
+    liệt kê đủ các đơn về trong đêm."""
+    if la_hom_nay_nghi():
+        return False
+    bay_gio = gio_vn_hien_tai().strftime("%H:%M")
+    return GIO_BAT_DAU_BAO_SHOPEE <= bay_gio <= GIO_KET_THUC_BAO_SHOPEE
 
 
 def kenh_don_shopee() -> tuple[str, str]:
@@ -903,7 +916,7 @@ def nhan_don_shopee(ds_don: list[dict], dong_bo_dau: bool = False) -> dict:
             cap_nhat += 1
     db.session.flush()
 
-    if moi:
+    if moi and trong_gio_bao_shopee():
         base = current_app.config["BASE_URL"]
         chat_id, token = kenh_don_shopee()
         if dong_bo_dau or len(moi) > 5:
@@ -939,7 +952,8 @@ def ghi_nhip_tram_shopee(ok: bool, loi: str | None, so_don: int | None, cookie_l
     if cookie_luc:
         dat_cai_dat("shopee_cookie_luc", str(cookie_luc)[:30])
 
-    if bool(loi_moi) != bool(loi_cu):
+    # Ngoài giờ làm thì không báo ngay — tin nhắc 08:00 sẽ kèm cảnh báo nếu vẫn còn lỗi.
+    if bool(loi_moi) != bool(loi_cu) and trong_gio_bao_shopee():
         chat_id, token = kenh_don_shopee()
         if loi_moi:
             base = current_app.config["BASE_URL"]
@@ -1017,6 +1031,10 @@ def nhac_don_shopee_chua_dong() -> str:
     Không có gì để nói thì không gửi."""
     from datetime import timedelta as _td
     from models import DonShopee, TrangThaiDonShopee
+    if la_hom_nay_nghi():
+        return "Hôm nay là ngày nghỉ (Chủ nhật/lễ) — không nhắc."
+    if not trong_gio_bao_shopee():
+        return (f"Ngoài giờ làm ({GIO_BAT_DAU_BAO_SHOPEE}–{GIO_KET_THUC_BAO_SHOPEE}) — không nhắc.")
     moc = gio_vn_hien_tai() - _td(days=SO_NGAY_NHAC_DON_SHOPEE)
     ds = (DonShopee.query.filter(DonShopee.trang_thai == TrangThaiDonShopee.CHO_DONG,
                                  DonShopee.tao_luc >= moc)

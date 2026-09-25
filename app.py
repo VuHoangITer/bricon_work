@@ -528,9 +528,10 @@ def create_app(config_class=Config):
 
     @app.cli.command("nhac-don-shopee")
     def nhac_don_shopee():
-        """Chạy bằng cron mỗi 30 phút trong giờ làm: nhắc các đơn Shopee còn
-        "Chờ đóng" vào nhóm đơn Shopee (đơn đã đóng/bỏ qua không nhắc) + cảnh
-        báo nếu Trạm Shopee trên máy văn phòng mất kết nối."""
+        """Chạy bằng cron mỗi 30 phút: nhắc các đơn Shopee còn "Chờ đóng" vào
+        nhóm đơn Shopee (đơn đã đóng/bỏ qua không nhắc) + cảnh báo nếu Trạm
+        Shopee mất kết nối. Tự bỏ qua ngoài 08:00–17:30, Chủ nhật và ngày lễ
+        (kể cả khi cron gọi nhầm giờ)."""
         import services
         kq = services.nhac_don_shopee_chua_dong()
         db.session.commit()
