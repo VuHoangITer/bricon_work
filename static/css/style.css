@@ -316,6 +316,26 @@ select {
 .chon-nhieu label:hover { background:#fff; }
 .chon-nhieu input { width:17px; height:17px; accent-color:var(--chinh); }
 
+/* BỘ LỌC danh sách (Công việc, Thư viện) — máy tính: 1 hàng ngang;
+   điện thoại: chỉ hiện ô tìm + nút "Lọc", bấm mới mở phần lọc gọn 2 cột. */
+.bo-loc { display:flex; flex-direction:column; gap:10px; }
+.bo-loc-chi-tiet { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.bo-loc-chi-tiet > select { flex:1 1 180px; min-width:0; }
+.bo-loc-chi-tiet > .nut { flex:0 0 auto; }
+.loc-ngay { display:flex; align-items:center; gap:8px; flex:0 1 auto; }
+.loc-ngay label { margin:0; white-space:nowrap; font-size:.8rem; color:var(--muc-nhat); }
+.loc-ngay input[type=date] { width:auto; min-width:0; flex:0 1 160px; }
+.bo-loc-tim { display:flex; gap:8px; }
+.bo-loc-tim input[type=search] { flex:1; min-width:0; }
+.bo-loc-tim .nut { flex:0 0 auto; }
+.bo-loc-nut { display:none; }
+.dem-loc { display:inline-grid; place-items:center; min-width:18px; height:18px; padding:0 5px; margin-left:4px;
+  border-radius:9px; background:var(--chinh); color:#fff; font-size:.68rem; font-weight:700; }
+
+/* BẢNG → THẺ trên điện thoại: thêm class "bang-the" vào <table>; nhãn mỗi ô
+   lấy tự động từ <th> (app.js). Ô .o-tieu-de làm tiêu đề thẻ, ô .o-rong
+   chiếm cả hàng; bảng .bang-the--3 xếp 3 cột. */
+
 /* CHỌN NHIỀU NGÀY (giao việc Hằng ngày) */
 .luoi-ngay { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
 .ngay-o { min-height:36px; border:1px solid var(--vien); border-radius:7px; background:#fff; color:var(--muc); font-weight:600; font-size:.8rem; cursor:pointer; transition:.12s ease; }
@@ -486,6 +506,34 @@ details.the[open] > summary::after { content:"−"; }
   .stat-card { padding:13px; }
   .stat-card-value { font-size:1.3rem; }
   .hang { flex-direction:column; gap:0; }
+  table.bang-the, table.bang-the tbody { display:block; }
+  table.bang-the thead { display:none; }
+  table.bang-the tr { display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; padding:12px 14px;
+    border-bottom:1px solid var(--vien); }
+  table.bang-the.bang-the--3 tr { grid-template-columns:1fr 1fr 1fr; }
+  table.bang-the tr:last-child { border-bottom:0; }
+  table.bang-the tbody tr:hover td { background:transparent; }
+  table.bang-the td { display:block; padding:0; border:0; white-space:normal; text-align:left !important;
+    min-width:0; max-width:none !important; overflow-wrap:anywhere; font-size:.84rem; }
+  table.bang-the td[data-nhan]::before { content:attr(data-nhan); display:block; margin-bottom:2px;
+    font-size:.64rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muc-nhat); }
+  table.bang-the td.o-tieu-de { grid-column:1 / -1; font-weight:700; font-size:.92rem; }
+  table.bang-the td.o-tieu-de::before { display:none; }
+  table.bang-the td.o-rong, table.bang-the td[colspan], table.bang-the td:not([data-nhan]) { grid-column:1 / -1; }
+  table.bang-the td:empty { display:none; }
+  table.bang-the .ghi-nhan { display:flex; }
+  .bo-loc { gap:0; }
+  .bo-loc-tim { order:-1; }
+  .bo-loc-nut { display:inline-flex; }
+  .bo-loc-chi-tiet { display:none; margin-top:10px; grid-template-columns:1fr 1fr; gap:8px; }
+  .bo-loc.mo .bo-loc-chi-tiet { display:grid; }
+  .bo-loc-chi-tiet > select { width:100%; }
+  .bo-loc-chi-tiet > select:last-of-type:nth-of-type(odd) { grid-column:1 / -1; }
+  .bo-loc-chi-tiet > .nut { grid-column:1 / -1; }
+  .loc-ngay { grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; }
+  .loc-ngay label { grid-row:1; font-size:.72rem; }
+  .loc-ngay input[type=date] { grid-row:2; width:100%; font-size:16px; padding:8px 10px; }
+  .bo-loc-tim .nut { padding-left:12px; padding-right:12px; }
   .hang-nut .nut { flex:1 1 auto; }
   .viec { padding:12px 12px 12px 15px; }
   .viec-the { min-height:0; padding:14px; border-radius:10px; }

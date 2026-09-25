@@ -65,7 +65,7 @@
 
 <div class="tieu-khu"><h2>30 ngày gần nhất</h2></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the bang-the--3">
     <thead><tr><th>Ngày</th><th>Vào</th><th>Ra</th><th>Ghi nhận</th></tr></thead>
     <tbody>
     {% for c in lich_su %}
@@ -74,7 +74,7 @@
         <td>{{ c.ngay.strftime('%d/%m') }}</td>
         <td>{{ c.gio_vao.strftime('%H:%M') if c.gio_vao else '—' }}</td>
         <td>{{ c.gio_ra.strftime('%H:%M') if c.gio_ra else '—' }}</td>
-        <td>
+        <td class="o-rong">
           {% if c.nghi_khong_phep %}<span class="nhan" data-tt="lam_lai">Nghỉ không phép</span>
           {% else %}
             {% if nghi %}<span class="nhan" data-tt="hoan_thanh">Nghỉ phép — {{ nghi.ten_buoi }}</span>{% endif %}

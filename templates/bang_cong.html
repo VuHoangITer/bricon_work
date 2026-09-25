@@ -19,13 +19,13 @@
 
 <div class="tieu-khu"><h2>Tổng hợp</h2></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the bang-the--3">
     <thead><tr><th>Nhân viên</th><th class="so">Ngày công</th><th class="so">Trễ</th>
       <th class="so">Về sớm</th><th class="so">Nghỉ phép</th><th class="so">Không phép</th></tr></thead>
     <tbody>
     {% for o in tong %}
       <tr>
-        <td>{{ o.ho_ten }}</td>
+        <td class="o-tieu-de">{{ o.ho_ten }}</td>
         <td class="so">{{ ('%.1f'|format(o.so_ngay))|replace('.0', '') }}</td>
         <td class="so">{{ o.tre or '' }}</td>
         <td class="so">{{ o.som or '' }}</td>
@@ -41,17 +41,16 @@
 
 <div class="tieu-khu"><h2>Chi tiết chấm công từng ngày</h2></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
-    <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Vào</th><th>Ra</th><th>Điểm</th><th>Ghi nhận</th></tr></thead>
+  <table class="bang-the bang-the--3">
+    <thead><tr><th>Nhân viên · Ngày</th><th>Vào</th><th>Ra</th><th>Điểm</th><th>Ghi nhận</th></tr></thead>
     <tbody>
     {% for d in chi_tiet %}{% set c = d.cc %}
       <tr>
-        <td>{{ d.ngay.strftime('%d/%m') }}</td>
-        <td>{{ d.nguoi_dung.ho_ten }}</td>
+        <td class="o-tieu-de">{{ d.nguoi_dung.ho_ten }} <span style="font-weight:500;color:var(--muc-nhat)">· {{ d.ngay.strftime('%d/%m') }}</span></td>
         <td>{{ c.gio_vao.strftime('%H:%M') if c and c.gio_vao else '—' }}</td>
         <td>{{ c.gio_ra.strftime('%H:%M') if c and c.gio_ra else '—' }}</td>
         <td>{{ c.diem_vao.ten if c and c.diem_vao else '—' }}</td>
-        <td><span class="ghi-nhan">
+        <td class="o-rong"><span class="ghi-nhan">
           {% for x in d.nghi %}<span class="nhan" data-tt="dang_lam" title="{{ x.ghi_chu or '' }}">Nghỉ có phép{% if x.buoi != 'ca_ngay' %} · {{ x.ten_buoi|lower }}{% endif %}</span>{% endfor %}
           {% if c %}
             {% if c.nghi_khong_phep %}<span class="nhan" data-tt="lam_lai">Nghỉ không phép</span>{% endif %}
@@ -64,7 +63,7 @@
         </span></td>
       </tr>
     {% else %}
-      <tr><td colspan="6" style="color:var(--muc-mo)">Chưa có dữ liệu.</td></tr>
+      <tr><td colspan="5" style="color:var(--muc-mo)">Chưa có dữ liệu.</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -72,15 +71,14 @@
 
 <div class="tieu-khu"><h2>Nghỉ phép trong tháng</h2><span class="dem">{{ don_nghi|length }}</span></div>
 <div class="the the--khong-dem bang-cuon">
-  <table>
-    <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Buổi</th><th>Ghi chú</th><th>Minh chứng</th>{% if current_user.la_admin_sep %}<th></th>{% endif %}</tr></thead>
+  <table class="bang-the">
+    <thead><tr><th>Nhân viên · Ngày</th><th>Buổi</th><th>Ghi chú</th><th>Minh chứng</th>{% if current_user.la_admin_sep %}<th></th>{% endif %}</tr></thead>
     <tbody>
     {% for x in don_nghi %}
       <tr>
-        <td>{{ x.ngay.strftime('%d/%m') }}</td>
-        <td>{{ x.nguoi_dung.ho_ten }}</td>
+        <td class="o-tieu-de">{{ x.nguoi_dung.ho_ten }} <span style="font-weight:500;color:var(--muc-nhat)">· {{ x.ngay.strftime('%d/%m') }}</span></td>
         <td>{{ x.ten_buoi }}</td>
-        <td>{{ x.ghi_chu or '—' }}</td>
+        <td class="o-rong">{{ x.ghi_chu or '—' }}</td>
         <td><a href="{{ url_for('media', duong_dan=x.anh_minh_chung) }}" target="_blank" rel="noopener">Xem ảnh</a></td>
         {% if current_user.la_admin_sep %}
         <td style="text-align:right">
@@ -92,7 +90,7 @@
         {% endif %}
       </tr>
     {% else %}
-      <tr><td colspan="{{ 6 if current_user.la_admin_sep else 5 }}" style="color:var(--muc-mo)">Chưa có ai xin nghỉ tháng này.</td></tr>
+      <tr><td colspan="{{ 5 if current_user.la_admin_sep else 4 }}" style="color:var(--muc-mo)">Chưa có ai xin nghỉ tháng này.</td></tr>
     {% endfor %}
     </tbody>
   </table>

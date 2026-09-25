@@ -35,8 +35,9 @@
   {% if current_user.la_quan_ly %}<div class="page-actions"><a class="nut nut--vang" href="{{ url_for('tasks.giao_viec') }}">+ Giao việc</a></div>{% endif %}
 </div>
 
-<form class="the" method="get">
-  <div class="hang" style="margin-bottom:10px">
+{% set so_loc = [f_trang_thai, f_nguoi, (f_sao is not none) or '', f_tu_ngay, f_den_ngay]|select|list|length %}
+<form class="the bo-loc" method="get">
+  <div class="bo-loc-chi-tiet">
     <select name="trang_thai" onchange="this.form.submit()">
       <option value="" {{ 'selected' if not f_trang_thai }}>Chưa hoàn thành</option>
       <option value="{{ TrangThai.CHO_DUYET }}" {{ 'selected' if f_trang_thai == TrangThai.CHO_DUYET }}>Chờ duyệt</option>
@@ -57,17 +58,18 @@
       {% endfor %}
     </select>
     {% endif %}
+    <div class="loc-ngay">
+      <label for="tu_ngay">Hạn từ</label>
+      <input id="tu_ngay" type="date" name="tu_ngay" value="{{ f_tu_ngay }}" onchange="this.form.submit()">
+      <label for="den_ngay">đến</label>
+      <input id="den_ngay" type="date" name="den_ngay" value="{{ f_den_ngay }}" onchange="this.form.submit()">
+    </div>
+    <button type="button" class="nut nut--phu nut--nho" id="nut-han-hom-nay">Hạn hôm nay</button>
   </div>
-  <div class="hang" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px 10px">
-    <label for="tu_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">Hạn từ</label>
-    <input id="tu_ngay" type="date" name="tu_ngay" value="{{ f_tu_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
-    <label for="den_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">đến</label>
-    <input id="den_ngay" type="date" name="den_ngay" value="{{ f_den_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
-    <button type="button" class="nut nut--phu nut--nho" id="nut-han-hom-nay" style="flex:0 0 auto">Hạn hôm nay</button>
-  </div>
-  <div class="hang">
-    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm theo mã hoặc tên công việc">
-    <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Tìm kiếm</button>
+  <div class="bo-loc-tim">
+    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm mã hoặc tên việc">
+    <button class="nut nut--phu" type="submit">Tìm</button>
+    <button type="button" class="nut nut--phu bo-loc-nut" aria-expanded="false">Lọc{% if so_loc %} <span class="dem-loc">{{ so_loc }}</span>{% endif %}</button>
   </div>
 </form>
 

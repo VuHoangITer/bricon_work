@@ -351,3 +351,29 @@ function khoiTaoDanhGia(idForm, idChonAnh, idAnhAn, idXemTruoc, idCanhBao) {
     if (coAnh) e.preventDefault();
   });
 }
+
+// Bộ lọc gọn trên điện thoại: nút "Lọc" mở/đóng phần chọn lọc.
+document.querySelectorAll('.bo-loc').forEach(function (f) {
+  var nut = f.querySelector('.bo-loc-nut');
+  if (!nut) return;
+  nut.addEventListener('click', function () {
+    var mo = f.classList.toggle('mo');
+    nut.setAttribute('aria-expanded', mo ? 'true' : 'false');
+  });
+});
+
+// Bảng .bang-the: gắn nhãn cột (từ <th>) vào từng ô để trên điện thoại hiện
+// dạng thẻ "NHÃN / giá trị" thay vì phải cuộn ngang.
+document.querySelectorAll('table.bang-the').forEach(function (t) {
+  var nhan = Array.prototype.map.call(t.querySelectorAll('thead th'), function (th) {
+    return th.textContent.trim();
+  });
+  t.querySelectorAll('tbody tr').forEach(function (tr) {
+    var cot = 0;
+    Array.prototype.forEach.call(tr.children, function (td) {
+      var span = parseInt(td.getAttribute('colspan') || '1', 10);
+      if (span === 1 && nhan[cot] && !td.hasAttribute('data-nhan')) td.setAttribute('data-nhan', nhan[cot]);
+      cot += span;
+    });
+  });
+});

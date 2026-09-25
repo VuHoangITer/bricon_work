@@ -23,16 +23,15 @@
 </p>
 
 <div class="the the--khong-dem bang-cuon">
-  <table>
+  <table class="bang-the bang-the--3">
     <thead><tr>
-      <th>#</th><th>Nhân viên</th><th class="so">Sao TB</th><th>Xếp loại</th>
+      <th>Nhân viên</th><th class="so">Sao TB</th><th>Xếp loại</th>
       <th class="so">Đã đánh giá</th><th class="so">Chờ duyệt</th><th class="so">Đang làm</th>
     </tr></thead>
     <tbody>
     {% for o in bang %}
       <tr>
-        <td>{{ o.hang }}</td>
-        <td>{{ o.ho_ten }}</td>
+        <td class="o-tieu-de"><span style="color:var(--muc-nhat);font-weight:600">#{{ o.hang }}</span> {{ o.ho_ten }}</td>
         <td class="so" style="font-weight:700">
           {{ ('%.1f'|format(o.sao_tb)) ~ ' ★' if o.sao_tb is not none else '—' }}
         </td>
@@ -42,7 +41,7 @@
         <td class="so">{{ o.dang_lam }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="7" style="color:var(--muc-mo)">Chưa có việc nào có hạn trong khoảng ngày này.</td></tr>
+      <tr><td colspan="6" style="color:var(--muc-mo)">Chưa có việc nào có hạn trong khoảng ngày này.</td></tr>
     {% endfor %}
     </tbody>
   </table>

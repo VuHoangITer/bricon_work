@@ -13,8 +13,9 @@
   </div>
 </div>
 
-<form class="the" method="get">
-  <div class="hang" style="margin-bottom:10px">
+{% set so_loc = [f_nguon if f_nguon != 'doi_chung' else '', f_nguoi, f_tu_ngay, f_den_ngay]|select|list|length %}
+<form class="the bo-loc" method="get">
+  <div class="bo-loc-chi-tiet">
     {% if current_user.la_admin_sep %}
     <select name="nguon" onchange="this.form.submit()">
       <option value="doi_chung" {{ 'selected' if f_nguon == 'doi_chung' }}>Đối chứng</option>
@@ -33,17 +34,18 @@
       {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f_nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
     </select>
     {% endif %}
+    <div class="loc-ngay">
+      <label for="tu_ngay">Từ</label>
+      <input id="tu_ngay" type="date" name="tu_ngay" value="{{ f_tu_ngay }}" onchange="this.form.submit()">
+      <label for="den_ngay">đến</label>
+      <input id="den_ngay" type="date" name="den_ngay" value="{{ f_den_ngay }}" onchange="this.form.submit()">
+    </div>
   </div>
-  <div class="hang" style="margin-bottom:10px;align-items:center;flex-wrap:wrap;gap:8px 10px">
-    <label for="tu_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">Từ</label>
-    <input id="tu_ngay" type="date" name="tu_ngay" value="{{ f_tu_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
-    <label for="den_ngay" style="margin:0;white-space:nowrap;flex:0 0 auto">đến</label>
-    <input id="den_ngay" type="date" name="den_ngay" value="{{ f_den_ngay }}" onchange="this.form.submit()" class="o-ngay-loc">
-  </div>
-  <div class="hang">
+  <div class="bo-loc-tim">
     <input type="hidden" name="nguon" value="{{ f_nguon }}">
-    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm theo mã việc, tên, hoặc tên file">
-    <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Tìm kiếm</button>
+    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm mã việc, tên, tên file">
+    <button class="nut nut--phu" type="submit">Tìm</button>
+    <button type="button" class="nut nut--phu bo-loc-nut" aria-expanded="false">Lọc{% if so_loc %} <span class="dem-loc">{{ so_loc }}</span>{% endif %}</button>
   </div>
 </form>
 
