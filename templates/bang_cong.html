@@ -2,6 +2,7 @@
 {% block title %}Bảng công · BRICON{% endblock %}
 
 {% block content %}
+<style>.ghi-nhan{display:inline-flex;flex-wrap:wrap;gap:4px}</style>
 <h1>Bảng công</h1>
 
 <form class="the" method="get" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -43,19 +44,24 @@
   <table>
     <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Vào</th><th>Ra</th><th>Điểm</th><th>Ghi nhận</th></tr></thead>
     <tbody>
-    {% for c in ban_ghi %}
+    {% for d in chi_tiet %}{% set c = d.cc %}
       <tr>
-        <td>{{ c.ngay.strftime('%d/%m') }}</td>
-        <td>{{ c.nguoi_dung.ho_ten }}</td>
-        <td>{{ c.gio_vao.strftime('%H:%M') if c.gio_vao else '—' }}</td>
-        <td>{{ c.gio_ra.strftime('%H:%M') if c.gio_ra else '—' }}</td>
-        <td>{{ c.diem_vao.ten if c.diem_vao else '—' }}</td>
-        <td>
-          {% if c.nghi_khong_phep %}<span class="nhan" data-tt="lam_lai">Không phép</span>{% endif %}
-          {% if c.di_tre %}<span class="nhan" data-tt="cho_duyet">Trễ {{ c.so_phut_tre }}′</span>{% endif %}
-          {% if c.ve_som %}<span class="nhan" data-tt="cho_duyet">Sớm {{ c.so_phut_som }}′</span>{% endif %}
-          {% if c.nghi_ngo %}<span class="nhan" data-tt="lam_lai">Nghi fake GPS</span>{% endif %}
-        </td>
+        <td>{{ d.ngay.strftime('%d/%m') }}</td>
+        <td>{{ d.nguoi_dung.ho_ten }}</td>
+        <td>{{ c.gio_vao.strftime('%H:%M') if c and c.gio_vao else '—' }}</td>
+        <td>{{ c.gio_ra.strftime('%H:%M') if c and c.gio_ra else '—' }}</td>
+        <td>{{ c.diem_vao.ten if c and c.diem_vao else '—' }}</td>
+        <td><span class="ghi-nhan">
+          {% for x in d.nghi %}<span class="nhan" data-tt="dang_lam" title="{{ x.ghi_chu or '' }}">Nghỉ có phép{% if x.buoi != 'ca_ngay' %} · {{ x.ten_buoi|lower }}{% endif %}</span>{% endfor %}
+          {% if c %}
+            {% if c.nghi_khong_phep %}<span class="nhan" data-tt="lam_lai">Nghỉ không phép</span>{% endif %}
+            {% if c.gio_vao and c.gio_ra %}<span class="nhan" data-tt="hoan_thanh">Đủ vào/ra</span>
+            {% elif c.gio_vao and not (d.nghi|selectattr('buoi','ne','sang')|list) %}<span class="nhan" data-tt="{{ 'cho_duyet' if d.ngay == hom_nay else 'lam_lai' }}">{{ 'Chưa chấm ra' if d.ngay == hom_nay else 'Không chấm ra' }}</span>{% endif %}
+            {% if c.di_tre %}<span class="nhan" data-tt="cho_duyet">Trễ {{ c.so_phut_tre }}′</span>{% endif %}
+            {% if c.ve_som %}<span class="nhan" data-tt="cho_duyet">Sớm {{ c.so_phut_som }}′</span>{% endif %}
+            {% if c.nghi_ngo %}<span class="nhan" data-tt="lam_lai">Nghi fake GPS</span>{% endif %}
+          {% endif %}
+        </span></td>
       </tr>
     {% else %}
       <tr><td colspan="6" style="color:var(--muc-mo)">Chưa có dữ liệu.</td></tr>

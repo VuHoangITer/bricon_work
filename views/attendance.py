@@ -450,7 +450,31 @@ def bang_cong():
     nguoi = request.args.get("nguoi", type=int)
     ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang, nguoi)
     return render_template("bang_cong.html", ban_ghi=ban_ghi, don_nghi=don_nghi,
+                           chi_tiet=_gop_chi_tiet(ban_ghi, don_nghi), hom_nay=ngay_vn_hien_tai(),
                            tong=tong, thang=thang, nhan_vien=_nhan_vien_bo_loc(), f_nguoi=nguoi)
+
+
+def _gop_chi_tiet(ban_ghi, don_nghi):
+    """Gộp chấm công + đơn nghỉ phép thành 1 danh sách theo ngày cho bảng
+    "Chi tiết chấm công từng ngày": ngày nghỉ phép không có chấm công vẫn
+    hiện thành 1 dòng riêng; nghỉ nửa buổi mà vẫn chấm công thì gắn nhãn
+    nghỉ phép vào chính dòng chấm công đó."""
+    dong = {}
+    for c in ban_ghi:
+        dong[(c.nguoi_dung_id, c.ngay)] = {"ngay": c.ngay, "nguoi_dung": c.nguoi_dung,
+                                           "cc": c, "nghi": []}
+    for x in don_nghi:
+        d = dong.setdefault((x.nguoi_dung_id, x.ngay), {"ngay": x.ngay, "nguoi_dung": x.nguoi_dung,
+                                                         "cc": None, "nghi": []})
+        d["nghi"].append(x)
+
+    def _khoa(d):
+        c = d["cc"]
+        gio = c.gio_vao.time() if c and c.gio_vao else None
+        # Trong 1 ngày: ai chấm muộn hơn nằm trên (giống bảng cũ), dòng nghỉ phép xuống cuối ngày.
+        return (d["ngay"], gio is not None, gio.isoformat() if gio else "", d["nguoi_dung"].ho_ten)
+
+    return sorted(dong.values(), key=_khoa, reverse=True)
 
 
 @bp.route("/bang-cong/xuat")
