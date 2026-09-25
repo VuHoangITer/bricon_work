@@ -1,0 +1,12 @@
+{% set _t = tram_shopee %}
+<div class="tab-quan-tri">
+  <a class="tab-quan-tri-nut {{ 'active' if request.endpoint == 'dong_goi.cho_dong' }}" href="{{ url_for('dong_goi.cho_dong') }}">🛒 Đơn Shopee{% if so_cho_dong %} <span class="dem-loc">{{ so_cho_dong }}</span>{% endif %}</a>
+  <a class="tab-quan-tri-nut {{ 'active' if request.endpoint == 'dong_goi.danh_sach' }}" href="{{ url_for('dong_goi.danh_sach') }}">📚 Lịch sử đóng gói</a>
+  <a class="tab-quan-tri-nut {{ 'active' if request.endpoint == 'dong_goi.tram' }}" href="{{ url_for('dong_goi.tram') }}">🔑 Trạm Shopee{% if _t and (_t.het_cookie or _t.mat_ket_noi) %} <span class="dem-loc" style="background:var(--lam-lai)">!</span>{% endif %}</a>
+</div>
+{% if _t and (_t.het_cookie or _t.mat_ket_noi) and request.endpoint != 'dong_goi.tram' %}
+<a href="{{ url_for('dong_goi.tram') }}" class="the" style="display:block;margin-bottom:14px;border-color:var(--lam-lai);background:#fdf2f0;color:inherit">
+  <b style="color:var(--lam-lai)">{{ '🔑 Cookie Shopee đã hết hạn — đơn mới đang KHÔNG về.' if _t.het_cookie else '⚠️ Trạm Shopee mất kết nối ' ~ _t.phut ~ ' phút — đơn mới đang KHÔNG về.' }}</b>
+  <div style="font-size:.84rem;margin-top:4px">Bấm vào đây để xem hướng dẫn xử lý từng bước →</div>
+</a>
+{% endif %}

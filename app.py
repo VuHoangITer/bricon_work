@@ -526,6 +526,16 @@ def create_app(config_class=Config):
         db.session.commit()
         click.echo(f"Đã chúc mừng sinh nhật {so} người.")
 
+    @app.cli.command("nhac-don-shopee")
+    def nhac_don_shopee():
+        """Chạy bằng cron mỗi 30 phút trong giờ làm: nhắc các đơn Shopee còn
+        "Chờ đóng" vào nhóm đơn Shopee (đơn đã đóng/bỏ qua không nhắc) + cảnh
+        báo nếu Trạm Shopee trên máy văn phòng mất kết nối."""
+        import services
+        kq = services.nhac_don_shopee_chua_dong()
+        db.session.commit()
+        click.echo(kq)
+
     @app.cli.command("bao-cao-sang")
     def bao_cao_sang():
         """Chạy bằng cron lúc 08:10 (sau mốc giờ vào 08:05): báo cáo nhanh đầu

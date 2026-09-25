@@ -7,6 +7,8 @@
   <div class="page-actions"><a class="nut nut--vang" href="{{ url_for('dong_goi.moi') }}">📦 Quét đóng gói</a></div>
 </div>
 
+{% include "_tab_dong_goi.html" %}
+
 <form class="the" method="get">
   <div class="hang">
     <input type="search" name="ma" value="{{ f_ma }}" placeholder="Dán/gõ mã vận đơn cần tra…" autofocus>

@@ -894,6 +894,57 @@ class AnhGoiHang(db.Model):
     goi_hang = db.relationship("GoiHang", back_populates="anh")
 
 
+class TrangThaiDonShopee:
+    CHO_DONG = "cho_dong"
+    DA_DONG = "da_dong"
+    BO_QUA = "bo_qua"
+
+    NHAN = {CHO_DONG: "Chờ đóng", DA_DONG: "Đã đóng", BO_QUA: "Bỏ qua"}
+
+
+class DonShopee(db.Model):
+    """1 đơn Shopee do "Trạm Shopee" (chạy trên máy văn phòng) đẩy sang qua
+    API — VPS KHÔNG tự gọi Shopee. Nhân viên mở đơn → quét mã vận đơn +
+    chụp ảnh → tạo GoiHang và gắn vào đây (goi_hang_id), đơn chuyển "Đã
+    đóng". Đơn "Chờ đóng" được nhắc Zalo mỗi 30 phút (flask nhac-don-shopee).
+
+    goi_hang_id cố ý KHÔNG đặt khoá ngoại: xoá bản ghi đóng gói (nhầm/test)
+    chỉ cần đưa đơn về "Chờ đóng", không bị ràng buộc chặn xoá."""
+    __tablename__ = "don_shopee"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ma_don = db.Column(db.String(40), unique=True, nullable=False, index=True)   # order_sn
+    ma_goi = db.Column(db.String(40))                                           # package_number
+    ma_van_don = db.Column(db.String(60), index=True)  # từ Shopee (nếu có) hoặc từ lúc quét
+    khach = db.Column(db.String(120))
+    san_pham = db.Column(db.Text)       # "Tên SP ×SL" mỗi dòng 1 món
+    tong_tien = db.Column(db.Numeric(14, 0))
+    han_giao = db.Column(db.DateTime)   # ship_by_date (giờ VN)
+    trang_thai_shopee = db.Column(db.String(60))
+
+    trang_thai = db.Column(db.String(20), nullable=False, default=TrangThaiDonShopee.CHO_DONG, index=True)
+    goi_hang_id = db.Column(db.Integer, index=True)
+    dong_luc = db.Column(db.DateTime)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai, index=True)
+
+    @property
+    def goi_hang(self):
+        return db.session.get(GoiHang, self.goi_hang_id) if self.goi_hang_id else None
+
+    @property
+    def ten_trang_thai(self):
+        return TrangThaiDonShopee.NHAN.get(self.trang_thai, self.trang_thai)
+
+    @property
+    def ds_san_pham(self):
+        return [d for d in (self.san_pham or "").split("\n") if d.strip()]
+
+    @property
+    def qua_han(self):
+        return bool(self.han_giao and self.trang_thai == TrangThaiDonShopee.CHO_DONG
+                    and self.han_giao < gio_vn_hien_tai())
+
+
 class TroLySuDung(db.Model):
     """Theo dõi mức dùng Trợ lý AI của từng người, TÍNH THEO NGÀY — dùng để
     áp giới hạn số câu hỏi + số token cho Nhân viên/Quản lý bộ phận (Sếp/

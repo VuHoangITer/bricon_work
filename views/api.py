@@ -214,3 +214,51 @@ def api_tom_tat():
         "cham_cong_hom_nay": ChamCong.query.filter_by(ngay=ngay_vn_hien_tai()).count(),
         "nhan_vien_hoat_dong": NguoiDung.query.filter_by(dang_hoat_dong=True).count(),
     }})
+
+# ---------------------------------------------------------------- Trạm Shopee
+# Trạm Shopee chạy trên máy văn phòng: nó mới là bên gọi Shopee. VPS chỉ
+# nhận vài request nhỏ từ trạm (đơn mới + nhịp tim 5 phút/lần) nên Shopee
+# chặn/lỗi thế nào cũng không đụng tới web.
+_GIOI_HAN_BODY_SHOPEE = 512 * 1024
+
+
+def _json_shopee():
+    if (request.content_length or 0) > _GIOI_HAN_BODY_SHOPEE:
+        return None, (jsonify({"ok": False, "loi": "Dữ liệu quá lớn"}), 413)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return None, (jsonify({"ok": False, "loi": "Body phải là JSON object"}), 400)
+    return data, None
+
+
+@bp.post("/shopee/don")
+@can_api_key
+def api_shopee_don():
+    """Body: {"orders": [{order_sn, package_number, buyer_name, items:[{name, amount}],
+    total_price_vnd, ship_by_date, status, tracking_number}], "dong_bo_dau": bool}"""
+    data, loi = _json_shopee()
+    if loi:
+        return loi
+    ds = data.get("orders")
+    if not isinstance(ds, list):
+        return jsonify({"ok": False, "loi": "Thiếu 'orders' (list)"}), 400
+    kq = services.nhan_don_shopee([o for o in ds if isinstance(o, dict)],
+                                  dong_bo_dau=bool(data.get("dong_bo_dau")))
+    services.ghi_nhip_tram_shopee(True, None, None)
+    db.session.commit()
+    return jsonify({"ok": True, **kq})
+
+
+@bp.post("/shopee/nhip")
+@can_api_key
+def api_shopee_nhip():
+    """Nhịp tim của trạm: {"ok": bool, "loi": str|null, "so_don": int}"""
+    data, loi = _json_shopee()
+    if loi:
+        return loi
+    so_don = data.get("so_don")
+    services.ghi_nhip_tram_shopee(bool(data.get("ok", True)), data.get("loi"),
+                                  so_don if isinstance(so_don, int) else None,
+                                  cookie_luc=data.get("cookie_luc"))
+    db.session.commit()
+    return jsonify({"ok": True})

@@ -59,6 +59,37 @@
   </form>
 </div>
 
+<div class="the">
+  <h3 style="margin-top:0">🛒 Đơn Shopee</h3>
+  <p class="tl-mo-ta">Nhận tin <b>đơn Shopee mới</b> (từ Trạm Shopee trên máy văn phòng) và tin <b>nhắc đơn chưa đóng hàng</b>
+    mỗi 30 phút. Để trống thì dùng chung nhóm + bot của Thông báo đóng gói ở trên.</p>
+  <div style="margin:-2px 0 12px;font-size:.84rem">
+    Trạm Shopee:
+    {% if tram_shopee.lan_cuoi is none %}<span class="nhan" data-tt="huy">Chưa kết nối lần nào</span>
+    {% elif tram_shopee.song %}<span class="nhan" data-tt="hoan_thanh">Đang chạy</span> <span style="color:var(--muc-mo)">· tín hiệu {{ tram_shopee.phut }} phút trước</span>
+    {% elif tram_shopee.loi %}<span class="nhan" data-tt="lam_lai">Đang lỗi</span> <span style="color:var(--muc-mo)">{{ tram_shopee.loi }}</span>
+    {% else %}<span class="nhan" data-tt="lam_lai">Mất kết nối</span> <span style="color:var(--muc-mo)">· tín hiệu cuối {{ tram_shopee.lan_cuoi.strftime('%H:%M %d/%m') }}</span>{% endif %}
+  </div>
+  <form method="post" action="{{ url_for('admin.luu_kenh_don_shopee') }}">
+    <div class="hang">
+      <div class="o-nhap"><label>Nhóm nhận (Zalo group ID)</label>
+        <input type="text" name="group_id" value="{{ shopee_group_id }}" placeholder="Để trống = nhóm của Thông báo đóng gói"></div>
+      <div class="o-nhap"><label>Bot gửi</label>
+        <select name="bot_id">
+          <option value="">Bot của Thông báo đóng gói (mặc định)</option>
+          {% for b in ds if b.dang_hoat_dong %}
+          <option value="{{ b.id }}" {{ 'selected' if shopee_bot_id == b.id|string }}>{{ b.ten }}</option>
+          {% endfor %}
+        </select>
+        <div class="goi-y">Bot này phải đang có mặt trong nhóm nhận.</div></div>
+    </div>
+    <div class="hang-nut">
+      <button class="nut nut--nho" type="submit">Lưu</button>
+      <button class="nut nut--phu nut--nho" type="submit" name="gui_thu" value="1">Lưu & gửi thử</button>
+    </div>
+  </form>
+</div>
+
 <details class="tl-them">
   <summary><span class="tl-them-nhan">+ Thêm bot Zalo</span></summary>
   <div class="the">
