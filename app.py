@@ -100,12 +100,12 @@ def create_app(config_class=Config):
         if NguoiDung.query.filter_by(anh_dai_dien=duong_dan).first():
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
-        # Giấy tờ nhân sự (hợp đồng, bàn giao, cam kết) — nhạy cảm, CHỈ
-        # Admin/Ban giám đốc xem được, kể cả chính nhân viên đó cũng không.
+        # Giấy tờ nhân sự (hợp đồng, bàn giao, cam kết) — nhạy cảm: chỉ
+        # Admin/Ban giám đốc và CHÍNH nhân viên đó xem được.
         from models import HoSoNhanVien
         hs = HoSoNhanVien.query.filter_by(duong_dan=duong_dan).first()
         if hs:
-            if not current_user.la_admin_sep:
+            if not (current_user.la_admin_sep or hs.nguoi_dung_id == current_user.id):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 

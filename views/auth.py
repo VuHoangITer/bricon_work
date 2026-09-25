@@ -91,7 +91,8 @@ def doi_mat_khau():
 @bp.route("/anh-dai-dien", methods=["GET", "POST"])
 @login_required
 def anh_dai_dien():
-    """Nhân viên tự đổi ảnh đại diện của mình (có khung cắt tròn)."""
+    """Nhân viên tự đổi ảnh đại diện của mình (có khung cắt tròn). Trang
+    hiển thị nay gộp vào "Hồ sơ của tôi" — GET chuyển thẳng sang đó."""
     import services
     if request.method == "POST":
         if request.form.get("xoa") == "1":
@@ -106,5 +107,42 @@ def anh_dai_dien():
             else:
                 db.session.commit()
                 flash("Đã cập nhật ảnh đại diện.", "success")
-        return redirect(url_for("auth.anh_dai_dien"))
-    return render_template("anh_dai_dien.html")
+    return redirect(url_for("auth.ho_so_cua_toi"))
+
+
+@bp.route("/ho-so-cua-toi", methods=["GET", "POST"])
+@login_required
+def ho_so_cua_toi():
+    """Nhân viên tự xem hồ sơ của mình: vai trò, bộ phận, chức vụ, ngày vào
+    làm (chỉ xem — Quản trị sửa), tự sửa SĐT + sinh nhật, và xem (không
+    sửa/xoá) giấy tờ nhân sự của CHÍNH mình."""
+    import re
+    from datetime import date
+    from models import LoaiHoSo, ngay_vn_hien_tai
+
+    if request.method == "POST":
+        sdt = re.sub(r"[^\d+]", "", request.form.get("so_dien_thoai") or "")
+        if sdt and not re.fullmatch(r"\+?\d{9,15}", sdt):
+            flash("Số điện thoại không hợp lệ (9–15 chữ số).", "error")
+            return redirect(url_for("auth.ho_so_cua_toi"))
+
+        ngay_sinh = None
+        raw = (request.form.get("ngay_sinh") or "").strip()
+        if raw:
+            try:
+                ngay_sinh = date.fromisoformat(raw)
+            except ValueError:
+                flash("Ngày sinh không hợp lệ.", "error")
+                return redirect(url_for("auth.ho_so_cua_toi"))
+            hom_nay = ngay_vn_hien_tai()
+            if ngay_sinh >= hom_nay or ngay_sinh.year < 1940:
+                flash("Ngày sinh không hợp lệ.", "error")
+                return redirect(url_for("auth.ho_so_cua_toi"))
+
+        current_user.so_dien_thoai = sdt or None
+        current_user.ngay_sinh = ngay_sinh
+        db.session.commit()
+        flash("Đã lưu thông tin cá nhân.", "success")
+        return redirect(url_for("auth.ho_so_cua_toi"))
+
+    return render_template("ho_so_cua_toi.html", n=current_user, LoaiHoSo=LoaiHoSo)
