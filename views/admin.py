@@ -487,9 +487,6 @@ def _trang_thiet_lap(muc: str):
                            sinh_nhat_sap_toi=sinh_nhat_sap_toi[:8],
                            dong_goi_group_id=services.lay_cai_dat("dong_goi_group_id", ""),
                            dong_goi_bot_id=services.lay_cai_dat("dong_goi_bot_id", ""),
-                           shopee_group_id=services.lay_cai_dat("shopee_group_id", ""),
-                           shopee_bot_id=services.lay_cai_dat("shopee_bot_id", ""),
-                           tram_shopee=services.trang_thai_tram_shopee(),
                            nhom_ql_mac_dinh=current_app.config["ZALO_GROUP_QL"],
                            ds=ds_bot,
                            nv_theo_bot=nv_theo_bot,
@@ -541,32 +538,6 @@ def thiet_lap_ai():
 @chi_admin
 def thiet_lap_tin_tu_dong():
     return _trang_thiet_lap("tin_tu_dong")
-
-
-@bp.route("/thiet-lap/kenh-don-shopee", methods=["POST"])
-@chi_admin
-def luu_kenh_don_shopee():
-    """Nhóm Zalo + bot nhận tin ĐƠN SHOPEE MỚI và nhắc đơn chưa đóng (30p).
-    Để trống thì dùng chung kênh Đóng gói."""
-    group_id = (request.form.get("group_id") or "").strip()
-    bot_id = (request.form.get("bot_id") or "").strip()
-    if bot_id and not (bot_id.isdigit() and db.session.get(BotZalo, int(bot_id))):
-        flash("Bot không hợp lệ.", "error")
-        return redirect(url_for("admin.thiet_lap"))
-    services.dat_cai_dat("shopee_group_id", group_id)
-    services.dat_cai_dat("shopee_bot_id", bot_id)
-    db.session.commit()
-    if request.form.get("gui_thu") == "1":
-        chat_id, token = services.kenh_don_shopee()
-        ok = services.gui_zalo(chat_id, "🛒 Tin thử — nhóm này sẽ nhận thông báo ĐƠN SHOPEE MỚI "
-                                        "và nhắc đơn chưa đóng hàng từ BRICON WORK.", token_ghi_de=token)
-        db.session.commit()
-        flash("Đã lưu và gửi tin thử thành công — kiểm tra nhóm Zalo." if ok else
-              "Đã lưu nhưng gửi thử THẤT BẠI — kiểm tra Group ID và bot đã ở trong nhóm (xem Log Zalo).",
-              "success" if ok else "error")
-    else:
-        flash("Đã lưu cấu hình thông báo đơn Shopee.", "success")
-    return redirect(url_for("admin.thiet_lap"))
 
 
 @bp.route("/thiet-lap/ai", methods=["POST"])

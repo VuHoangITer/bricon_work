@@ -2,39 +2,11 @@
 {% block title %}Quét đóng gói · BRICON{% endblock %}
 
 {% block content %}
-{% if don %}
-<div style="margin-bottom:4px">
-  <a href="{{ url_for('dong_goi.cho_dong') }}" style="font-size:.85rem">‹ Đơn Shopee chờ đóng</a>
-</div>
-<h1>Đóng đơn {{ don.ma_don }}</h1>
-<div class="the" style="border-left:4px solid var(--chinh)">
-  <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline">
-    <strong>🛒 Cần gói</strong>
-    <span class="nhan" data-tt="{{ 'cho_duyet' if don.trang_thai == TrangThaiDonShopee.CHO_DONG else ('hoan_thanh' if don.trang_thai == TrangThaiDonShopee.DA_DONG else 'huy') }}">{{ don.ten_trang_thai }}</span>
-  </div>
-  <ul style="margin:8px 0 0;padding-left:18px;font-size:.92rem">
-    {% for x in don.ds_san_pham %}<li>{{ x }}</li>{% else %}<li style="color:var(--muc-mo)">Chưa có chi tiết sản phẩm — xem trên phiếu Shopee.</li>{% endfor %}
-  </ul>
-  <div style="margin-top:8px;font-size:.8rem;color:var(--muc-mo);display:flex;gap:12px;flex-wrap:wrap">
-    {% if don.khach %}<span>👤 {{ don.khach }}</span>{% endif %}
-    {% if don.han_giao %}<span>{% if don.qua_han %}<b style="color:var(--lam-lai)">Quá hạn</b> · {% endif %}Hạn giao {{ don.han_giao.strftime('%H:%M %d/%m') }}</span>{% endif %}
-    {% if don.ma_van_don %}<span>🚚 Mã vận đơn: <b>{{ don.ma_van_don }}</b></span>{% endif %}
-  </div>
-</div>
-{% if don.trang_thai != TrangThaiDonShopee.CHO_DONG %}
-<div class="trong"><strong>Đơn này {{ don.ten_trang_thai|lower }}</strong>
-  {% if don.goi_hang %}{{ don.goi_hang.nguoi_goi.ho_ten }} đóng lúc {{ don.dong_luc.strftime('%H:%M %d/%m') }} ·
-  <a href="{{ url_for('dong_goi.danh_sach', ma=don.goi_hang.ma_van_don) }}">xem ảnh</a>{% endif %}</div>
-{% endif %}
-{% else %}
 <div style="margin-bottom:4px">
   <a href="{{ url_for('dong_goi.danh_sach') }}" style="font-size:.85rem">‹ Lịch sử đóng gói</a>
 </div>
 <h1>Quét đóng gói</h1>
-<p class="goi-y" style="margin:-4px 0 14px">Quét mã vận đơn trên đơn hàng, chụp ảnh kiện đã gói, rồi lưu — mỗi lần lưu đều ghi lại đúng người đang đăng nhập (<strong>{{ current_user.ho_ten }}</strong>) để tra cứu sau này. Mã khớp đơn Shopee đang chờ thì đơn đó tự chuyển "Đã đóng".</p>
-{% endif %}
-
-{% if not don or don.trang_thai == TrangThaiDonShopee.CHO_DONG %}
+<p class="goi-y" style="margin:-4px 0 14px">Quét mã vận đơn trên đơn hàng, chụp ảnh kiện đã gói, rồi lưu — mỗi lần lưu đều ghi lại đúng người đang đăng nhập (<strong>{{ current_user.ho_ten }}</strong>) để tra cứu sau này.</p>
 
 <div class="the" id="khu-quet">
   <div id="trang-thai-quet" style="font-weight:600;margin-bottom:8px">Đang mở camera…</div>
@@ -45,7 +17,6 @@
 </div>
 
 <form class="the" method="post" enctype="multipart/form-data" action="{{ url_for('dong_goi.luu') }}" id="form-goi-hang" style="margin-top:14px">
-  {% if don %}<input type="hidden" name="don_id" value="{{ don.id }}">{% endif %}
   <div class="o-nhap">
     <label for="ma_van_don">Mã vận đơn</label>
     <input type="text" id="ma_van_don" name="ma_van_don" required placeholder="Tự điền sau khi quét — hoặc gõ tay nếu mã bị mờ/hỏng">
@@ -60,11 +31,9 @@
 
   <button class="nut nut--rong" type="submit">Lưu xác nhận đóng gói</button>
 </form>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if not don or don.trang_thai == TrangThaiDonShopee.CHO_DONG %}
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://unpkg.com/@zxing/browser@latest"></script>
 <script>
@@ -191,5 +160,4 @@
   // server nên biến JS cũng mất theo — không cần xử lý thêm ở đây).
 })();
 </script>
-{% endif %}
 {% endblock %}
