@@ -1,6 +1,7 @@
 import base64
 import binascii
 import os
+from datetime import timedelta
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
@@ -8,7 +9,7 @@ from flask_login import current_user, login_required
 import services
 from extensions import db
 from models import (DeXuat, DinhKemDeXuat, GiaiDoanDinhKemDeXuat, LoaiDeXuat, LoaiDinhKem,
-                    NguoiDung, TrangThaiDeXuat, VaiTro)
+                    NguoiDung, TrangThaiDeXuat, VaiTro, gio_vn_hien_tai)
 
 bp = Blueprint("de_xuat", __name__, url_prefix="/de-xuat")
 
@@ -168,6 +169,16 @@ def moi(loai):
             except ValueError:
                 flash("Chi phí dự kiến không hợp lệ.", "error")
                 return redirect(url_for("de_xuat.moi", loai=loai))
+
+        # Chặn gửi trùng (bấm 2 lần / mạng chậm bấm lại): cùng người, cùng loại,
+        # cùng nội dung trong 3 phút -> không tạo thêm, mở luôn đề xuất vừa gửi.
+        trung = (DeXuat.query.filter(DeXuat.nguoi_de_xuat_id == current_user.id,
+                                     DeXuat.loai == loai, DeXuat.noi_dung == noi_dung,
+                                     DeXuat.tao_luc >= gio_vn_hien_tai() - timedelta(minutes=3))
+                 .order_by(DeXuat.id.desc()).first())
+        if trung:
+            flash("Đề xuất này vừa được gửi rồi — không gửi lại lần 2.", "info")
+            return redirect(url_for("de_xuat.chi_tiet", id=trung.id))
 
         chu_ky_png = _doc_chu_ky("chu_ky")
         if not chu_ky_png:

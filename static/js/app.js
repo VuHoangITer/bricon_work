@@ -377,3 +377,33 @@ document.querySelectorAll('table.bang-the').forEach(function (t) {
     });
   });
 });
+
+// Chống gửi 2 lần: bấm nút (hoặc "Xác nhận" chữ ký) 2 lần liên tiếp, hay mạng
+// chậm bấm lại — chỉ lượt gửi ĐẦU TIÊN của mỗi form POST được đi. Không dùng
+// disabled cho nút (sẽ làm mất name/value của nút bấm, VD "Lưu & gửi thử").
+document.addEventListener('submit', function (e) {
+  var f = e.target;
+  if (!f || (f.method || '').toLowerCase() !== 'post' || e.defaultPrevented) return;
+  if (f.dataset.dangGui === '1') { e.preventDefault(); return; }
+  f.dataset.dangGui = '1';
+  var nut = e.submitter;
+  if (nut && nut.tagName === 'BUTTON') {
+    nut.dataset.chuCu = nut.innerHTML;
+    nut.innerHTML = 'Đang gửi…';
+    nut.style.opacity = '.6';
+    nut.style.pointerEvents = 'none';
+  }
+  // Phòng khi gửi thất bại mà trang không chuyển (mất mạng): 20s sau cho gửi lại.
+  setTimeout(function () { mo(f); }, 20000);
+});
+function mo(f) {
+  delete f.dataset.dangGui;
+  f.querySelectorAll('button').forEach(function (b) {
+    if (b.dataset.chuCu) { b.innerHTML = b.dataset.chuCu; delete b.dataset.chuCu; }
+    b.style.opacity = ''; b.style.pointerEvents = '';
+  });
+}
+// Quay lại trang bằng nút Back (trình duyệt giữ trang cũ) -> mở khoá form.
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) document.querySelectorAll('form[data-dang-gui]').forEach(mo);
+});
