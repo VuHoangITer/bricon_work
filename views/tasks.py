@@ -555,6 +555,7 @@ def chi_tiet(viec_id):
         "task_detail.html",
         viec=viec,
         duoc_duyet=current_user.duoc_duyet_viec(viec),
+        duoc_mo_lai=current_user.duoc_mo_lai_viec(viec),
         la_nguoi_nhan=viec.nguoi_nhan_id == current_user.id,
     )
 
@@ -755,7 +756,7 @@ def mo_lai_viec(viec_id):
     vì chấm tay không bao giờ cho ra 0 sao). Mở lại đưa việc về Làm lại, tự
     động được cộng 3 giờ gia hạn theo đúng quy tắc tính KPI đã có."""
     viec = db.session.get(CongViec, viec_id) or abort(404)
-    if not current_user.duoc_duyet_viec(viec):
+    if not current_user.duoc_mo_lai_viec(viec):
         abort(403)
     if not (viec.trang_thai == TrangThai.HOAN_THANH and viec.so_sao_cuoi == 0):
         flash("Chỉ mở lại được việc đã bị hệ thống tự động đóng (0 sao).", "error")

@@ -303,6 +303,16 @@ class NguoiDung(UserMixin, db.Model):
             return viec.nguoi_nhan and viec.nguoi_nhan.bo_phan_id == self.bo_phan_id
         return False
 
+    def duoc_mo_lai_viec(self, viec: "CongViec") -> bool:
+        """Ai mở lại được việc bị hệ thống tự đóng (0 sao): người duyệt được
+        việc đó, CỘNG THÊM Admin/Ban giám đốc với việc tự giao cho chính
+        mình (duoc_duyet_viec chặn tự duyệt nên trước đây họ kẹt, không mở
+        lại được việc của chính họ)."""
+        if self.duoc_duyet_viec(viec):
+            return True
+        return (self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP)
+                and viec.nguoi_nhan_id == self.id and viec.nguoi_giao_id == self.id)
+
     def duoc_duyet_de_xuat(self, dx: "DeXuat") -> bool:
         """Ai duyệt được 1 Đề xuất: Sếp/Admin (trừ đề xuất của chính mình)
         hoặc Quản lý bộ phận của người đề xuất — cùng công thức với

@@ -345,9 +345,9 @@
 </form>
 {% endif %}
 
-{% if duoc_duyet or current_user.la_admin_sep %}
+{% if duoc_duyet or duoc_mo_lai or current_user.la_admin_sep %}
 <div class="hang-nut" style="margin-top:8px">
-  {% if duoc_duyet and viec.trang_thai == TrangThai.HOAN_THANH and viec.so_sao_cuoi == 0 %}
+  {% if duoc_mo_lai and viec.trang_thai == TrangThai.HOAN_THANH and viec.so_sao_cuoi == 0 %}
   <form method="post" action="{{ url_for('tasks.mo_lai_viec', viec_id=viec.id) }}">
     <button class="nut nut--phu nut--nho" type="submit">Mở lại việc (hệ thống đã tự đóng)</button>
   </form>
