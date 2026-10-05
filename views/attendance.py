@@ -501,6 +501,94 @@ def _gop_chi_tiet(ban_ghi, don_nghi, thang: str | None = None):
     return sorted(ds, key=_khoa, reverse=True)
 
 
+@bp.route("/sua", methods=["GET", "POST"])
+@login_required
+def sua_cham_cong():
+    """Admin/Ban giám đốc chấm bù / sửa giờ vào–ra cho 1 nhân viên 1 ngày
+    (quên chấm, máy lỗi GPS, bị đánh "nghỉ không phép" nhầm…). Bắt buộc ghi
+    lý do; mọi lần sửa được ghi lại vào ghi chú của bản ghi chấm công."""
+    if not current_user.la_admin_sep:
+        abort(403)
+    nguoi_id = request.values.get("nguoi", type=int)
+    ngay_raw = (request.values.get("ngay") or "").strip()
+    try:
+        ngay = date.fromisoformat(ngay_raw) if ngay_raw else ngay_vn_hien_tai()
+    except ValueError:
+        ngay = ngay_vn_hien_tai()
+    nv = db.session.get(NguoiDung, nguoi_id) if nguoi_id else None
+    cc = ChamCong.query.filter_by(nguoi_dung_id=nv.id, ngay=ngay).first() if nv else None
+
+    if request.method == "POST":
+        def _quay_lai():
+            return redirect(url_for("attendance.sua_cham_cong", nguoi=nguoi_id or "", ngay=ngay.isoformat()))
+
+        if not nv:
+            flash("Chọn nhân viên.", "error")
+            return _quay_lai()
+        if ngay > ngay_vn_hien_tai():
+            flash("Không sửa chấm công cho ngày trong tương lai.", "error")
+            return _quay_lai()
+        ly_do = (request.form.get("ly_do") or "").strip()
+        if not ly_do:
+            flash("Cần ghi lý do sửa (VD: quên chấm công, máy lỗi GPS…).", "error")
+            return _quay_lai()
+
+        def _gio(ten):
+            raw = (request.form.get(ten) or "").strip()
+            if not raw:
+                return None
+            try:
+                h, m = (int(x) for x in raw.split(":")[:2])
+                return datetime.combine(ngay, datetime.min.time()).replace(hour=h, minute=m)
+            except ValueError:
+                return "loi"
+
+        gio_vao, gio_ra = _gio("gio_vao"), _gio("gio_ra")
+        if "loi" in (gio_vao, gio_ra):
+            flash("Giờ không hợp lệ.", "error")
+            return _quay_lai()
+        if gio_ra and not gio_vao:
+            flash("Có giờ ra thì phải có giờ vào.", "error")
+            return _quay_lai()
+        if gio_vao and gio_ra and gio_ra <= gio_vao:
+            flash("Giờ ra phải sau giờ vào.", "error")
+            return _quay_lai()
+
+        dau_vet = (f"[Sửa tay {gio_vn_hien_tai():%H:%M %d/%m/%Y} bởi {current_user.ho_ten}] "
+                   f"vào {gio_vao.strftime('%H:%M') if gio_vao else '—'}, ra {gio_ra.strftime('%H:%M') if gio_ra else '—'}"
+                   f" — {ly_do}")
+
+        if not gio_vao:
+            if cc:
+                db.session.delete(cc)
+                db.session.commit()
+                flash(f"Đã xoá chấm công ngày {ngay:%d/%m} của {nv.ho_ten}.", "success")
+            else:
+                flash("Không có gì để lưu (chưa nhập giờ vào).", "info")
+            return redirect(url_for("attendance.bang_cong", thang=ngay.strftime("%Y-%m"), nguoi=nv.id))
+
+        if cc is None:
+            cc = ChamCong(nguoi_dung_id=nv.id, ngay=ngay)
+            db.session.add(cc)
+        diem_id = request.form.get("diem_id", type=int)
+        cc.gio_vao, cc.gio_ra = gio_vao, gio_ra
+        if diem_id:
+            cc.diem_vao_id = diem_id
+            cc.diem_ra_id = diem_id if gio_ra else None
+        cc.nghi_khong_phep = False
+        cc.di_tre, cc.so_phut_tre, cc.ve_som, cc.so_phut_som = False, 0, False, 0
+        services.tinh_lai_tre_som(cc)
+        cc.ghi_chu = ((cc.ghi_chu or "") + "\n" + dau_vet).strip()
+        db.session.commit()
+        flash(f"Đã lưu chấm công ngày {ngay:%d/%m} của {nv.ho_ten}.", "success")
+        return redirect(url_for("attendance.bang_cong", thang=ngay.strftime("%Y-%m"), nguoi=nv.id))
+
+    nhan_vien = NguoiDung.query.filter_by(dang_hoat_dong=True).order_by(NguoiDung.ho_ten).all()
+    return render_template("cham_cong_sua.html", nv=nv, ngay=ngay, cc=cc, nhan_vien=nhan_vien,
+                           diems=DiemChamCong.query.filter_by(dang_hoat_dong=True).all(),
+                           la_ngay_nghi=services.la_ngay_nghi(ngay))
+
+
 @bp.route("/bang-cong/xuat")
 @login_required
 def xuat_bang_cong():

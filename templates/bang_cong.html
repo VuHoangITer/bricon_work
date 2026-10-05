@@ -16,6 +16,7 @@
   {% endif %}
   <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Xem</button>
   <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('attendance.xuat_bang_cong', thang=thang, nguoi=f_nguoi) }}">⬇ Xuất Excel</a>
+  {% if current_user.la_admin_sep %}<a class="nut nut--phu" style="flex:0 0 auto" href="{{ url_for('attendance.sua_cham_cong', nguoi=f_nguoi) }}">✎ Chấm bù / sửa công</a>{% endif %}
 </form>
 
 <div class="tieu-khu"><h2>Tổng hợp</h2></div>
@@ -63,7 +64,9 @@
             {% if c.di_tre %}<span class="nhan" data-tt="cho_duyet">Trễ {{ c.so_phut_tre }}′</span>{% endif %}
             {% if c.ve_som %}<span class="nhan" data-tt="cho_duyet">Sớm {{ c.so_phut_som }}′</span>{% endif %}
             {% if c.nghi_ngo %}<span class="nhan" data-tt="lam_lai">Nghi fake GPS</span>{% endif %}
+            {% if c.ghi_chu and '[Sửa tay' in c.ghi_chu %}<span class="nhan" data-tt="huy" title="{{ c.ghi_chu }}">✎ sửa tay</span>{% endif %}
           {% endif %}
+          {% if current_user.la_admin_sep %}<a href="{{ url_for('attendance.sua_cham_cong', nguoi=d.nguoi_dung.id, ngay=d.ngay.isoformat()) }}" style="font-size:.76rem;margin-left:4px">Sửa</a>{% endif %}
         </span></td>
       </tr>
       {% endif %}

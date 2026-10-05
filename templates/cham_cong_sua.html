@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Chấm bù / sửa công · BRICON{% endblock %}
+{% block content %}
+<p style="margin:0 0 8px"><a href="{{ url_for('attendance.bang_cong', thang=ngay.strftime('%Y-%m'), nguoi=nv.id if nv else None) }}">‹ Bảng công</a></p>
+<h1>Chấm bù / sửa công</h1>
+<p class="goi-y" style="margin:-4px 0 14px">Dùng khi nhân viên quên chấm, máy lỗi định vị, hoặc bị ghi "Nghỉ không phép" nhầm. Hệ thống tự tính lại trễ / về sớm theo giờ nhập, và lưu lại người sửa kèm lý do.</p>
+
+<form class="the" method="get" style="display:flex;gap:8px;flex-wrap:wrap;max-width:620px">
+  <select name="nguoi" style="flex:2;min-width:180px" required>
+    <option value="">— Chọn nhân viên —</option>
+    {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if nv and nv.id == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
+  </select>
+  <input type="date" name="ngay" value="{{ ngay.isoformat() }}" style="flex:1;min-width:150px">
+  <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Mở</button>
+</form>
+
+{% if nv %}
+<form class="the" method="post" style="max-width:620px">
+  <input type="hidden" name="nguoi" value="{{ nv.id }}">
+  <input type="hidden" name="ngay" value="{{ ngay.isoformat() }}">
+  <h3 style="margin-top:0">{{ nv.ho_ten }} · {{ ['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ nhật'][ngay.weekday()] }} {{ ngay.strftime('%d/%m/%Y') }}</h3>
+  {% if la_ngay_nghi %}<div class="goi-y" style="color:var(--lam-lai);margin-bottom:8px">Lưu ý: đây là ngày công ty nghỉ (Chủ nhật / lễ).</div>{% endif %}
+  <div class="goi-y" style="margin-bottom:12px">Hiện tại:
+    {% if not cc %}chưa có chấm công.
+    {% elif cc.nghi_khong_phep %}<b style="color:var(--lam-lai)">Nghỉ không phép</b>.
+    {% else %}vào {{ cc.gio_vao.strftime('%H:%M') if cc.gio_vao else '—' }}, ra {{ cc.gio_ra.strftime('%H:%M') if cc.gio_ra else '—' }}{% if cc.diem_vao %} · {{ cc.diem_vao.ten }}{% endif %}.{% endif %}
+  </div>
+  <div class="hang">
+    <div class="o-nhap"><label>Giờ vào</label>
+      <input type="time" name="gio_vao" value="{{ cc.gio_vao.strftime('%H:%M') if cc and cc.gio_vao else '' }}"></div>
+    <div class="o-nhap"><label>Giờ ra</label>
+      <input type="time" name="gio_ra" value="{{ cc.gio_ra.strftime('%H:%M') if cc and cc.gio_ra else '' }}"></div>
+  </div>
+  <div class="o-nhap"><label>Điểm chấm công</label>
+    <select name="diem_id">
+      <option value="">— Giữ nguyên / không ghi —</option>
+      {% for d in diems %}<option value="{{ d.id }}" {{ 'selected' if cc and cc.diem_vao_id == d.id }}>{{ d.ten }}</option>{% endfor %}
+    </select></div>
+  <div class="o-nhap"><label>Lý do sửa <span style="color:var(--lam-lai)">*</span></label>
+    <input type="text" name="ly_do" required maxlength="200" placeholder="VD: Có đi làm, quên chấm công — sếp xác nhận"></div>
+  <div class="goi-y" style="margin:-4px 0 12px">Để trống cả giờ vào lẫn giờ ra rồi lưu = <b>xoá</b> chấm công ngày này.</div>
+  <button class="nut" type="submit">Lưu</button>
+  {% if cc and cc.ghi_chu %}
+  <details style="margin-top:14px"><summary style="cursor:pointer;font-size:.82rem;color:var(--chinh-dam)">Lịch sử sửa / ghi chú</summary>
+    <div style="white-space:pre-wrap;font-size:.8rem;color:var(--muc-mo);margin-top:6px">{{ cc.ghi_chu }}</div></details>
+  {% endif %}
+</form>
+{% endif %}
+{% endblock %}
