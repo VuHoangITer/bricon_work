@@ -43,7 +43,8 @@ def tao_moi():
         flash("Cần chọn ít nhất 1 người nhận.", "error")
         return redirect(url_for("thong_bao.danh_sach"))
 
-    tb = ThongBao(noi_dung=noi_dung, nguoi_dang_id=current_user.id)
+    tb = ThongBao(noi_dung=noi_dung, nguoi_dang_id=current_user.id,
+                  gui_tat_ca=request.form.get("gui_tat_ca") == "1")
     db.session.add(tb)
     db.session.flush()  # có tb.id trước khi gửi, phòng khi sau này cần log theo id
 
@@ -51,5 +52,10 @@ def tao_moi():
     tb.so_nguoi_nhan = so_nguoi_nhan
     db.session.commit()
 
-    flash(f"Đã gửi thông báo tới {so_nguoi_nhan} nhân viên.", "success")
+    loi = tb.nguoi_nhan_loi
+    if loi:
+        flash(f"Đã gửi thông báo tới {so_nguoi_nhan - len(loi)}/{so_nguoi_nhan} nhân viên. "
+              f"Chưa gửi được cho: {', '.join(n['ten'] for n in loi)} (chưa có Zalo hoặc lỗi bot).", "error")
+    else:
+        flash(f"Đã gửi thông báo tới {so_nguoi_nhan} nhân viên.", "success")
     return redirect(url_for("thong_bao.danh_sach"))

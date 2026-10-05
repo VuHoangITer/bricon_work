@@ -653,9 +653,27 @@ class ThongBao(db.Model):
     noi_dung = db.Column(db.Text, nullable=False)
     nguoi_dang_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False)
     so_nguoi_nhan = db.Column(db.Integer, default=0)
+    # Ảnh chụp danh sách người nhận lúc gửi (JSON [{"id","ten","ma","ok"}]) —
+    # lưu tên luôn để vẫn đọc được kể cả khi nhân viên đó bị xoá sau này.
+    # ok=False: gửi Zalo không thành công (chưa có Zalo / lỗi bot).
+    ds_nguoi_nhan = db.Column(db.Text)
+    gui_tat_ca = db.Column(db.Boolean, default=False)
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     nguoi_dang = db.relationship("NguoiDung")
+
+    @property
+    def nguoi_nhan(self) -> list[dict]:
+        import json
+        try:
+            ds = json.loads(self.ds_nguoi_nhan or "[]")
+            return ds if isinstance(ds, list) else []
+        except ValueError:
+            return []
+
+    @property
+    def nguoi_nhan_loi(self) -> list[dict]:
+        return [n for n in self.nguoi_nhan if not n.get("ok", True)]
 
     def __repr__(self):
         return f"<ThongBao {self.id} boi={self.nguoi_dang_id}>"

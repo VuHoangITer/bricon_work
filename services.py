@@ -1131,9 +1131,13 @@ def gui_thong_bao(tb: "ThongBao", nguoi_nhan: list[NguoiDung]) -> int:
     nguoi_nhan được truyền vào (đã lọc/validate ở route) — có thể là toàn
     bộ hoặc chỉ 1 số người được chọn. Trả về số người đã gửi, để lưu vào
     ThongBao.so_nguoi_nhan."""
+    import json
     nd = f"THÔNG BÁO NỘI BỘ – CÔNG TY BRICON\n\n{tb.noi_dung}"
+    ds = []
     for nv in nguoi_nhan:
-        gui_cho_nhan_vien(nv, nd)
+        ok = gui_cho_nhan_vien(nv, nd)
+        ds.append({"id": nv.id, "ten": nv.ho_ten, "ma": nv.ma_dinh_danh, "ok": bool(ok)})
+    tb.ds_nguoi_nhan = json.dumps(ds, ensure_ascii=False)
     return len(nguoi_nhan)
 
 
