@@ -2,7 +2,8 @@
 {% block title %}Bảng công · BRICON{% endblock %}
 
 {% block content %}
-<style>.ghi-nhan{display:inline-flex;flex-wrap:wrap;gap:4px}</style>
+<style>.ghi-nhan{display:inline-flex;flex-wrap:wrap;gap:4px}
+.dong-nghi td{background:#f6f5f1;color:var(--muc-mo);font-size:.8rem;font-style:italic;text-align:center !important;padding-top:7px;padding-bottom:7px}</style>
 <h1>Bảng công</h1>
 
 <form class="the" method="get" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -45,6 +46,9 @@
     <thead><tr><th>Nhân viên · Ngày</th><th>Vào</th><th>Ra</th><th>Điểm</th><th>Ghi nhận</th></tr></thead>
     <tbody>
     {% for d in chi_tiet %}{% set c = d.cc %}
+      {% if d.ngay_nghi %}
+      <tr class="dong-nghi"><td colspan="5">{{ ['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ nhật'][d.ngay.weekday()] }} {{ d.ngay.strftime('%d/%m') }} · {{ d.ngay_nghi }}</td></tr>
+      {% else %}
       <tr>
         <td class="o-tieu-de">{{ d.nguoi_dung.ho_ten }} <span style="font-weight:500;color:var(--muc-nhat)">· {{ d.ngay.strftime('%d/%m') }}</span></td>
         <td>{{ c.gio_vao.strftime('%H:%M') if c and c.gio_vao else '—' }}</td>
@@ -62,6 +66,7 @@
           {% endif %}
         </span></td>
       </tr>
+      {% endif %}
     {% else %}
       <tr><td colspan="5" style="color:var(--muc-mo)">Chưa có dữ liệu.</td></tr>
     {% endfor %}

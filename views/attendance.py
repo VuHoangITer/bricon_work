@@ -450,11 +450,28 @@ def bang_cong():
     nguoi = request.args.get("nguoi", type=int)
     ban_ghi, don_nghi, tong = _du_lieu_bang_cong(thang, nguoi)
     return render_template("bang_cong.html", ban_ghi=ban_ghi, don_nghi=don_nghi,
-                           chi_tiet=_gop_chi_tiet(ban_ghi, don_nghi), hom_nay=ngay_vn_hien_tai(),
+                           chi_tiet=_gop_chi_tiet(ban_ghi, don_nghi, thang), hom_nay=ngay_vn_hien_tai(),
                            tong=tong, thang=thang, nhan_vien=_nhan_vien_bo_loc(), f_nguoi=nguoi)
 
 
-def _gop_chi_tiet(ban_ghi, don_nghi):
+def _ngay_nghi_trong_thang(thang: str) -> dict:
+    """{ngày: nhãn} các ngày công ty nghỉ (Chủ nhật / ngày lễ đã khai báo)
+    trong tháng, tính tới hôm nay — để bảng hiện dòng mờ thay vì "mất" ngày."""
+    from models import NgayNghiLe
+    nam, thg = (int(x) for x in thang.split("-"))
+    dau = date(nam, thg, 1)
+    cuoi = date(nam + (thg == 12), (thg % 12) + 1, 1)
+    hom_nay = ngay_vn_hien_tai()
+    le = {n.ngay: n.ten for n in NgayNghiLe.query.filter(NgayNghiLe.ngay >= dau, NgayNghiLe.ngay < cuoi)}
+    kq, d = {}, dau
+    while d < cuoi and d <= hom_nay:
+        if services.la_ngay_nghi(d):
+            kq[d] = f"Nghỉ lễ: {le[d]}" if d in le else "Công ty nghỉ"
+        d += timedelta(days=1)
+    return kq
+
+
+def _gop_chi_tiet(ban_ghi, don_nghi, thang: str | None = None):
     """Gộp chấm công + đơn nghỉ phép thành 1 danh sách theo ngày cho bảng
     "Chi tiết chấm công từng ngày": ngày nghỉ phép không có chấm công vẫn
     hiện thành 1 dòng riêng; nghỉ nửa buổi mà vẫn chấm công thì gắn nhãn
@@ -468,13 +485,20 @@ def _gop_chi_tiet(ban_ghi, don_nghi):
                                                          "cc": None, "nghi": []})
         d["nghi"].append(x)
 
+    ds = list(dong.values())
+    if thang:
+        for ngay, nhan in _ngay_nghi_trong_thang(thang).items():
+            ds.append({"ngay": ngay, "nguoi_dung": None, "cc": None, "nghi": [], "ngay_nghi": nhan})
+
     def _khoa(d):
+        if d.get("ngay_nghi"):
+            return (d["ngay"], 0, False, "", "")   # dòng ngày nghỉ nằm cuối ngày đó
         c = d["cc"]
         gio = c.gio_vao.time() if c and c.gio_vao else None
         # Trong 1 ngày: ai chấm muộn hơn nằm trên (giống bảng cũ), dòng nghỉ phép xuống cuối ngày.
-        return (d["ngay"], gio is not None, gio.isoformat() if gio else "", d["nguoi_dung"].ho_ten)
+        return (d["ngay"], 1, gio is not None, gio.isoformat() if gio else "", d["nguoi_dung"].ho_ten)
 
-    return sorted(dong.values(), key=_khoa, reverse=True)
+    return sorted(ds, key=_khoa, reverse=True)
 
 
 @bp.route("/bang-cong/xuat")
