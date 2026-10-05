@@ -504,10 +504,11 @@ def _gop_chi_tiet(ban_ghi, don_nghi, thang: str | None = None):
 @bp.route("/sua", methods=["GET", "POST"])
 @login_required
 def sua_cham_cong():
-    """Admin/Ban giám đốc chấm bù / sửa giờ vào–ra cho 1 nhân viên 1 ngày
+    """Quản trị viên chấm bù / sửa giờ vào–ra cho 1 nhân viên 1 ngày
     (quên chấm, máy lỗi GPS, bị đánh "nghỉ không phép" nhầm…). Bắt buộc ghi
-    lý do; mọi lần sửa được ghi lại vào ghi chú của bản ghi chấm công."""
-    if not current_user.la_admin_sep:
+    lý do; mọi lần sửa được ghi lại vào ghi chú của bản ghi chấm công.
+    CHỈ role Quản trị (Admin) — Ban giám đốc cũng không được."""
+    if not current_user.la_admin_thuan:
         abort(403)
     nguoi_id = request.values.get("nguoi", type=int)
     ngay_raw = (request.values.get("ngay") or "").strip()

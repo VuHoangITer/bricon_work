@@ -3,7 +3,7 @@
 {% block content %}
 <p style="margin:0 0 8px"><a href="{{ url_for('attendance.bang_cong', thang=ngay.strftime('%Y-%m'), nguoi=nv.id if nv else None) }}">‹ Bảng công</a></p>
 <h1>Chấm bù / sửa công</h1>
-<p class="goi-y" style="margin:-4px 0 14px">Dùng khi nhân viên quên chấm, máy lỗi định vị, hoặc bị ghi "Nghỉ không phép" nhầm. Hệ thống tự tính lại trễ / về sớm theo giờ nhập, và lưu lại người sửa kèm lý do.</p>
+<p class="goi-y" style="margin:-4px 0 14px">Chỉ Quản trị viên dùng được. Dùng khi nhân viên quên chấm, máy lỗi định vị, hoặc bị ghi "Nghỉ không phép" nhầm. Hệ thống tự tính lại trễ / về sớm theo giờ nhập, và lưu lại người sửa kèm lý do.</p>
 
 <form class="the" method="get" style="display:flex;gap:8px;flex-wrap:wrap;max-width:620px">
   <select name="nguoi" style="flex:2;min-width:180px" required>
