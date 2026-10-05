@@ -558,14 +558,20 @@ def sua_cham_cong():
                    f"vào {gio_vao.strftime('%H:%M') if gio_vao else '—'}, ra {gio_ra.strftime('%H:%M') if gio_ra else '—'}"
                    f" — {ly_do}")
 
-        if not gio_vao:
+        if request.form.get("xoa") == "1":
             if cc:
                 db.session.delete(cc)
                 db.session.commit()
                 flash(f"Đã xoá chấm công ngày {ngay:%d/%m} của {nv.ho_ten}.", "success")
             else:
-                flash("Không có gì để lưu (chưa nhập giờ vào).", "info")
+                flash("Ngày này chưa có chấm công nào để xoá.", "info")
             return redirect(url_for("attendance.bang_cong", thang=ngay.strftime("%Y-%m"), nguoi=nv.id))
+
+        if not gio_vao:
+            # Ô giờ nhập dở (VD mới gõ giờ, chưa gõ phút) trình duyệt gửi lên RỖNG —
+            # tuyệt đối không coi đó là "xoá", chỉ báo nhập lại.
+            flash("Chưa nhập giờ vào (hoặc nhập chưa đủ giờ:phút) — chưa lưu gì.", "error")
+            return _quay_lai()
 
         if cc is None:
             cc = ChamCong(nguoi_dung_id=nv.id, ngay=ngay)

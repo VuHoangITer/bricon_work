@@ -26,8 +26,8 @@
     {% else %}vào {{ cc.gio_vao.strftime('%H:%M') if cc.gio_vao else '—' }}, ra {{ cc.gio_ra.strftime('%H:%M') if cc.gio_ra else '—' }}{% if cc.diem_vao %} · {{ cc.diem_vao.ten }}{% endif %}.{% endif %}
   </div>
   <div class="hang">
-    <div class="o-nhap"><label>Giờ vào</label>
-      <input type="time" name="gio_vao" value="{{ cc.gio_vao.strftime('%H:%M') if cc and cc.gio_vao else '' }}"></div>
+    <div class="o-nhap"><label>Giờ vào <span style="color:var(--lam-lai)">*</span></label>
+      <input type="time" name="gio_vao" required value="{{ cc.gio_vao.strftime('%H:%M') if cc and cc.gio_vao else '' }}"></div>
     <div class="o-nhap"><label>Giờ ra</label>
       <input type="time" name="gio_ra" value="{{ cc.gio_ra.strftime('%H:%M') if cc and cc.gio_ra else '' }}"></div>
   </div>
@@ -38,12 +38,24 @@
     </select></div>
   <div class="o-nhap"><label>Lý do sửa <span style="color:var(--lam-lai)">*</span></label>
     <input type="text" name="ly_do" required maxlength="200" placeholder="VD: Có đi làm, quên chấm công — sếp xác nhận"></div>
-  <div class="goi-y" style="margin:-4px 0 12px">Để trống cả giờ vào lẫn giờ ra rồi lưu = <b>xoá</b> chấm công ngày này.</div>
+  <div class="goi-y" style="margin:-4px 0 12px">Chưa chấm ra thì để trống Giờ ra.</div>
   <button class="nut" type="submit">Lưu</button>
-  {% if cc and cc.ghi_chu %}
-  <details style="margin-top:14px"><summary style="cursor:pointer;font-size:.82rem;color:var(--chinh-dam)">Lịch sử sửa / ghi chú</summary>
-    <div style="white-space:pre-wrap;font-size:.8rem;color:var(--muc-mo);margin-top:6px">{{ cc.ghi_chu }}</div></details>
-  {% endif %}
 </form>
+{% if cc %}
+<form method="post" style="max-width:620px;margin-top:-6px"
+      onsubmit="var l=prompt('XOÁ chấm công ngày {{ ngay.strftime('%d/%m') }} của {{ nv.ho_ten|e }}?\nGhi lý do xoá rồi bấm OK:'); if(!l) return false; this.ly_do.value=l; return true;">
+  <input type="hidden" name="nguoi" value="{{ nv.id }}">
+  <input type="hidden" name="ngay" value="{{ ngay.isoformat() }}">
+  <input type="hidden" name="xoa" value="1">
+  <input type="hidden" name="ly_do" value="">
+  <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">🗑 Xoá chấm công ngày này</button>
+</form>
+{% endif %}
+{% if cc and cc.ghi_chu %}
+<div class="the" style="max-width:620px;margin-top:14px">
+  <details><summary style="cursor:pointer;font-size:.82rem;color:var(--chinh-dam)">Lịch sử sửa / ghi chú</summary>
+    <div style="white-space:pre-wrap;font-size:.8rem;color:var(--muc-mo);margin-top:6px">{{ cc.ghi_chu }}</div></details>
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}
