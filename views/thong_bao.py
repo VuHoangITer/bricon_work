@@ -3,16 +3,41 @@ from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import ThongBao
+from models import NguoiDung, ThongBao, VaiTro
 
 bp = Blueprint("thong_bao", __name__, url_prefix="/thong-bao")
+
+
+def _nguoi_nhan_hop_le():
+    """Người được phép gửi thông báo tới: Admin/Ban giám đốc = toàn công ty;
+    Quản lý bộ phận = chỉ nhân viên trong bộ phận mình."""
+    ds = services.danh_sach_nhan_vien_nhan_thong_bao()
+    if current_user.la_admin_sep:
+        return ds
+    return [n for n in ds if n.id != current_user.id and current_user.trong_pham_vi(n)]
+
+
+def _duoc_xem(tb: ThongBao) -> bool:
+    """Admin/Ban giám đốc xem hết. Người khác chỉ xem thông báo mình gửi,
+    mình nhận; Quản lý bộ phận xem thêm thông báo gửi tới người trong bộ
+    phận mình (thông báo riêng như biên bản vi phạm không lộ ra ngoài)."""
+    if current_user.la_admin_sep or tb.nguoi_dang_id == current_user.id:
+        return True
+    ids = {n.get("id") for n in tb.nguoi_nhan}
+    if current_user.id in ids:
+        return True
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id and ids:
+        return NguoiDung.query.filter(NguoiDung.id.in_(ids),
+                                      NguoiDung.bo_phan_id == current_user.bo_phan_id).first() is not None
+    return False
 
 
 @bp.route("/")
 @login_required
 def danh_sach():
-    ds = ThongBao.query.order_by(ThongBao.tao_luc.desc()).limit(50).all()
-    nhan_vien = services.danh_sach_nhan_vien_nhan_thong_bao() if current_user.la_quan_ly else []
+    ds = [tb for tb in ThongBao.query.order_by(ThongBao.tao_luc.desc()).limit(300).all()
+          if _duoc_xem(tb)][:50]
+    nhan_vien = _nguoi_nhan_hop_le() if current_user.la_quan_ly else []
     return render_template("thong_bao.html", danh_sach=ds, nhan_vien=nhan_vien)
 
 
@@ -27,7 +52,7 @@ def tao_moi():
         flash("Cần nhập nội dung thông báo.", "error")
         return redirect(url_for("thong_bao.danh_sach"))
 
-    hop_le = {nv.id: nv for nv in services.danh_sach_nhan_vien_nhan_thong_bao()}
+    hop_le = {nv.id: nv for nv in _nguoi_nhan_hop_le()}
     if request.form.get("gui_tat_ca") == "1":
         nguoi_nhan = list(hop_le.values())
     else:

@@ -16,7 +16,7 @@
   <div class="o-nhap">
     <label><input type="checkbox" id="gui-tat-ca" name="gui_tat_ca" value="1" checked
       onchange="document.getElementById('chon-nguoi-nhan').style.display = this.checked ? 'none' : 'block'">
-      Gửi cho tất cả nhân viên</label>
+      Gửi cho tất cả nhân viên{% if not current_user.la_admin_sep %} trong bộ phận {{ current_user.bo_phan.ten if current_user.bo_phan else 'của bạn' }}{% endif %}</label>
   </div>
 
   <div id="chon-nguoi-nhan" class="o-nhap" style="display:none">

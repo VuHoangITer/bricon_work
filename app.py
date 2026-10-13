@@ -67,7 +67,8 @@ def create_app(config_class=Config):
 
         xn = XinNghi.query.filter_by(anh_minh_chung=duong_dan).first()
         if xn:
-            if xn.nguoi_dung_id != current_user.id and not current_user.la_quan_ly:
+            if not (current_user.la_quan_ly and current_user.trong_pham_vi(xn.nguoi_dung)) \
+                    and xn.nguoi_dung_id != current_user.id:
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
@@ -92,7 +93,8 @@ def create_app(config_class=Config):
 
         agh = AnhGoiHang.query.filter_by(duong_dan=duong_dan).first()
         if agh:
-            if not (current_user.id == agh.goi_hang.nguoi_goi_id or current_user.la_quan_ly):
+            if not (current_user.id == agh.goi_hang.nguoi_goi_id
+                    or (current_user.la_quan_ly and current_user.trong_pham_vi(agh.goi_hang.nguoi_goi))):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 

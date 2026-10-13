@@ -24,15 +24,22 @@ def danh_sach():
     q = GoiHang.query
     if not current_user.la_quan_ly:
         q = q.filter(GoiHang.nguoi_goi_id == current_user.id)
-    elif nguoi:
-        q = q.filter(GoiHang.nguoi_goi_id == nguoi)
+    else:
+        if not current_user.la_admin_sep:
+            # Quản lý bộ phận: chỉ đơn do người trong bộ phận mình gói
+            q = q.join(NguoiDung, GoiHang.nguoi_goi_id == NguoiDung.id)
+            q = (q.filter(NguoiDung.bo_phan_id == current_user.bo_phan_id) if current_user.bo_phan_id
+                 else q.filter(GoiHang.nguoi_goi_id == current_user.id))
+        if nguoi:
+            q = q.filter(GoiHang.nguoi_goi_id == nguoi)
     if ma:
         q = q.filter(GoiHang.ma_van_don.ilike(f"%{ma}%"))
     q = q.order_by(GoiHang.tao_luc.desc())
 
     phan_trang = q.paginate(page=trang, per_page=30, error_out=False)
-    nhan_vien = (NguoiDung.query.filter_by(dang_hoat_dong=True).order_by(NguoiDung.ho_ten).all()
-                if current_user.la_quan_ly else [])
+    nhan_vien = ([n for n in NguoiDung.query.filter_by(dang_hoat_dong=True).order_by(NguoiDung.ho_ten).all()
+                  if current_user.trong_pham_vi(n)]
+                 if current_user.la_quan_ly else [])
     return render_template(
         "dong_goi_list.html", phan_trang=phan_trang, ban_ghi=phan_trang.items,
         f_ma=ma, f_nguoi=nguoi, nhan_vien=nhan_vien,
@@ -87,6 +94,8 @@ def xoa(id):
     if not current_user.la_quan_ly:
         abort(403)
     gh = db.session.get(GoiHang, id) or abort(404)
+    if not current_user.trong_pham_vi(gh.nguoi_goi):
+        abort(403)
 
     for a in gh.anh:
         duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *a.duong_dan.split("/"))

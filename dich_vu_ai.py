@@ -1291,6 +1291,10 @@ def _tra_cuu_dong_goi_cho_ai(nd: NguoiDung, ma_van_don: str | None = None,
     q = GoiHang.query.join(NguoiDung, GoiHang.nguoi_goi_id == NguoiDung.id)
     if not nd.la_quan_ly:
         q = q.filter(GoiHang.nguoi_goi_id == nd.id)
+    elif not nd.la_admin_sep:
+        # Quản lý bộ phận: chỉ đơn do người trong bộ phận mình gói
+        q = (q.filter(NguoiDung.bo_phan_id == nd.bo_phan_id) if nd.bo_phan_id
+             else q.filter(GoiHang.nguoi_goi_id == nd.id))
     if ma_van_don and str(ma_van_don).strip():
         q = q.filter(GoiHang.ma_van_don.ilike(f"%{str(ma_van_don).strip()}%"))
     if ten_nguoi_goi and str(ten_nguoi_goi).strip() and nd.la_quan_ly:
@@ -1315,7 +1319,9 @@ def _tra_cuu_dong_goi_cho_ai(nd: NguoiDung, ma_van_don: str | None = None,
         "so_tra_ve": len(ds),
         "luu_y": ("Chỉ trả tối đa 30 lần gói mới nhất. Cùng 1 mã có thể gói nhiều "
                   "lần (gói lại/gói bù) — bản MỚI NHẤT là lần gửi đi thực tế."),
-        "pham_vi": "toàn công ty" if nd.la_quan_ly else "chỉ đơn do chính người đang hỏi gói",
+        "pham_vi": ("toàn công ty" if nd.la_admin_sep else
+                    "chỉ đơn do người trong bộ phận của người đang hỏi gói" if nd.la_quan_ly else
+                    "chỉ đơn do chính người đang hỏi gói"),
         "danh_sach": [
             {
                 "ma_van_don": gh.ma_van_don,

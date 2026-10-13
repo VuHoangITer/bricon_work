@@ -303,6 +303,18 @@ class NguoiDung(UserMixin, db.Model):
             return viec.nguoi_nhan and viec.nguoi_nhan.bo_phan_id == self.bo_phan_id
         return False
 
+    def trong_pham_vi(self, nd: "NguoiDung | None") -> bool:
+        """nd có nằm trong phạm vi quản lý của self không: Admin/Ban giám đốc
+        = toàn công ty; Quản lý bộ phận = chính mình + người CÙNG bộ phận;
+        còn lại = chỉ chính mình."""
+        if nd is None:
+            return False
+        if nd.id == self.id or self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
+            return True
+        if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
+            return nd.bo_phan_id == self.bo_phan_id
+        return False
+
     def duoc_mo_lai_viec(self, viec: "CongViec") -> bool:
         """Ai mở lại được việc bị hệ thống tự đóng (0 sao): người duyệt được
         việc đó, CỘNG THÊM Admin/Ban giám đốc với việc tự giao cho chính
