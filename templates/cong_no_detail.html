@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ cn.ten_kh }} – {{ cn.ma_don }} · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px">
+  <a href="{{ url_for('cong_no.danh_sach') }}" style="font-size:.85rem">‹ Danh sách thanh toán công nợ</a>
+</div>
+<div class="page-head">
+  <div class="page-head-copy"><h1>{{ cn.ten_kh }}</h1><p>Mã đơn <strong>{{ cn.ma_don }}</strong> · <span class="cn-ghi-chu">{{ cn.ghi_chu }}</span></p></div>
+  <div class="page-actions">
+    {% if duoc_sua %}<a class="nut nut--phu" href="{{ url_for('cong_no.sua', id=cn.id) }}">✎ Sửa</a>{% endif %}
+    {% if current_user.la_admin_thuan %}
+    <form method="post" action="{{ url_for('cong_no.xoa', id=cn.id) }}" onsubmit="return confirm('Xoá phiếu {{ cn.ma_don }} – {{ cn.ten_kh }} và toàn bộ ảnh?');" style="display:inline">
+      <button class="nut nut--do" type="submit">Xoá</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="the">
+  <p style="margin-top:0">Người khai báo: <strong>{{ cn.nguoi_tao.ho_ten }}</strong> · {{ cn.tao_luc.strftime('%H:%M %d/%m/%Y') }}
+    {% if cn.sua_luc %}<br><span class="goi-y">Sửa lần cuối {{ cn.sua_luc.strftime('%H:%M %d/%m/%Y') }}</span>{% endif %}</p>
+  {% if not duoc_sua and cn.nguoi_tao_id == current_user.id %}
+  <p class="goi-y">Đã quá {{ gio_duoc_sua }} giờ — cần sửa thì nhờ Quản trị.</p>
+  {% endif %}
+  <div class="cn-luoi-anh">
+    {% for a in cn.anh %}
+    <a href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener"><img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="Ảnh lệnh chuyển tiền {{ loop.index }}"></a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if cung_ma %}
+<div class="tieu-khu"><h2>Các lần thanh toán khác của mã {{ cn.ma_don }}</h2><span class="dem">{{ cung_ma|length }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table class="bang-the">
+    <thead><tr><th>Thời gian</th><th>Khách hàng</th><th>Ghi chú</th><th>Người khai</th><th></th></tr></thead>
+    <tbody>
+    {% for x in cung_ma %}
+    <tr><td>{{ x.tao_luc.strftime('%H:%M %d/%m/%Y') }}</td><td>{{ x.ten_kh }}</td><td><span class="cn-ghi-chu">{{ x.ghi_chu }}</span></td>
+        <td>{{ x.nguoi_tao.ho_ten }}</td><td><a class="nut nut--phu nut--nho" href="{{ url_for('cong_no.chi_tiet', id=x.id) }}">Xem</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if cn.lich_su and current_user.la_quan_ly %}
+<details class="the" style="margin-top:14px">
+  <summary style="cursor:pointer;font-weight:600">Lịch sử sửa</summary>
+  <ul style="margin:10px 0 0;padding-left:18px;font-size:.88rem">
+    {% for dong in cn.lich_su.split('\n') %}<li>{{ dong }}</li>{% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

@@ -487,6 +487,8 @@ def _trang_thiet_lap(muc: str):
                            sinh_nhat_sap_toi=sinh_nhat_sap_toi[:8],
                            dong_goi_group_id=services.lay_cai_dat("dong_goi_group_id", ""),
                            dong_goi_bot_id=services.lay_cai_dat("dong_goi_bot_id", ""),
+                           cong_no_group_id=services.lay_cai_dat("cong_no_group_id", ""),
+                           cong_no_bot_id=services.lay_cai_dat("cong_no_bot_id", ""),
                            nhom_ql_mac_dinh=current_app.config["ZALO_GROUP_QL"],
                            ds=ds_bot,
                            nv_theo_bot=nv_theo_bot,
@@ -525,6 +527,37 @@ def luu_kenh_dong_goi():
                   "được thêm vào nhóm (xem chi tiết ở tab Log Zalo).", "error")
     else:
         flash("Đã lưu cấu hình thông báo đóng gói.", "success")
+    return redirect(url_for("admin.thiet_lap"))
+
+
+@bp.route("/thiet-lap/cong-no", methods=["POST"])
+@chi_admin
+def luu_kenh_cong_no():
+    """Chọn nhóm Zalo + bot nhận thông báo Thanh toán công nợ. Để trống nhóm
+    = tắt thông báo. "Lưu & gửi thử" gửi luôn 1 tin thử vào nhóm."""
+    group_id = (request.form.get("group_id") or "").strip()
+    bot_id = (request.form.get("bot_id") or "").strip()
+    if bot_id and not (bot_id.isdigit() and db.session.get(BotZalo, int(bot_id))):
+        flash("Bot không hợp lệ.", "error")
+        return redirect(url_for("admin.thiet_lap"))
+    services.dat_cai_dat("cong_no_group_id", group_id)
+    services.dat_cai_dat("cong_no_bot_id", bot_id)
+    db.session.commit()
+
+    if not group_id:
+        flash("Đã tắt thông báo Zalo thanh toán công nợ (chưa chọn nhóm).", "success")
+    elif request.form.get("gui_thu") == "1":
+        chat_id, token = services.kenh_cong_no()
+        ok = services.gui_zalo(chat_id, "💳 Tin thử — nhóm này sẽ nhận thông báo thanh toán công nợ "
+                                        "từ BRICON WORK.", token_ghi_de=token)
+        db.session.commit()
+        if ok:
+            flash("Đã lưu và gửi tin thử thành công — kiểm tra nhóm Zalo.", "success")
+        else:
+            flash("Đã lưu nhưng gửi thử THẤT BẠI — kiểm tra Group ID và chắc chắn bot đã "
+                  "được thêm vào nhóm (xem chi tiết ở tab Log Zalo).", "error")
+    else:
+        flash("Đã lưu cấu hình thông báo thanh toán công nợ.", "success")
     return redirect(url_for("admin.thiet_lap"))
 
 

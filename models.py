@@ -954,3 +954,42 @@ class TroLySuDung(db.Model):
 
     def __repr__(self):
         return f"<TroLySuDung {self.nguoi_dung_id} {self.ngay} cau_hoi={self.so_cau_hoi} token={self.so_token}>"
+
+class ThanhToanCongNo(db.Model):
+    """1 lần khách thanh toán công nợ — NVKD khai báo: tên khách, mã đơn
+    hàng, ảnh lệnh chuyển tiền (nhiều ảnh), ghi chú. Ban giám đốc / Quản
+    lý bộ phận / Quản trị tra cứu lại theo tên, mã, ngày, ghi chú.
+
+    tim_kiem / ghi_chu_chuan: bản KHÔNG DẤU + chữ thường, tự tính khi lưu —
+    để gõ "thanh tuyen" vẫn ra THANH TUYÊN, và gộp các ghi chú chỉ khác
+    hoa/thường, dấu cách vào cùng 1 mục trong bộ lọc ghi chú."""
+    __tablename__ = "thanh_toan_cong_no"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ten_kh = db.Column(db.String(200), nullable=False, index=True)
+    ma_don = db.Column(db.String(50), nullable=False, index=True)
+    ghi_chu = db.Column(db.String(255), nullable=False)
+    ghi_chu_chuan = db.Column(db.String(255), nullable=False, index=True)
+    tim_kiem = db.Column(db.String(500), nullable=False, index=True)
+    nguoi_tao_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai, index=True)
+    sua_luc = db.Column(db.DateTime)
+    lich_su = db.Column(db.Text)  # mỗi lần sửa 1 dòng: ai, lúc nào, đổi gì
+
+    nguoi_tao = db.relationship("NguoiDung")
+    anh = db.relationship(
+        "AnhCongNo", back_populates="cong_no", cascade="all, delete-orphan",
+        order_by="AnhCongNo.id"
+    )
+
+
+class AnhCongNo(db.Model):
+    """1 ảnh lệnh chuyển tiền trong 1 phiếu thanh toán công nợ."""
+    __tablename__ = "anh_cong_no"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cong_no_id = db.Column(db.Integer, db.ForeignKey("thanh_toan_cong_no.id"), nullable=False, index=True)
+    duong_dan = db.Column(db.String(300), nullable=False)  # tương đối so với UPLOAD_ROOT
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    cong_no = db.relationship("ThanhToanCongNo", back_populates="anh")

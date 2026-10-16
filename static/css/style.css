@@ -584,3 +584,19 @@ body.modal-dang-mo { overflow:hidden; }
   .modal-nen { padding:0; align-items:stretch; }
   .modal-hop { max-width:none; max-height:100vh; height:100vh; border-radius:0; }
 }
+/* ---- Ô nhập có dropdown gợi ý (Thanh toán công nợ) ---- */
+.combo { position:relative; }
+.combo-ds { position:absolute; z-index:40; left:0; right:0; top:calc(100% + 4px); margin:0; padding:4px; list-style:none;
+  background:var(--the); border:1px solid var(--vien-dam); border-radius:var(--bk-n); box-shadow:0 6px 18px rgba(28,28,26,.12);
+  max-height:260px; overflow-y:auto; display:none; }
+.combo.mo .combo-ds { display:block; }
+.combo-ds li { padding:9px 10px; border-radius:6px; cursor:pointer; font-size:.9rem; display:flex; justify-content:space-between; gap:8px; }
+.combo-ds li.chon, .combo-ds li:hover { background:var(--chinh-nhat); }
+.combo-ds li small { color:var(--muc-mo); font-size:.75rem; white-space:nowrap; }
+.combo-ds li.trong-ds { color:var(--muc-mo); cursor:default; background:none; }
+.loc-nhanh { display:flex; gap:6px; flex-wrap:wrap; }
+.cn-anh { display:flex; gap:4px; align-items:center; }
+.cn-anh img { width:44px; height:44px; object-fit:cover; border-radius:var(--bk-n); }
+.cn-ghi-chu { display:inline-block; padding:2px 8px; border-radius:999px; background:var(--chinh-nhat); color:var(--chinh-dam); font-size:.78rem; font-weight:600; }
+.cn-luoi-anh { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; }
+.cn-luoi-anh img { width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:var(--bk-n); border:1px solid var(--vien); }

@@ -407,3 +407,93 @@ function mo(f) {
 window.addEventListener('pageshow', function (e) {
   if (e.persisted) document.querySelectorAll('form[data-dang-gui]').forEach(mo);
 });
+
+/* ---- Ô nhập có dropdown gợi ý ----
+   <div class="combo"><input data-combo='["A","B"]'> hoặc data-combo-url="/..."></div>
+   Bấm vào ô là hiện danh sách; gõ đến đâu lọc đến đó (không phân biệt dấu).
+   data-combo-submit: chọn xong thì gửi form luôn. */
+(function () {
+  const boDau = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/\s+/g, ' ').trim();
+
+  document.querySelectorAll('input[data-combo], input[data-combo-url]').forEach((o) => {
+    const boc = o.closest('.combo');
+    if (!boc) return;
+    o.setAttribute('autocomplete', 'off');
+    const ul = document.createElement('ul');
+    ul.className = 'combo-ds';
+    boc.appendChild(ul);
+    let tinh = [];
+    try { tinh = JSON.parse(o.dataset.combo || '[]'); } catch (e) { tinh = []; }
+    const url = o.dataset.comboUrl;
+    let muc = [], chon = -1, hen = null, lanGoi = 0;
+
+    function ve(ds) {
+      muc = ds; chon = -1;
+      ul.innerHTML = '';
+      if (!ds.length) {
+        if (url && !o.value.trim()) { boc.classList.remove('mo'); return; }
+        const li = document.createElement('li');
+        li.className = 'trong-ds';
+        li.textContent = url ? 'Không có gợi ý' : (tinh.length ? 'Không khớp — cứ gõ tiếp để nhập mới' : 'Chưa có — gõ để nhập mới');
+        ul.appendChild(li);
+      }
+      ds.forEach((m, i) => {
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.textContent = m.text;
+        li.appendChild(span);
+        if (m.phu) { const s = document.createElement('small'); s.textContent = m.phu; li.appendChild(s); }
+        li.addEventListener('mousedown', (e) => { e.preventDefault(); lay(i); });
+        ul.appendChild(li);
+      });
+      boc.classList.add('mo');
+    }
+
+    function lay(i) {
+      const m = muc[i];
+      if (!m) return;
+      o.value = m.text;
+      boc.classList.remove('mo');
+      o.dispatchEvent(new Event('change', { bubbles: true }));
+      if (o.hasAttribute('data-combo-submit') && o.form) o.form.submit();
+    }
+
+    function capNhat() {
+      const tu = boDau(o.value);
+      if (url) {
+        clearTimeout(hen);
+        if (!tu) { ve([]); return; }
+        hen = setTimeout(() => {
+          const lan = ++lanGoi;
+          fetch(url + '?q=' + encodeURIComponent(o.value), { credentials: 'same-origin' })
+            .then((r) => r.json()).then((ds) => {
+              if (lan !== lanGoi) return;
+              ve(ds.map((d) => ({ text: d.text, phu: d.loai === 'ma' ? 'Mã · ' + (d.phu || '') : 'Khách hàng' })));
+            }).catch(() => {});
+        }, 180);
+      } else {
+        ve(tinh.filter((t) => !tu || boDau(t).includes(tu)).slice(0, 50).map((t) => ({ text: t })));
+      }
+    }
+
+    o.addEventListener('focus', capNhat);
+    o.addEventListener('click', () => { if (!boc.classList.contains('mo')) capNhat(); });
+    o.addEventListener('input', capNhat);
+    o.addEventListener('blur', () => setTimeout(() => boc.classList.remove('mo'), 120));
+    o.addEventListener('keydown', (e) => {
+      if (!boc.classList.contains('mo') || !muc.length) return;
+      const li = ul.querySelectorAll('li');
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        chon = (chon + (e.key === 'ArrowDown' ? 1 : -1) + muc.length) % muc.length;
+        li.forEach((x, i) => x.classList.toggle('chon', i === chon));
+        li[chon].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && chon >= 0) {
+        e.preventDefault(); lay(chon);
+      } else if (e.key === 'Escape') {
+        boc.classList.remove('mo');
+      }
+    });
+  });
+})();

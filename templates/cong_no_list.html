@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Thanh toán công nợ · BRICON{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Thanh toán công nợ</h1><p>Lưu ảnh lệnh chuyển tiền của khách, tìm lại nhanh theo tên khách, mã đơn, ngày, ghi chú.</p></div>
+  <div class="page-actions">
+    {% if current_user.la_quan_ly %}<a class="nut nut--phu" href="{{ url_for('cong_no.xuat_excel', **tham_so) }}">⬇ Excel</a>{% endif %}
+    {% if duoc_khai_bao %}<a class="nut nut--vang" href="{{ url_for('cong_no.moi') }}">＋ Khai báo</a>{% endif %}
+  </div>
+</div>
+
+{% set so_loc = (1 if f.gc else 0) + (1 if f.nguoi else 0) + (1 if f.tu or f.den else 0) %}
+<form class="the bo-loc" method="get">
+  <div class="bo-loc-chi-tiet">
+    <select name="gc" onchange="this.form.submit()" aria-label="Lọc ghi chú">
+      <option value="">Mọi ghi chú</option>
+      {% for chuan, nhan, n in ds_ghi_chu %}
+      <option value="{{ chuan }}" {{ 'selected' if f.gc == chuan }}>{{ nhan }} ({{ n }})</option>
+      {% endfor %}
+    </select>
+    {% if nhan_vien %}
+    <select name="nguoi" onchange="this.form.submit()" aria-label="Lọc nhân viên">
+      <option value="">Mọi nhân viên</option>
+      {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f.nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <div class="loc-ngay">
+      <label for="tu">Từ ngày</label>
+      <input id="tu" type="date" name="tu" value="{{ f.tu.isoformat() if f.tu else '' }}" onchange="this.form.submit()">
+      <label for="den">đến</label>
+      <input id="den" type="date" name="den" value="{{ f.den.isoformat() if f.den else '' }}" onchange="this.form.submit()">
+    </div>
+    <div class="loc-nhanh">
+      {% for ma, nhan in (('hom_nay','Hôm nay'),('tuan_nay','Tuần này'),('thang_nay','Tháng này')) %}
+      {% set tu_, den_ = nhanh[ma] %}
+      {% set dang_chon = f.tu == tu_ and f.den == den_ %}
+      <a class="nut nut--nho {{ 'nut--vang' if dang_chon else 'nut--phu' }}"
+         href="{{ url_for('cong_no.danh_sach', **dict(tham_so, tu=tu_.isoformat(), den=den_.isoformat())) }}">{{ nhan }}</a>
+      {% endfor %}
+      {% if tham_so %}<a class="nut nut--phu nut--nho" href="{{ url_for('cong_no.danh_sach') }}">✕ Bỏ lọc</a>{% endif %}
+    </div>
+  </div>
+  <div class="bo-loc-tim">
+    <div class="combo" style="flex:1;min-width:0">
+      <input type="search" name="q" value="{{ f.q }}" placeholder="Tìm tên khách hoặc mã đơn…"
+             data-combo-url="{{ url_for('cong_no.goi_y') }}" data-combo-submit style="width:100%">
+    </div>
+    <button class="nut nut--phu" type="submit">Tìm</button>
+    <button type="button" class="nut nut--phu bo-loc-nut" aria-expanded="false">Lọc{% if so_loc %} <span class="dem-loc">{{ so_loc }}</span>{% endif %}</button>
+  </div>
+</form>
+
+<div class="tieu-khu"><h2>Phiếu thanh toán</h2><span class="dem">{{ phan_trang.total }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table class="bang-the">
+    <thead><tr><th>Ảnh</th><th>Khách hàng</th><th>Mã đơn</th><th>Ghi chú</th>{% if current_user.la_quan_ly %}<th>Người khai</th>{% endif %}<th>Thời gian</th><th></th></tr></thead>
+    <tbody>
+    {% for cn in ban_ghi %}
+      <tr>
+        <td>
+          <div class="cn-anh">
+          {% for a in cn.anh[:2] %}
+            <a href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener"><img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="Ảnh chuyển tiền"></a>
+          {% endfor %}
+          {% if cn.anh|length > 2 %}<span style="font-size:.75rem;color:var(--muc-mo)">+{{ cn.anh|length - 2 }}</span>{% endif %}
+          </div>
+        </td>
+        <td class="o-tieu-de"><a href="{{ url_for('cong_no.chi_tiet', id=cn.id) }}">{{ cn.ten_kh }}</a></td>
+        <td>{{ cn.ma_don }}</td>
+        <td><span class="cn-ghi-chu">{{ cn.ghi_chu }}</span></td>
+        {% if current_user.la_quan_ly %}<td>{{ cn.nguoi_tao.ho_ten }}</td>{% endif %}
+        <td>{{ cn.tao_luc.strftime('%H:%M %d/%m/%Y') }}{% if cn.sua_luc %} <span style="color:var(--muc-mo);font-size:.75rem" title="Đã sửa {{ cn.sua_luc.strftime('%H:%M %d/%m') }}">✎ đã sửa</span>{% endif %}</td>
+        <td>
+          <a class="nut nut--phu nut--nho" href="{{ url_for('cong_no.chi_tiet', id=cn.id) }}">Xem</a>
+          {% if duoc_sua(current_user, cn) %}<a class="nut nut--phu nut--nho" href="{{ url_for('cong_no.sua', id=cn.id) }}">Sửa</a>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="{{ 7 if current_user.la_quan_ly else 6 }}" style="color:var(--muc-mo)">
+        {% if tham_so %}Không có phiếu nào khớp bộ lọc.{% else %}Chưa có phiếu thanh toán nào.{% endif %}
+      </td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if phan_trang.pages > 1 %}
+<div class="phan-trang">
+  {% if phan_trang.has_prev %}
+    <a class="nut nut--phu nut--nho" href="{{ url_for('cong_no.danh_sach', trang=phan_trang.prev_num, **tham_so) }}">‹ Trước</a>
+  {% else %}<span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">‹ Trước</span>{% endif %}
+  <span class="phan-trang-so">Trang {{ phan_trang.page }}/{{ phan_trang.pages }}</span>
+  {% if phan_trang.has_next %}
+    <a class="nut nut--phu nut--nho" href="{{ url_for('cong_no.danh_sach', trang=phan_trang.next_num, **tham_so) }}">Sau ›</a>
+  {% else %}<span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau ›</span>{% endif %}
+</div>
+{% endif %}
+
+{% if current_user.la_admin_thuan %}
+<details class="the" style="margin-top:18px">
+  <summary style="cursor:pointer;font-weight:600">⚙ Chức vụ được khai báo (chỉ Quản trị thấy)</summary>
+  <form method="post" action="{{ url_for('cong_no.cai_dat') }}" style="margin-top:10px">
+    <p class="goi-y" style="margin-top:0">Tick các chức vụ được khai báo (VD: NVKD, NVKD Online).
+      {% if not chuc_vu_da_luu %}Đang dùng mặc định: chức vụ có chữ "kinh doanh" / "NVKD" / "sale".{% endif %}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:12px">
+      {% for cv in ds_chuc_vu %}
+      <label style="display:flex;gap:6px;align-items:center;margin:0;font-weight:400">
+        <input type="checkbox" name="chuc_vu" value="{{ cv.id }}" {{ 'checked' if cv.id in chuc_vu_chon }} style="width:auto"> {{ cv.ten }}
+      </label>
+      {% else %}<span class="goi-y">Chưa có chức vụ nào — thêm ở Quản trị → Trợ lý AI → Chức vụ.</span>{% endfor %}
+    </div>
+    <button class="nut nut--phu nut--nho" type="submit">Lưu</button>
+  </form>
+  <p class="goi-y" style="margin:14px 0 0">Thông báo Zalo khi có phiếu mới:
+    <strong>{{ 'đang bật' if zalo_nhom else 'đang tắt' }}</strong> —
+    <a href="{{ url_for('admin.thiet_lap') }}#cong-no">chọn nhóm & bot ở Hệ thống → Bot Zalo</a>.</p>
+</details>
+{% endif %}
+{% endblock %}

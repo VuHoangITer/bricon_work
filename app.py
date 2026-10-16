@@ -26,6 +26,7 @@ def create_app(config_class=Config):
     from views.api import bp as api_bp
     from views.attendance import bp as attendance_bp
     from views.auth import bp as auth_bp
+    from views.cong_no import bp as cong_no_bp
     from views.de_xuat import bp as de_xuat_bp
     from views.dong_goi import bp as dong_goi_bp
     from views.tasks import bp as tasks_bp
@@ -37,6 +38,7 @@ def create_app(config_class=Config):
     app.register_blueprint(thong_bao_bp)
     app.register_blueprint(de_xuat_bp)
     app.register_blueprint(dong_goi_bp)
+    app.register_blueprint(cong_no_bp)
     app.register_blueprint(attendance_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
@@ -98,6 +100,14 @@ def create_app(config_class=Config):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
+        from models import AnhCongNo
+        acn = AnhCongNo.query.filter_by(duong_dan=duong_dan).first()
+        if acn:
+            if not (current_user.id == acn.cong_no.nguoi_tao_id
+                    or (current_user.la_quan_ly and current_user.trong_pham_vi(acn.cong_no.nguoi_tao))):
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
         # Ảnh đại diện nhân viên — ai đăng nhập cũng xem được
         if NguoiDung.query.filter_by(anh_dai_dien=duong_dan).first():
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
@@ -152,6 +162,11 @@ def create_app(config_class=Config):
 
         agh = AnhGoiHang.query.filter_by(duong_dan=duong_dan).first()
         if agh:
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        # Ảnh lệnh chuyển tiền — để bot gửi ảnh vào nhóm Zalo công nợ
+        from models import AnhCongNo
+        if AnhCongNo.query.filter_by(duong_dan=duong_dan).first():
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
         abort(404)
@@ -261,6 +276,12 @@ def create_app(config_class=Config):
         return url_for("media", duong_dan=duong_dan) if duong_dan else None
 
     app.jinja_env.globals["anh_tro_ly"] = anh_tro_ly
+
+    def duoc_vao_cong_no():
+        from views.cong_no import duoc_vao
+        return duoc_vao(current_user)
+
+    app.jinja_env.globals["duoc_vao_cong_no"] = duoc_vao_cong_no
 
     @app.context_processor
     def bien_chung():

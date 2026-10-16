@@ -742,6 +742,47 @@ def kenh_dong_goi() -> tuple[str, str]:
     return chat_id, token
 
 
+def kenh_cong_no() -> tuple[str, str]:
+    """(chat_id, bot token) nhận thông báo Thanh toán công nợ — Admin chọn ở
+    Hệ thống → Bot Zalo → "Thông báo thanh toán công nợ". Chưa nhập nhóm thì
+    trả chat_id rỗng = KHÔNG gửi (khác đóng gói: không tự đẩy vào nhóm QL,
+    vì ảnh chuyển tiền là chứng từ tiền bạc)."""
+    from models import BotZalo
+    chat_id = (lay_cai_dat("cong_no_group_id") or "").strip()
+    token = ""
+    bot_id = lay_cai_dat("cong_no_bot_id")
+    if bot_id and bot_id.isdigit():
+        bot = db.session.get(BotZalo, int(bot_id))
+        if bot and bot.dang_hoat_dong:
+            token = bot.token
+    if not token:
+        token = current_app.config["ZALO_BOT_TOKEN_QL"] or current_app.config["ZALO_DEFAULT_BOT_TOKEN"]
+    return chat_id, token
+
+
+def bao_cong_no_moi(cn: "ThanhToanCongNo") -> bool:
+    """Báo vào nhóm đã chọn mỗi khi có phiếu thanh toán công nợ mới: 1 tin
+    tóm tắt + ảnh lệnh chuyển tiền (tối đa 5 ảnh). Chưa cấu hình nhóm thì
+    bỏ qua. Không bao giờ raise — lỗi Zalo không làm hỏng việc lưu phiếu."""
+    chat_id, token = kenh_cong_no()
+    if not chat_id:
+        return False
+    base = current_app.config["BASE_URL"]
+    nd = (
+        f"💳 THANH TOÁN CÔNG NỢ\n"
+        f"Khách hàng: {cn.ten_kh}\n"
+        f"Mã đơn: {cn.ma_don}\n"
+        f"Ghi chú: {cn.ghi_chu}\n"
+        f"Người khai báo: {cn.nguoi_tao.ho_ten} ({cn.nguoi_tao.ma_dinh_danh})\n"
+        f"{cn.tao_luc.strftime('%H:%M %d/%m/%Y')} · {len(cn.anh)} ảnh\n"
+        f"Xem: {base}/cong-no/{cn.id}"
+    )
+    ok = gui_zalo(chat_id, nd, token_ghi_de=token)
+    for a in cn.anh[:5]:
+        gui_zalo_anh(chat_id, f"{base}/media-cong-khai/{a.duong_dan}", token_ghi_de=token)
+    return ok
+
+
 def lay_cac_chat_gan_day(token: str) -> tuple[list[dict], str | None, str]:
     """Gọi getUpdates để tìm các nhóm/chat bot vừa nhận được tin nhắn — dùng
     để dò chat_id của 1 nhóm mới thêm bot vào.
@@ -2340,6 +2381,14 @@ def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
         for a in g.anh:
             _xoa_file_tuong_doi(a.duong_dan)
         db.session.delete(g)
+
+    # Phiếu thanh toán công nợ người này khai báo: giữ (chứng từ tiền của
+    # khách), chuyển người khai báo sang admin.
+    from models import ThanhToanCongNo
+    for cn in ThanhToanCongNo.query.filter_by(nguoi_tao_id=nd.id).all():
+        cn.nguoi_tao_id = admin_thuc_hien.id
+        cn.lich_su = ((cn.lich_su + "\n") if cn.lich_su else "") + \
+            f"Người khai báo gốc: {nd.ho_ten} ({nd.ma_dinh_danh}) — tài khoản đã bị xoá"
 
     # Thông báo người này đăng: giữ, chuyển người đăng sang admin.
     for tb in ThongBao.query.filter_by(nguoi_dang_id=nd.id).all():

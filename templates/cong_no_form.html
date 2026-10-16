@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Sửa phiếu' if cn else 'Khai báo thanh toán' }} · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px">
+  <a href="{{ url_for('cong_no.chi_tiet', id=cn.id) if cn else url_for('cong_no.danh_sach') }}" style="font-size:.85rem">‹ {{ 'Quay lại phiếu' if cn else 'Danh sách thanh toán công nợ' }}</a>
+</div>
+<h1>{{ 'Sửa phiếu thanh toán' if cn else 'Khai báo thanh toán công nợ' }}</h1>
+<p class="goi-y" style="margin:-4px 0 14px">Cả 4 ô đều bắt buộc.</p>
+
+<form class="the" method="post" enctype="multipart/form-data"
+      action="{{ url_for('cong_no.sua', id=cn.id) if cn else url_for('cong_no.luu') }}" id="form-cong-no">
+  <div class="o-nhap combo">
+    <label for="ten_kh">Tên khách hàng</label>
+    <input type="text" id="ten_kh" name="ten_kh" required maxlength="200" value="{{ cn.ten_kh if cn else '' }}"
+           placeholder="VD: THANH TUYÊN" data-combo='{{ ds_ten_kh|tojson|forceescape }}' style="text-transform:uppercase">
+  </div>
+
+  <div class="o-nhap">
+    <label for="ma_don">Mã đơn hàng</label>
+    <input type="text" id="ma_don" name="ma_don" required maxlength="50" value="{{ cn.ma_don if cn else '' }}" placeholder="VD: 837292">
+  </div>
+
+  <div class="o-nhap">
+    <label for="anh">Hình ảnh thanh toán</label>
+    {% if cn and cn.anh %}
+    <div class="goi-y" style="margin-top:0">Ảnh hiện có — tick ô "Bỏ" để xoá ảnh đó:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 10px">
+      {% for a in cn.anh %}
+      <label style="display:flex;flex-direction:column;align-items:center;gap:4px;margin:0;font-weight:400;font-size:.8rem">
+        <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:var(--bk-n)">
+        <span><input type="checkbox" name="xoa_anh" value="{{ a.id }}" style="width:auto"> Bỏ</span>
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <input type="file" id="anh" name="anh" accept="image/*" multiple {{ '' if cn else 'required' }}>
+    <div class="goi-y">Chụp hoặc chọn ảnh lệnh chuyển tiền — chọn được nhiều ảnh, bấm nhiều lần để thêm.</div>
+    <div id="xem-truoc-anh" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+  </div>
+
+  <div class="o-nhap combo">
+    <label for="ghi_chu">Ghi chú</label>
+    <input type="text" id="ghi_chu" name="ghi_chu" required maxlength="255" value="{{ cn.ghi_chu if cn else '' }}"
+           placeholder="Bấm để chọn ghi chú đã dùng, hoặc gõ mới — VD: Chuyển 1 nửa" data-combo='{{ ds_ghi_chu|tojson|forceescape }}'>
+  </div>
+
+  <button class="nut nut--rong" type="submit">{{ 'Lưu thay đổi' if cn else 'Lưu' }}</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  // Cộng dồn ảnh qua nhiều lần chọn/chụp (mặc định lần chọn sau THAY ảnh cũ)
+  const oAnh = document.getElementById('anh');
+  const khu = document.getElementById('xem-truoc-anh');
+  let ds = [];
+  function dongBo() { const dt = new DataTransfer(); ds.forEach((f) => dt.items.add(f)); oAnh.files = dt.files; }
+  function ve() {
+    khu.innerHTML = '';
+    ds.forEach((f, i) => {
+      const b = document.createElement('div');
+      b.style.cssText = 'position:relative;width:72px;height:72px';
+      b.innerHTML = '<img src="' + URL.createObjectURL(f) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:var(--bk-n)">' +
+        '<button type="button" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:none;background:var(--lam-lai);color:#fff;font-size:14px;line-height:1;cursor:pointer">×</button>';
+      b.querySelector('button').addEventListener('click', () => { ds.splice(i, 1); dongBo(); ve(); });
+      khu.appendChild(b);
+    });
+  }
+  oAnh.addEventListener('change', () => { ds = ds.concat(Array.from(oAnh.files).filter((f) => !ds.includes(f))); dongBo(); ve(); });
+})();
+</script>
+{% endblock %}

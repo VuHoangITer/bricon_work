@@ -59,6 +59,31 @@
   </form>
 </div>
 
+<div class="the" id="cong-no">
+  <h3 style="margin-top:0">💳 Thông báo thanh toán công nợ</h3>
+  <p class="tl-mo-ta">Mỗi lần có phiếu thanh toán công nợ mới, hệ thống gửi tên khách + mã đơn + ghi chú + người
+    khai báo + ảnh lệnh chuyển tiền vào nhóm dưới đây. <strong>Để trống nhóm = không gửi.</strong></p>
+  <form method="post" action="{{ url_for('admin.luu_kenh_cong_no') }}">
+    <div class="hang">
+      <div class="o-nhap"><label>Nhóm nhận (Zalo group ID)</label>
+        <input type="text" name="group_id" value="{{ cong_no_group_id }}" placeholder="Để trống = tắt thông báo">
+        <div class="goi-y">Lấy ID: thêm bot vào nhóm rồi gõ <code>/id</code> trong nhóm.</div></div>
+      <div class="o-nhap"><label>Bot gửi</label>
+        <select name="bot_id">
+          <option value="">Bot của nhóm quản lý (mặc định)</option>
+          {% for b in ds if b.dang_hoat_dong %}
+          <option value="{{ b.id }}" {{ 'selected' if cong_no_bot_id == b.id|string }}>{{ b.ten }}</option>
+          {% endfor %}
+        </select>
+        <div class="goi-y">Bot này phải đang có mặt trong nhóm nhận ở bên trái.</div></div>
+    </div>
+    <div class="hang-nut">
+      <button class="nut nut--nho" type="submit">Lưu</button>
+      <button class="nut nut--phu nut--nho" type="submit" name="gui_thu" value="1">Lưu & gửi thử</button>
+    </div>
+  </form>
+</div>
+
 <details class="tl-them">
   <summary><span class="tl-them-nhan">+ Thêm bot Zalo</span></summary>
   <div class="the">
