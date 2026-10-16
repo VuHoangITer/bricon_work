@@ -52,9 +52,10 @@ def _tu_dong_dong_viec_qua_han():
 # ---------------------------------------------------------------------------
 def _vai_tro_khong_duoc_giao() -> tuple[str, ...]:
     """Vai trò KHÔNG được chọn làm người nhận việc. Admin luôn bị loại (role
-    hệ thống, không phải nhân sự thực). Sếp chỉ bị loại khi người đang giao
-    KHÔNG PHẢI Sếp — tức chỉ Sếp mới giao việc được cho Sếp khác."""
-    if current_user.vai_tro == VaiTro.SEP:
+    hệ thống, không phải nhân sự thực). Ban giám đốc chỉ nhận việc từ Ban
+    giám đốc khác hoặc Quản trị viên — Quản lý/Nhân viên không giao lên
+    được."""
+    if current_user.vai_tro in (VaiTro.SEP, VaiTro.ADMIN):
         return (VaiTro.ADMIN,)
     return (VaiTro.ADMIN, VaiTro.SEP)
 
