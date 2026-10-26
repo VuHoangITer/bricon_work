@@ -51,7 +51,7 @@ def nhan_vien():
         like = f"%{tim}%"
         q = q.filter(db.or_(NguoiDung.ho_ten.ilike(like), NguoiDung.ma_dinh_danh.ilike(like)))
     if bo_phan_id:
-        q = q.filter(NguoiDung.bo_phan_id == bo_phan_id)
+        q = q.filter(NguoiDung.thuoc_bo_phan([bo_phan_id]))
     if trang_thai == "1":
         q = q.filter(NguoiDung.dang_hoat_dong.is_(True))
     elif trang_thai == "0":
@@ -67,6 +67,10 @@ def nhan_vien():
     for n in tat_ca:
         ten_bp = n.bo_phan.ten if n.bo_phan else CHUA_GAN
         theo_bo_phan.setdefault(ten_bp, []).append(n)
+        # Người có bộ phận phụ hiện thêm ở nhóm bộ phận phụ (gắn nhãn "phụ")
+        for b in n.bo_phan_phu:
+            if b.id != n.bo_phan_id:
+                theo_bo_phan.setdefault(b.ten, []).append(n)
     nhom_nhan_vien = sorted(theo_bo_phan.items(), key=lambda kv: (kv[0] == CHUA_GAN, kv[0]))
 
     # Nhắc nhanh đầu trang: sinh nhật trong tháng + hợp đồng sắp/đã hết hạn
@@ -210,6 +214,10 @@ def luu_nhan_vien():
     nd.ho_ten = request.form["ho_ten"].strip()
     nd.vai_tro = request.form.get("vai_tro", VaiTro.NHAN_VIEN)
     nd.bo_phan_id = request.form.get("bo_phan_id", type=int) or None
+    if "co_bo_phan_phu" in request.form:  # form có ô bộ phận phụ (trang chi tiết)
+        ids_phu = {int(x) for x in request.form.getlist("bo_phan_phu") if x.isdigit()}
+        ids_phu.discard(nd.bo_phan_id)
+        nd.bo_phan_phu = BoPhan.query.filter(BoPhan.id.in_(ids_phu)).all() if ids_phu else []
     nd.so_dien_thoai = (request.form.get("so_dien_thoai") or "").strip() or None
     nd.zalo_group_id = (request.form.get("zalo_group_id") or "").strip() or None
     nd.bot_zalo_id = bot_zalo_id
@@ -334,6 +342,9 @@ def xoa_bo_phan(bo_phan_id):
               f"Chuyển họ sang bộ phận khác trước.", "error")
         return redirect(url_for("admin.bo_phan"))
     ten = b.ten
+    # Ai chỉ để bộ phận này là bộ phận PHỤ thì gỡ ra (không chặn xoá)
+    for nd in NguoiDung.query.filter(NguoiDung.bo_phan_phu.any(BoPhan.id == b.id)).all():
+        nd.bo_phan_phu = [x for x in nd.bo_phan_phu if x.id != b.id]
     db.session.delete(b)
     db.session.commit()
     flash(f"Đã xoá bộ phận {ten}.", "success")

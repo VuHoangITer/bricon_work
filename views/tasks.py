@@ -64,8 +64,8 @@ def _nhan_vien_duoc_giao() -> list[NguoiDung]:
     q = NguoiDung.query.filter_by(dang_hoat_dong=True).filter(
         NguoiDung.vai_tro.notin_(_vai_tro_khong_duoc_giao())
     )
-    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
-        q = q.filter(NguoiDung.bo_phan_id == current_user.bo_phan_id)
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id:
+        q = q.filter(NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id))
     return q.order_by(NguoiDung.ho_ten).all()
 
 
@@ -74,10 +74,10 @@ def _viec_lien_quan():
     q = CongViec.query
     if current_user.xem_toan_cong_ty:
         return q
-    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id:
         return q.join(NguoiDung, CongViec.nguoi_nhan_id == NguoiDung.id).filter(
             db.or_(
-                NguoiDung.bo_phan_id == current_user.bo_phan_id,
+                NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id),
                 CongViec.nguoi_giao_id == current_user.id,
                 CongViec.nguoi_nhan_id == current_user.id,
             )
@@ -824,7 +824,7 @@ def kpi():
 
     if current_user.la_quan_ly:
         bang = services.tinh_kpi(tu_ngay, den_ngay)
-        if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
+        if current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id:
             ids = {n.id for n in _nhan_vien_duoc_giao()}
             bang = [b for b in bang if b["nguoi_dung_id"] in ids]
     else:

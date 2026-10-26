@@ -388,8 +388,8 @@ def _ngu_canh_toan_doi(nd: NguoiDung) -> str:
 
     q = NguoiDung.query.filter_by(dang_hoat_dong=True).filter(
         NguoiDung.vai_tro.notin_((VaiTro.ADMIN, VaiTro.SEP)))
-    if nd.vai_tro == VaiTro.QUAN_LY and nd.bo_phan_id:
-        q = q.filter(NguoiDung.bo_phan_id == nd.bo_phan_id)
+    if nd.vai_tro == VaiTro.QUAN_LY and nd.ds_bo_phan_id:
+        q = q.filter(NguoiDung.thuoc_bo_phan(nd.ds_bo_phan_id))
     nhan_su = q.order_by(NguoiDung.ho_ten).all()
     if not nhan_su:
         return ""
@@ -783,11 +783,11 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
         else:
             dong.append("Người này chưa gửi đề xuất nào.")
 
-        if nd.la_quan_ly and nd.bo_phan_id:
-            tong_bo_phan = NguoiDung.query.filter_by(
-                bo_phan_id=nd.bo_phan_id, dang_hoat_dong=True).count()
+        if nd.la_quan_ly and nd.ds_bo_phan_id:
+            tong_bo_phan = NguoiDung.query.filter(
+                NguoiDung.thuoc_bo_phan(nd.ds_bo_phan_id), NguoiDung.dang_hoat_dong.is_(True)).count()
             dong.append(f"Bộ phận mình quản lý hiện có {tong_bo_phan} nhân viên đang hoạt động.")
-            bang_kpi = _bang_kpi_thang_nay_cho_ngu_canh(bo_phan_id=nd.bo_phan_id)
+            bang_kpi = _bang_kpi_thang_nay_cho_ngu_canh(bo_phan_ids=nd.ds_bo_phan_id)
             if bang_kpi:
                 dong.append("--- KPI tháng này của nhân viên trong bộ phận mình quản lý "
                             "(dùng để trả lời khi được hỏi đánh giá/kết quả làm việc của "
@@ -867,14 +867,14 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
     return "\n\n".join(dong)
 
 
-def _bang_kpi_thang_nay_cho_ngu_canh(bo_phan_id: int | None = None) -> str:
+def _bang_kpi_thang_nay_cho_ngu_canh(bo_phan_ids: set[int] | None = None) -> str:
     """Tóm tắt KPI từ đầu tháng tới hôm nay, dạng text gọn để nhét vào ngữ
     cảnh trợ lý AI — lọc theo bộ phận nếu có (dùng cho quản lý)."""
     hom_nay = ngay_vn_hien_tai()
     bang = tinh_kpi(hom_nay.replace(day=1), hom_nay)
-    if bo_phan_id:
-        ids = {n.id for n in NguoiDung.query.filter_by(
-            bo_phan_id=bo_phan_id, dang_hoat_dong=True).all()}
+    if bo_phan_ids:
+        ids = {n.id for n in NguoiDung.query.filter(
+            NguoiDung.thuoc_bo_phan(bo_phan_ids), NguoiDung.dang_hoat_dong.is_(True)).all()}
         bang = [b for b in bang if b["nguoi_dung_id"] in ids]
     if not bang:
         return ""
@@ -1206,9 +1206,9 @@ def _tra_cuu_de_xuat_cho_ai(nd: NguoiDung, trang_thai: str | None = None,
 
     if nd.la_admin_sep:
         q = DeXuat.query
-    elif nd.la_quan_ly and nd.bo_phan_id:
+    elif nd.la_quan_ly and nd.ds_bo_phan_id:
         q = DeXuat.query.join(NguoiDung, DeXuat.nguoi_de_xuat_id == NguoiDung.id).filter(
-            db.or_(NguoiDung.bo_phan_id == nd.bo_phan_id, DeXuat.nguoi_de_xuat_id == nd.id)
+            db.or_(NguoiDung.thuoc_bo_phan(nd.ds_bo_phan_id), DeXuat.nguoi_de_xuat_id == nd.id)
         )
     else:
         q = DeXuat.query.filter_by(nguoi_de_xuat_id=nd.id)
@@ -1293,7 +1293,7 @@ def _tra_cuu_dong_goi_cho_ai(nd: NguoiDung, ma_van_don: str | None = None,
         q = q.filter(GoiHang.nguoi_goi_id == nd.id)
     elif not nd.la_admin_sep:
         # Quản lý bộ phận: chỉ đơn do người trong bộ phận mình gói
-        q = (q.filter(NguoiDung.bo_phan_id == nd.bo_phan_id) if nd.bo_phan_id
+        q = (q.filter(NguoiDung.thuoc_bo_phan(nd.ds_bo_phan_id)) if nd.ds_bo_phan_id
              else q.filter(GoiHang.nguoi_goi_id == nd.id))
     if ma_van_don and str(ma_van_don).strip():
         q = q.filter(GoiHang.ma_van_don.ilike(f"%{str(ma_van_don).strip()}%"))

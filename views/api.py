@@ -59,6 +59,7 @@ def api_nhan_vien():
         {
             "id": n.id, "ma_dinh_danh": n.ma_dinh_danh, "ho_ten": n.ho_ten,
             "vai_tro": n.vai_tro, "bo_phan": n.bo_phan.ten if n.bo_phan else None,
+            "bo_phan_phu": [b.ten for b in n.bo_phan_phu],
             "zalo_group_id": n.zalo_group_id, "dang_hoat_dong": n.dang_hoat_dong,
         } for n in q.order_by(NguoiDung.ho_ten).all()
     ]})

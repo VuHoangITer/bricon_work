@@ -398,10 +398,10 @@ def _du_lieu_bang_cong(thang: str, nguoi_id: int | None = None):
 
     q_cc = ChamCong.query.filter(ChamCong.ngay >= dau, ChamCong.ngay < cuoi)
     q_xn = XinNghi.query.filter(XinNghi.ngay >= dau, XinNghi.ngay < cuoi)
-    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
-        q_cc = q_cc.join(NguoiDung).filter(NguoiDung.bo_phan_id == current_user.bo_phan_id)
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id:
+        q_cc = q_cc.join(NguoiDung).filter(NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id))
         q_xn = q_xn.join(NguoiDung, XinNghi.nguoi_dung_id == NguoiDung.id).filter(
-            NguoiDung.bo_phan_id == current_user.bo_phan_id)
+            NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id))
     if nguoi_id:
         q_cc = q_cc.filter(ChamCong.nguoi_dung_id == nguoi_id)
         q_xn = q_xn.filter(XinNghi.nguoi_dung_id == nguoi_id)
@@ -436,8 +436,8 @@ def _nhan_vien_bo_loc():
     thấy người trong bộ phận mình (khớp phạm vi dữ liệu _du_lieu_bang_cong
     đã lọc sẵn); Sếp/Admin thấy toàn bộ."""
     q = NguoiDung.query.filter_by(dang_hoat_dong=True)
-    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
-        q = q.filter(NguoiDung.bo_phan_id == current_user.bo_phan_id)
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id:
+        q = q.filter(NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id))
     return q.order_by(NguoiDung.ho_ten).all()
 
 

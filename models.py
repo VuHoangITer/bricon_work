@@ -129,6 +129,18 @@ class TrangThaiDeXuat:
 # --------------------------------------------------------------------------
 # Bảng
 # --------------------------------------------------------------------------
+# Bộ phận PHỤ của nhân viên (ngoài bộ phận chính nguoi_dung.bo_phan_id) —
+# VD 1 trưởng bộ phận quản lý cả Kho lẫn Kinh doanh. Phạm vi quản lý tính
+# theo TẤT CẢ bộ phận (chính + phụ); chấm công/hiển thị vẫn theo bộ phận chính.
+nguoi_dung_bo_phan = db.Table(
+    "nguoi_dung_bo_phan",
+    db.Column("nguoi_dung_id", db.Integer, db.ForeignKey("nguoi_dung.id", ondelete="CASCADE"),
+              primary_key=True),
+    db.Column("bo_phan_id", db.Integer, db.ForeignKey("bo_phan.id", ondelete="CASCADE"),
+              primary_key=True),
+)
+
+
 class BoPhan(db.Model):
     __tablename__ = "bo_phan"
     id = db.Column(db.Integer, primary_key=True)
@@ -254,6 +266,36 @@ class NguoiDung(UserMixin, db.Model):
                             cascade="all, delete-orphan", order_by="HoSoNhanVien.tao_luc.desc()")
     chuc_vu = db.relationship("ChucVu")
     bot_zalo = db.relationship("BotZalo")
+    bo_phan_phu = db.relationship("BoPhan", secondary=nguoi_dung_bo_phan, order_by="BoPhan.ten")
+
+    # ---- bộ phận ----
+    @property
+    def ds_bo_phan_id(self) -> set[int]:
+        """Mọi bộ phận người này thuộc về: bộ phận chính + bộ phận phụ."""
+        ids = {b.id for b in self.bo_phan_phu}
+        if self.bo_phan_id:
+            ids.add(self.bo_phan_id)
+        return ids
+
+    @property
+    def ten_cac_bo_phan(self) -> str:
+        """VD "Kinh doanh, Kho" — bộ phận chính đứng đầu."""
+        ten = [self.bo_phan.ten] if self.bo_phan else []
+        ten += [b.ten for b in self.bo_phan_phu if b.id != self.bo_phan_id]
+        return ", ".join(ten)
+
+    def cung_bo_phan(self, nd: "NguoiDung | None") -> bool:
+        """self và nd có chung ít nhất 1 bộ phận (chính hoặc phụ) không."""
+        return bool(nd is not None and self.ds_bo_phan_id & nd.ds_bo_phan_id)
+
+    @classmethod
+    def thuoc_bo_phan(cls, ids):
+        """Điều kiện SQL: nhân viên thuộc 1 trong các bộ phận ids (chính hoặc phụ)."""
+        ids = list(ids)
+        if not ids:
+            return db.false()
+        phu = db.select(nguoi_dung_bo_phan.c.nguoi_dung_id).where(nguoi_dung_bo_phan.c.bo_phan_id.in_(ids))
+        return db.or_(cls.bo_phan_id.in_(ids), cls.id.in_(phu))
 
     # ---- mật khẩu ----
     def dat_mat_khau(self, mat_khau: str):
@@ -287,8 +329,8 @@ class NguoiDung(UserMixin, db.Model):
             return True
         if viec.nguoi_nhan_id == self.id or viec.nguoi_giao_id == self.id:
             return True
-        if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
-            return viec.nguoi_nhan and viec.nguoi_nhan.bo_phan_id == self.bo_phan_id
+        if self.vai_tro == VaiTro.QUAN_LY and self.ds_bo_phan_id:
+            return self.cung_bo_phan(viec.nguoi_nhan)
         return False
 
     def duoc_duyet_viec(self, viec: "CongViec") -> bool:
@@ -299,20 +341,21 @@ class NguoiDung(UserMixin, db.Model):
             return viec.nguoi_nhan_id != self.id
         if viec.nguoi_giao_id == self.id:
             return True
-        if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
-            return viec.nguoi_nhan and viec.nguoi_nhan.bo_phan_id == self.bo_phan_id
+        if self.vai_tro == VaiTro.QUAN_LY and self.ds_bo_phan_id:
+            return self.cung_bo_phan(viec.nguoi_nhan)
         return False
 
     def trong_pham_vi(self, nd: "NguoiDung | None") -> bool:
         """nd có nằm trong phạm vi quản lý của self không: Admin/Ban giám đốc
-        = toàn công ty; Quản lý bộ phận = chính mình + người CÙNG bộ phận;
+        = toàn công ty; Quản lý bộ phận = chính mình + người có CHUNG ít nhất 1 bộ phận
+        (chính hoặc phụ);
         còn lại = chỉ chính mình."""
         if nd is None:
             return False
         if nd.id == self.id or self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
             return True
-        if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
-            return nd.bo_phan_id == self.bo_phan_id
+        if self.vai_tro == VaiTro.QUAN_LY and self.ds_bo_phan_id:
+            return self.cung_bo_phan(nd)
         return False
 
     def duoc_mo_lai_viec(self, viec: "CongViec") -> bool:
@@ -335,8 +378,8 @@ class NguoiDung(UserMixin, db.Model):
             return False
         if self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
             return True
-        if self.vai_tro == VaiTro.QUAN_LY and self.bo_phan_id:
-            return dx.nguoi_de_xuat and dx.nguoi_de_xuat.bo_phan_id == self.bo_phan_id
+        if self.vai_tro == VaiTro.QUAN_LY and self.ds_bo_phan_id:
+            return self.cung_bo_phan(dx.nguoi_de_xuat)
         return False
 
     @property

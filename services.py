@@ -2405,6 +2405,7 @@ def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
     from models import HoSoNhanVien
     for h in list(nd.ho_so):
         xoa_file_ho_so(h)
+    nd.bo_phan_phu = []
     dat_anh_dai_dien(nd, None)
     for h in HoSoNhanVien.query.filter(HoSoNhanVien.nguoi_tai_len_id == nd.id,
                                        HoSoNhanVien.nguoi_dung_id != nd.id).all():

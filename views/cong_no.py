@@ -70,10 +70,10 @@ def duoc_vao(nd) -> bool:
         return False
     if nd.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) or duoc_khai_bao(nd):
         return True
-    if nd.vai_tro == VaiTro.QUAN_LY and nd.bo_phan_id:
+    if nd.vai_tro == VaiTro.QUAN_LY and nd.ds_bo_phan_id:
         ids = _chuc_vu_khai_bao_ids()
         return bool(ids) and db.session.query(NguoiDung.id).filter(
-            NguoiDung.bo_phan_id == nd.bo_phan_id, NguoiDung.chuc_vu_id.in_(ids)).first() is not None
+            NguoiDung.thuoc_bo_phan(nd.ds_bo_phan_id), NguoiDung.chuc_vu_id.in_(ids)).first() is not None
     return False
 
 
@@ -96,9 +96,9 @@ def _q_pham_vi():
     u = current_user
     if u.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
         return q
-    if u.vai_tro == VaiTro.QUAN_LY and u.bo_phan_id:
+    if u.vai_tro == VaiTro.QUAN_LY and u.ds_bo_phan_id:
         return (q.join(NguoiDung, ThanhToanCongNo.nguoi_tao_id == NguoiDung.id)
-                .filter(db.or_(NguoiDung.bo_phan_id == u.bo_phan_id,
+                .filter(db.or_(NguoiDung.thuoc_bo_phan(u.ds_bo_phan_id),
                                ThanhToanCongNo.nguoi_tao_id == u.id)))
     return q.filter(ThanhToanCongNo.nguoi_tao_id == u.id)
 

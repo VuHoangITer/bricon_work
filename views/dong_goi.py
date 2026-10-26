@@ -28,7 +28,7 @@ def danh_sach():
         if not current_user.la_admin_sep:
             # Quản lý bộ phận: chỉ đơn do người trong bộ phận mình gói
             q = q.join(NguoiDung, GoiHang.nguoi_goi_id == NguoiDung.id)
-            q = (q.filter(NguoiDung.bo_phan_id == current_user.bo_phan_id) if current_user.bo_phan_id
+            q = (q.filter(NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id)) if current_user.ds_bo_phan_id
                  else q.filter(GoiHang.nguoi_goi_id == current_user.id))
         if nguoi:
             q = q.filter(GoiHang.nguoi_goi_id == nguoi)

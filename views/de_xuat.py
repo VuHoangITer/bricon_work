@@ -30,9 +30,9 @@ def _de_xuat_giam_sat():
     xem lại lịch sử đã duyệt, không chỉ việc cần hành động."""
     if current_user.la_admin_sep:
         q = DeXuat.query
-    elif current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id:
+    elif current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id:
         q = DeXuat.query.join(NguoiDung, DeXuat.nguoi_de_xuat_id == NguoiDung.id).filter(
-            NguoiDung.bo_phan_id == current_user.bo_phan_id
+            NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id)
         )
     else:
         return []

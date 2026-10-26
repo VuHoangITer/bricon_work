@@ -58,7 +58,7 @@
     <div style="flex:1;min-width:200px">
       <h1>{{ n.ho_ten }}</h1>
       <div class="hs-dau-phu">
-        {{ n.ma_dinh_danh }} · {{ n.bo_phan.ten if n.bo_phan else 'Chưa gán bộ phận' }}
+        {{ n.ma_dinh_danh }} · {{ n.ten_cac_bo_phan or 'Chưa gán bộ phận' }}
         {% if n.chuc_vu %} · {{ n.chuc_vu.ten }}{% endif %}
         {% if n.tham_nien %} · làm được {{ n.tham_nien }}{% endif %}
       </div>
@@ -93,9 +93,20 @@
       <div class="hang">
         <div class="o-nhap"><label>Vai trò</label>
           <select name="vai_tro">{% for ma, ten in vai_tros.items() %}<option value="{{ ma }}" {{ 'selected' if n.vai_tro == ma }}>{{ ten }}</option>{% endfor %}</select></div>
-        <div class="o-nhap"><label>Bộ phận</label>
+        <div class="o-nhap"><label>Bộ phận chính</label>
           <select name="bo_phan_id"><option value="">—</option>{% for b in bo_phans %}<option value="{{ b.id }}" {{ 'selected' if n.bo_phan_id == b.id }}>{{ b.ten }}</option>{% endfor %}</select></div>
       </div>
+      <div class="o-nhap"><label>Bộ phận khác (kiêm nhiệm)</label>
+        <input type="hidden" name="co_bo_phan_phu" value="1">
+        <div style="display:flex;flex-wrap:wrap;gap:6px 18px">
+          {% set ids_phu = n.bo_phan_phu|map(attribute='id')|list %}
+          {% for b in bo_phans %}
+          <label style="display:flex;gap:6px;align-items:center;margin:0;font-weight:400">
+            <input type="checkbox" name="bo_phan_phu" value="{{ b.id }}" {{ 'checked' if b.id in ids_phu }} style="width:auto"> {{ b.ten }}
+          </label>
+          {% endfor %}
+        </div>
+        <div class="goi-y">Tick khi người này thuộc thêm bộ phận khác — VD trưởng bộ phận quản lý cả Kho và Kinh doanh. Quản lý được nhân viên của tất cả bộ phận đã chọn; chấm công vẫn theo bộ phận chính.</div></div>
       <div class="o-nhap"><label>Chức vụ</label>
         <select name="chuc_vu_id">
           <option value="">— Không chọn —</option>

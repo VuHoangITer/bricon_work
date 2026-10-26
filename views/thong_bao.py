@@ -26,9 +26,9 @@ def _duoc_xem(tb: ThongBao) -> bool:
     ids = {n.get("id") for n in tb.nguoi_nhan}
     if current_user.id in ids:
         return True
-    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.bo_phan_id and ids:
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id and ids:
         return NguoiDung.query.filter(NguoiDung.id.in_(ids),
-                                      NguoiDung.bo_phan_id == current_user.bo_phan_id).first() is not None
+                                      NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id)).first() is not None
     return False
 
 

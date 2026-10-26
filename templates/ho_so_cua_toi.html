@@ -61,7 +61,7 @@
       <h3>🏢 Công việc</h3>
       <div class="hs-tt">
         <div><small>Vai trò</small><span>{{ n.ten_vai_tro }}</span></div>
-        <div><small>Bộ phận</small><span>{{ n.bo_phan.ten if n.bo_phan else '—' }}</span></div>
+        <div><small>Bộ phận</small><span>{{ n.ten_cac_bo_phan or '—' }}</span></div>
         <div><small>Chức vụ</small><span>{{ n.chuc_vu.ten if n.chuc_vu else '—' }}</span></div>
         <div><small>Ngày vào làm</small><span>{% if n.ngay_vao_lam %}{{ n.ngay_vao_lam.strftime('%d/%m/%Y') }}{% else %}—{% endif %}</span>
           {% if n.tham_nien %}<div style="font-size:.76rem;color:var(--muc-mo)">Làm được {{ n.tham_nien }}</div>{% endif %}</div>

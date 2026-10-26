@@ -114,7 +114,7 @@
       <tr class="nv-dong{{ ' nv-mo' if not n.dang_hoat_dong }}" onclick="location.href='{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}'">
         <td class="o-tieu-de"><div class="nv-ten">
           {{ avatar(n) }}
-          <span><strong>{{ n.ho_ten }}</strong><small>{{ n.ma_dinh_danh }}{% if not n.dang_hoat_dong %} · đã nghỉ{% endif %}</small></span>
+          <span><strong>{{ n.ho_ten }}</strong><small>{{ n.ma_dinh_danh }}{% if not n.dang_hoat_dong %} · đã nghỉ{% endif %}{% if n.bo_phan and n.bo_phan.ten != ten_bo_phan %} · bộ phận phụ (chính: {{ n.bo_phan.ten }}){% elif n.bo_phan_phu %} · kiêm {{ n.bo_phan_phu|map(attribute='ten')|join(', ') }}{% endif %}</small></span>
         </div></td>
         <td style="font-size:.82rem">{{ n.chuc_vu.ten if n.chuc_vu else '—' }}</td>
         <td><span class="nhan" data-tt="{{ n.vai_tro }}">{{ n.ten_vai_tro }}</span></td>
