@@ -126,6 +126,16 @@ class TrangThaiDeXuat:
     NHAN = {CHO_DUYET: "Chờ duyệt", DA_DUYET: "Đã duyệt", TU_CHOI: "Từ chối"}
 
 
+class TrangThaiBienBan:
+    CHO_KY = "cho_ky"        # đã lập, chờ nhân viên ký xác nhận
+    DA_KY = "da_ky"          # nhân viên đã ký
+    KHONG_KY = "khong_ky"    # nhân viên không ký — người lập ghi nhận, vẫn có hiệu lực
+    DA_HUY = "da_huy"
+
+    NHAN = {CHO_KY: "Chờ ký", DA_KY: "Đã ký", KHONG_KY: "NV không ký", DA_HUY: "Đã huỷ"}
+    CO_HIEU_LUC = (DA_KY, KHONG_KY)  # được tính vào tổng tiền phạt
+
+
 # --------------------------------------------------------------------------
 # Bảng
 # --------------------------------------------------------------------------
@@ -1036,3 +1046,92 @@ class AnhCongNo(db.Model):
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     cong_no = db.relationship("ThanhToanCongNo", back_populates="anh")
+
+class LoiViPham(db.Model):
+    """Danh mục lỗi soạn sẵn (Ban giám đốc / Quản trị khai báo) — khi lập
+    biên bản chỉ cần chọn lỗi là tự điền mức phạt mặc định (vẫn sửa được)."""
+    __tablename__ = "loi_vi_pham"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ten = db.Column(db.String(200), nullable=False, unique=True)
+    muc_phat = db.Column(db.Integer, nullable=False, default=0)
+    mo_ta = db.Column(db.Text)
+    dang_dung = db.Column(db.Boolean, nullable=False, default=True)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+
+class BienBanPhat(db.Model):
+    """1 biên bản vi phạm / phạt tiền. Quy trình: Quản lý bộ phận / Ban giám
+    đốc / Quản trị lập (ký tên) -> nhân viên vào web ký xác nhận (kèm ý kiến
+    giải trình nếu có). Nhân viên không chịu ký thì người lập ghi nhận "NV
+    không ký" — biên bản vẫn có hiệu lực. Mỗi bước sinh lại PDF.
+
+    ten_loi lưu bản sao tên lỗi lúc lập — sửa/xoá danh mục lỗi về sau không
+    làm đổi nội dung biên bản đã lập."""
+    __tablename__ = "bien_ban_phat"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nguoi_vi_pham_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    nguoi_lap_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    loi_id = db.Column(db.Integer, db.ForeignKey("loi_vi_pham.id", ondelete="SET NULL"))
+    ten_loi = db.Column(db.String(200), nullable=False)
+    ngay_vi_pham = db.Column(db.Date, nullable=False, index=True)
+    noi_dung = db.Column(db.Text, nullable=False)  # diễn biến sự việc
+    so_tien = db.Column(db.Integer, nullable=False, default=0)
+    trang_thai = db.Column(db.String(20), nullable=False, default=TrangThaiBienBan.CHO_KY, index=True)
+
+    chu_ky_lap = db.Column(db.String(300))
+    chu_ky_nv = db.Column(db.String(300))
+    y_kien_nv = db.Column(db.Text)
+    ky_luc = db.Column(db.DateTime)
+
+    xu_ly_boi_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))  # ai ghi nhận không ký / huỷ
+    xu_ly_luc = db.Column(db.DateTime)
+    ly_do_xu_ly = db.Column(db.Text)  # lý do huỷ / ghi chú khi NV không ký
+
+    duong_dan_pdf = db.Column(db.String(300))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai, index=True)
+
+    nguoi_vi_pham = db.relationship("NguoiDung", foreign_keys=[nguoi_vi_pham_id])
+    nguoi_lap = db.relationship("NguoiDung", foreign_keys=[nguoi_lap_id])
+    xu_ly_boi = db.relationship("NguoiDung", foreign_keys=[xu_ly_boi_id])
+    loi = db.relationship("LoiViPham")
+    dinh_kem = db.relationship("DinhKemBienBan", back_populates="bien_ban",
+                               cascade="all, delete-orphan", order_by="DinhKemBienBan.id")
+
+    @property
+    def so_bien_ban(self) -> str:
+        return f"BB{self.tao_luc:%y%m}-{self.id:04d}" if self.tao_luc and self.id else "BB-mới"
+
+    @property
+    def ten_trang_thai(self) -> str:
+        return TrangThaiBienBan.NHAN.get(self.trang_thai, self.trang_thai)
+
+    @property
+    def co_hieu_luc(self) -> bool:
+        return self.trang_thai in TrangThaiBienBan.CO_HIEU_LUC
+
+
+class DinhKemBienBan(db.Model):
+    """Ảnh/tệp bằng chứng đính kèm biên bản."""
+    __tablename__ = "dinh_kem_bien_ban"
+
+    id = db.Column(db.Integer, primary_key=True)
+    bien_ban_id = db.Column(db.Integer, db.ForeignKey("bien_ban_phat.id"), nullable=False, index=True)
+    loai = db.Column(db.String(20), nullable=False)
+    duong_dan = db.Column(db.String(300), nullable=False)
+    ten_goc = db.Column(db.String(255))
+    kich_thuoc = db.Column(db.Integer)
+    mime = db.Column(db.String(100))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    bien_ban = db.relationship("BienBanPhat", back_populates="dinh_kem")
+
+    @property
+    def kich_thuoc_dep(self):
+        n = self.kich_thuoc or 0
+        if n < 1024:
+            return f"{n} B"
+        if n < 1024 * 1024:
+            return f"{n / 1024:.0f} KB"
+        return f"{n / 1048576:.1f} MB"

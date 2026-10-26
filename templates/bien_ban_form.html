@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Lập biên bản phạt · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px"><a href="{{ url_for('bien_ban.danh_sach') }}" style="font-size:.85rem">‹ Biên bản phạt</a></div>
+<h1>Lập biên bản vi phạm</h1>
+{% if not nhan_vien %}
+<div class="the"><p style="margin:0">Không có nhân viên nào trong phạm vi bạn được lập biên bản.</p></div>
+{% else %}
+<form class="the" method="post" enctype="multipart/form-data" id="form-bien-ban">
+  <div class="o-nhap">
+    <label for="nguoi_vi_pham_id">Nhân viên vi phạm</label>
+    <select id="nguoi_vi_pham_id" name="nguoi_vi_pham_id" required>
+      <option value="">— Chọn nhân viên —</option>
+      {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if chon_nv == n.id }}>{{ n.ho_ten }} ({{ n.ma_dinh_danh }}){% if n.bo_phan %} · {{ n.bo_phan.ten }}{% endif %}</option>{% endfor %}
+    </select>
+  </div>
+
+  <div class="hang">
+    <div class="o-nhap">
+      <label for="loi_id">Lỗi vi phạm</label>
+      <select id="loi_id" name="loi_id" required>
+        <option value="">— Chọn lỗi —</option>
+        {% for l in ds_loi %}<option value="{{ l.id }}" data-muc="{{ l.muc_phat }}" data-mo-ta="{{ l.mo_ta or '' }}">{{ l.ten }} — {{ "{:,}".format(l.muc_phat).replace(",", ".") }} đ</option>{% endfor %}
+        <option value="khac" data-muc="">Lỗi khác (tự ghi)…</option>
+      </select>
+      {% if not ds_loi %}<div class="goi-y">Chưa có danh mục lỗi{% if current_user.la_admin_sep %} — <a href="{{ url_for('bien_ban.danh_muc_loi') }}">thêm ở đây</a>{% endif %}. Có thể chọn "Lỗi khác".</div>{% endif %}
+      <div class="goi-y" id="mo-ta-loi"></div>
+    </div>
+    <div class="o-nhap">
+      <label for="ngay_vi_pham">Ngày vi phạm</label>
+      <input type="date" id="ngay_vi_pham" name="ngay_vi_pham" value="{{ hom_nay.isoformat() }}" max="{{ hom_nay.isoformat() }}" required>
+    </div>
+  </div>
+
+  <div class="o-nhap" id="o-loi-khac" hidden>
+    <label for="ten_loi_khac">Tên lỗi</label>
+    <input type="text" id="ten_loi_khac" name="ten_loi_khac" maxlength="200" placeholder="VD: Tự ý nghỉ giữa giờ không báo">
+  </div>
+
+  <div class="o-nhap">
+    <label for="noi_dung">Diễn biến sự việc</label>
+    <textarea id="noi_dung" name="noi_dung" rows="4" required placeholder="VD: 8h45 ngày 25/10 nhân viên đến muộn 45 phút, không báo trước…"></textarea>
+  </div>
+
+  <div class="o-nhap">
+    <label for="so_tien">Số tiền phạt (đ)</label>
+    <input type="text" id="so_tien" name="so_tien" inputmode="numeric" placeholder="Tự điền theo lỗi — sửa được; để 0 nếu chỉ nhắc nhở">
+  </div>
+
+  <div class="o-nhap">
+    <label for="dinh_kem">Ảnh / tệp bằng chứng — không bắt buộc</label>
+    <input type="file" id="dinh_kem" name="dinh_kem" multiple>
+    <div class="goi-y">Ảnh chụp, video, ảnh camera, file chấm công… chọn được nhiều tệp.</div>
+  </div>
+
+  <input type="hidden" name="chu_ky" id="chu_ky">
+  <div class="goi-y" style="margin-bottom:10px">Bấm "Lập biên bản" để ký tên người lập — hệ thống tạo biên bản (PDF) và báo Zalo cho nhân viên vào ký xác nhận.</div>
+  <button class="nut nut--rong" type="submit">Lập biên bản</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if nhan_vien %}
+{% set form_ky_id = 'form-bien-ban' %}{% set nut_ky_chu = 'Xác nhận & Lập biên bản' %}
+{% include "_ky_ten_bien_ban.html" %}
+<script>
+(function () {
+  const chonLoi = document.getElementById('loi_id');
+  const oKhac = document.getElementById('o-loi-khac');
+  const tenKhac = document.getElementById('ten_loi_khac');
+  const tien = document.getElementById('so_tien');
+  const moTa = document.getElementById('mo-ta-loi');
+  const dinhDang = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  chonLoi.addEventListener('change', () => {
+    const o = chonLoi.selectedOptions[0];
+    const khac = chonLoi.value === 'khac';
+    oKhac.hidden = !khac; tenKhac.required = khac;
+    if (o && o.dataset.muc !== undefined && o.dataset.muc !== '') tien.value = dinhDang(o.dataset.muc);
+    moTa.textContent = (o && o.dataset.moTa) || '';
+  });
+  tien.addEventListener('input', () => {
+    const so = tien.value.replace(/\D/g, '');
+    tien.value = so ? dinhDang(so) : '';
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,68 @@
+{# Khung ký tên dùng chung cho biên bản. Trước khi include: set form_ky_id
+   (id của form cần ký) và nut_ky_chu (chữ trên nút xác nhận). Form đó cần có
+   <input type="hidden" name="chu_ky" id="chu_ky">. #}
+<div class="modal-nen" id="modal-ky-ten" hidden>
+  <div class="modal-hop" role="dialog" aria-modal="true" aria-labelledby="modal-ky-ten-tieu-de" style="max-width:520px">
+    <div class="modal-dau">
+      <div>
+        <h2 id="modal-ky-ten-tieu-de">Ký tên xác nhận</h2>
+        <p class="subtle" style="margin:2px 0 0">Dùng ngón tay hoặc chuột để ký vào khung bên dưới.</p>
+      </div>
+      <button type="button" class="modal-dong" id="nut-dong-ky-ten" aria-label="Đóng">×</button>
+    </div>
+    <div class="modal-than">
+      <canvas id="canvas-chu-ky" width="480" height="180"
+              style="width:100%;aspect-ratio:480/180;border:1.5px dashed var(--vien-dam);border-radius:var(--bk-n);background:#fff linear-gradient(to bottom, transparent calc(68% - 1px), #d8d6cf calc(68% - 1px), #d8d6cf 68%, transparent 68%) no-repeat;touch-action:none;cursor:crosshair"></canvas>
+      <div id="loi-chu-ky" style="color:var(--lam-lai);font-size:.82rem;margin-top:8px"></div>
+      <div class="hang-nut" style="margin-top:14px;justify-content:space-between">
+        <button type="button" class="nut nut--phu nut--nho" id="nut-xoa-ky">Xoá, ký lại</button>
+        <button type="button" class="nut nut--vang" id="nut-xac-nhan-ky">{{ nut_ky_chu }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const form = document.getElementById('{{ form_ky_id }}');
+  const modal = document.getElementById('modal-ky-ten');
+  const canvas = document.getElementById('canvas-chu-ky');
+  const ctx = canvas.getContext('2d');
+  const loi = document.getElementById('loi-chu-ky');
+  const oChuKy = form.querySelector('input[name=chu_ky]');
+  let daVe = false, dangVe = false, x0 = 0, y0 = 0;
+  function vt(e) {
+    const r = canvas.getBoundingClientRect();
+    const d = e.touches && e.touches.length ? e.touches[0] : e;
+    return { x: (d.clientX - r.left) * canvas.width / r.width, y: (d.clientY - r.top) * canvas.height / r.height };
+  }
+  function bd(e) { e.preventDefault(); dangVe = true; const p = vt(e); x0 = p.x; y0 = p.y; }
+  function ve(e) {
+    if (!dangVe) return; e.preventDefault();
+    const p = vt(e);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(p.x, p.y);
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.strokeStyle = '#1c1c1a'; ctx.stroke();
+    x0 = p.x; y0 = p.y; daVe = true;
+  }
+  function kt() { dangVe = false; }
+  canvas.addEventListener('mousedown', bd); canvas.addEventListener('mousemove', ve); window.addEventListener('mouseup', kt);
+  canvas.addEventListener('touchstart', bd, { passive: false }); canvas.addEventListener('touchmove', ve, { passive: false });
+  canvas.addEventListener('touchend', kt);
+  function xoa() { ctx.clearRect(0, 0, canvas.width, canvas.height); daVe = false; loi.textContent = ''; }
+  function mo() { xoa(); modal.hidden = false; document.body.classList.add('modal-dang-mo'); }
+  function dong() { modal.hidden = true; document.body.classList.remove('modal-dang-mo'); }
+  form.addEventListener('submit', (ev) => {
+    if (form.dataset.daKy === '1') return;
+    ev.preventDefault();
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    mo();
+  });
+  document.getElementById('nut-dong-ky-ten').addEventListener('click', dong);
+  modal.addEventListener('click', (e) => { if (e.target === modal) dong(); });
+  document.getElementById('nut-xoa-ky').addEventListener('click', xoa);
+  document.getElementById('nut-xac-nhan-ky').addEventListener('click', () => {
+    if (!daVe) { loi.textContent = 'Bạn cần ký tên vào khung ở trên trước.'; return; }
+    oChuKy.value = canvas.toDataURL('image/png');
+    form.dataset.daKy = '1'; dong(); form.requestSubmit();
+  });
+})();
+</script>

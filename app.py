@@ -27,6 +27,7 @@ def create_app(config_class=Config):
     from views.attendance import bp as attendance_bp
     from views.auth import bp as auth_bp
     from views.cong_no import bp as cong_no_bp
+    from views.bien_ban import bp as bien_ban_bp
     from views.de_xuat import bp as de_xuat_bp
     from views.dong_goi import bp as dong_goi_bp
     from views.tasks import bp as tasks_bp
@@ -39,6 +40,7 @@ def create_app(config_class=Config):
     app.register_blueprint(de_xuat_bp)
     app.register_blueprint(dong_goi_bp)
     app.register_blueprint(cong_no_bp)
+    app.register_blueprint(bien_ban_bp)
     app.register_blueprint(attendance_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
@@ -97,6 +99,21 @@ def create_app(config_class=Config):
         if agh:
             if not (current_user.id == agh.goi_hang.nguoi_goi_id
                     or (current_user.la_quan_ly and current_user.trong_pham_vi(agh.goi_hang.nguoi_goi))):
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        # Biên bản phạt: PDF, chữ ký, bằng chứng — NV bị lập, người lập,
+        # quản lý trong phạm vi, Ban giám đốc/Quản trị
+        from models import BienBanPhat, DinhKemBienBan
+        bb = BienBanPhat.query.filter(
+            (BienBanPhat.duong_dan_pdf == duong_dan) | (BienBanPhat.chu_ky_lap == duong_dan)
+            | (BienBanPhat.chu_ky_nv == duong_dan)).first()
+        if not bb:
+            dkbb = DinhKemBienBan.query.filter_by(duong_dan=duong_dan).first()
+            bb = dkbb.bien_ban if dkbb else None
+        if bb:
+            if not (current_user.id in (bb.nguoi_vi_pham_id, bb.nguoi_lap_id)
+                    or (current_user.la_quan_ly and current_user.trong_pham_vi(bb.nguoi_vi_pham))):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
@@ -282,6 +299,16 @@ def create_app(config_class=Config):
         return duoc_vao(current_user)
 
     app.jinja_env.globals["duoc_vao_cong_no"] = duoc_vao_cong_no
+
+    def so_bien_ban_cho_ky():
+        """Số biên bản đang chờ chính người đăng nhập ký — hiện số đỏ trên menu."""
+        from models import BienBanPhat, TrangThaiBienBan
+        if not current_user.is_authenticated:
+            return 0
+        return BienBanPhat.query.filter_by(nguoi_vi_pham_id=current_user.id,
+                                           trang_thai=TrangThaiBienBan.CHO_KY).count()
+
+    app.jinja_env.globals["so_bien_ban_cho_ky"] = so_bien_ban_cho_ky
 
     @app.context_processor
     def bien_chung():

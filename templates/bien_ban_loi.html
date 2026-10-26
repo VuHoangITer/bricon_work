@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Danh mục lỗi vi phạm · BRICON{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:4px"><a href="{{ url_for('bien_ban.danh_sach') }}" style="font-size:.85rem">‹ Biên bản phạt</a></div>
+<h1>Danh mục lỗi vi phạm</h1>
+<p class="goi-y" style="margin:-4px 0 14px">Khai báo sẵn các lỗi và mức phạt mặc định. Khi lập biên bản chỉ cần chọn lỗi là tự điền số tiền (vẫn sửa được).</p>
+
+<details class="the" {{ 'open' if not ds }}>
+  <summary style="cursor:pointer;font-weight:600">＋ Thêm lỗi mới</summary>
+  <form method="post" style="margin-top:10px">
+    <div class="hang">
+      <div class="o-nhap"><label>Tên lỗi</label><input type="text" name="ten" required maxlength="200" placeholder="VD: Đi làm muộn quá 15 phút"></div>
+      <div class="o-nhap"><label>Mức phạt mặc định (đ)</label><input type="text" name="muc_phat" inputmode="numeric" required placeholder="VD: 50.000 (0 = nhắc nhở)"></div>
+    </div>
+    <div class="o-nhap"><label>Mô tả / căn cứ (không bắt buộc)</label><input type="text" name="mo_ta" placeholder="VD: Theo Điều 5 nội quy công ty"></div>
+    <button class="nut nut--nho" type="submit">Thêm</button>
+  </form>
+</details>
+
+<div class="tieu-khu"><h2>Các lỗi</h2><span class="dem">{{ ds|length }}</span></div>
+{% for l in ds %}
+<details class="the" style="margin-bottom:8px{{ ';opacity:.6' if not l.dang_dung }}">
+  <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center">
+    <span><strong>{{ l.ten }}</strong>{% if not l.dang_dung %} <span class="nhan" data-tt="huy">Ngừng dùng</span>{% endif %}
+      <br><small style="color:var(--muc-mo)">{{ l.mo_ta or '' }}{% if so_lan.get(l.id) %} · đã dùng {{ so_lan[l.id] }} lần{% endif %}</small></span>
+    <span style="white-space:nowrap;font-weight:600">{{ "{:,}".format(l.muc_phat).replace(",", ".") }} đ</span>
+  </summary>
+  <form method="post" style="margin-top:10px">
+    <input type="hidden" name="id" value="{{ l.id }}">
+    <div class="hang">
+      <div class="o-nhap"><label>Tên lỗi</label><input type="text" name="ten" value="{{ l.ten }}" required maxlength="200"></div>
+      <div class="o-nhap"><label>Mức phạt (đ)</label><input type="text" name="muc_phat" value="{{ "{:,}".format(l.muc_phat).replace(",", ".") }}" inputmode="numeric" required></div>
+    </div>
+    <div class="o-nhap"><label>Mô tả / căn cứ</label><input type="text" name="mo_ta" value="{{ l.mo_ta or '' }}"></div>
+    <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin-bottom:10px">
+      <input type="checkbox" name="dang_dung" {{ 'checked' if l.dang_dung }} style="width:auto"> Đang dùng (bỏ tick để ẩn khỏi form lập biên bản)</label>
+    <div class="hang-nut">
+      <button class="nut nut--nho" type="submit">Lưu</button>
+    </div>
+  </form>
+  <form method="post" action="{{ url_for('bien_ban.xoa_loi', id=l.id) }}" style="margin-top:8px"
+        onsubmit="return confirm('Xoá lỗi này khỏi danh mục? Biên bản đã lập vẫn giữ nguyên.');">
+    <button class="nut nut--do nut--nho" type="submit">Xoá</button>
+  </form>
+</details>
+{% else %}
+<div class="the" style="color:var(--muc-mo)">Chưa có lỗi nào.</div>
+{% endfor %}
+{% endblock %}

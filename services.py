@@ -2376,6 +2376,18 @@ def xoa_toan_bo_du_lieu_nhan_vien(nd: NguoiDung, admin_thuc_hien: NguoiDung):
     for d in DinhKemDeXuat.query.filter_by(nguoi_tai_len_id=nd.id).all():
         d.nguoi_tai_len_id = admin_thuc_hien.id
 
+    # Biên bản phạt: của người này (bị lập) -> xoá kèm PDF/chữ ký/bằng chứng;
+    # do người này lập / xử lý cho người khác -> giữ, chuyển sang admin.
+    from models import BienBanPhat
+    for bb in BienBanPhat.query.filter_by(nguoi_vi_pham_id=nd.id).all():
+        for p in [bb.duong_dan_pdf, bb.chu_ky_lap, bb.chu_ky_nv] + [d.duong_dan for d in bb.dinh_kem]:
+            _xoa_file_tuong_doi(p)
+        db.session.delete(bb)
+    for bb in BienBanPhat.query.filter_by(nguoi_lap_id=nd.id).all():
+        bb.nguoi_lap_id = admin_thuc_hien.id
+    for bb in BienBanPhat.query.filter_by(xu_ly_boi_id=nd.id).all():
+        bb.xu_ly_boi_id = admin_thuc_hien.id
+
     # Lịch sử đóng gói của người này: xoá kèm ảnh.
     for g in GoiHang.query.filter_by(nguoi_goi_id=nd.id).all():
         for a in g.anh:
@@ -2608,3 +2620,268 @@ def tach_ghi_chu_nop_cu() -> tuple[int, int]:
 
     db.session.commit()
     return so_viec_xu_ly, so_ghi_chu_tao
+
+# ---------------------------------------------------------------------------
+# BIÊN BẢN PHẠT
+# ---------------------------------------------------------------------------
+
+_CHU_SO = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
+
+
+def _doc_ba_so(n: int, day_du: bool) -> str:
+    tram, chuc, dv = n // 100, (n // 10) % 10, n % 10
+    phan = []
+    if day_du or tram:
+        phan.append(f"{_CHU_SO[tram]} trăm")
+    if chuc == 0:
+        if dv and (day_du or tram):
+            phan.append("lẻ")
+    elif chuc == 1:
+        phan.append("mười")
+    else:
+        phan.append(f"{_CHU_SO[chuc]} mươi")
+    if dv:
+        if dv == 1 and chuc > 1:
+            phan.append("mốt")
+        elif dv == 5 and chuc > 0:
+            phan.append("lăm")
+        elif dv == 4 and chuc > 1:
+            phan.append("tư")
+        else:
+            phan.append(_CHU_SO[dv])
+    return " ".join(phan)
+
+
+def doc_so_tien(so: int) -> str:
+    """12500000 -> "Mười hai triệu năm trăm nghìn đồng"."""
+    so = int(so or 0)
+    if so == 0:
+        return "Không đồng"
+    don_vi = ["", " nghìn", " triệu", " tỷ"]
+    nhom = []
+    while so > 0:
+        nhom.append(so % 1000)
+        so //= 1000
+    phan = []
+    for i in range(len(nhom) - 1, -1, -1):
+        if nhom[i] == 0:
+            continue
+        dv = don_vi[i % 4] if i < 4 else don_vi[i % 3 + 1]
+        phan.append(_doc_ba_so(nhom[i], day_du=(i != len(nhom) - 1)) + dv)
+    chu = " ".join(phan).strip() + " đồng"
+    return chu[0].upper() + chu[1:]
+
+
+def dinh_dang_tien(so: int | None) -> str:
+    return f"{int(so or 0):,} đ".replace(",", ".")
+
+
+def tao_pdf_bien_ban(bb: "BienBanPhat") -> bytes:
+    """Sinh (lại) PDF biên bản vi phạm — luôn đọc trạng thái hiện tại của bb
+    (chờ ký / đã ký / NV không ký / đã huỷ) để PDF không lệch với DB."""
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Image as RLImage
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus.flowables import HRFlowable
+
+    from models import TrangThaiBienBan
+
+    _dang_ky_font_unicode()
+
+    VANG_DAM = HexColor("#8A6A1E")
+    XAM = HexColor("#75746E")
+    XAM_VIEN = HexColor("#E8E6E1")
+    DEN = HexColor("#1C1C1A")
+    XANH, XANH_NHAT = HexColor("#3F7D55"), HexColor("#EAF3EC")
+    DO, DO_NHAT = HexColor("#B3402A"), HexColor("#FBECE8")
+    CAM, CAM_NHAT = HexColor("#B3792A"), HexColor("#FBF2E8")
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=1.4 * cm, bottomMargin=1.4 * cm,
+                            leftMargin=2.3 * cm, rightMargin=2.3 * cm,
+                            title=f"Biên bản vi phạm {bb.so_bien_ban}")
+    rong = A4[0] - 4.6 * cm
+
+    k_qh = ParagraphStyle("qh", fontName="DejaVu-Bold", fontSize=13, alignment=TA_CENTER, leading=16)
+    k_tn = ParagraphStyle("tn", fontName="DejaVu", fontSize=11.5, alignment=TA_CENTER, leading=15)
+    k_td = ParagraphStyle("td", fontName="DejaVu-Bold", fontSize=16, leading=20, alignment=TA_CENTER, textColor=DEN,
+                          spaceBefore=8, spaceAfter=4)
+    k_so = ParagraphStyle("so", fontName="DejaVu", fontSize=10, alignment=TA_CENTER, textColor=XAM, spaceAfter=12)
+    k_dm = ParagraphStyle("dm", fontName="DejaVu-Bold", fontSize=10.5, textColor=VANG_DAM, spaceBefore=12, spaceAfter=6)
+    k_th = ParagraphStyle("th", fontName="DejaVu", fontSize=10.5, alignment=TA_JUSTIFY, leading=15,
+                          spaceAfter=6, textColor=DEN)
+    k_nhan = ParagraphStyle("nhan", fontName="DejaVu-Bold", fontSize=10, textColor=XAM)
+    k_gt = ParagraphStyle("gt", fontName="DejaVu", fontSize=11, textColor=DEN, leading=14)
+    k_phai = ParagraphStyle("phai", fontName="DejaVu", fontSize=10.5, alignment=TA_RIGHT, textColor=DEN)
+    k_phai_dam = ParagraphStyle("phai_dam", fontName="DejaVu-Bold", fontSize=11, alignment=TA_RIGHT, textColor=DEN)
+    k_phai_nho = ParagraphStyle("phai_nho", fontName="DejaVu", fontSize=9, alignment=TA_RIGHT, textColor=XAM)
+    k_trai_dam = ParagraphStyle("trai_dam", fontName="DejaVu-Bold", fontSize=11, textColor=DEN)
+    k_trai_nho = ParagraphStyle("trai_nho", fontName="DejaVu", fontSize=9, textColor=XAM)
+
+    nv, nl = bb.nguoi_vi_pham, bb.nguoi_lap
+    pdf = [
+        Paragraph("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", k_qh),
+        Paragraph("Độc lập - Tự do - Hạnh phúc", k_tn),
+        HRFlowable(width="32%", thickness=1, color=DEN, hAlign="CENTER", spaceBefore=3, spaceAfter=6),
+        Paragraph("BIÊN BẢN VI PHẠM", k_td),
+        Paragraph(f"Số: {bb.so_bien_ban}", k_so),
+        Paragraph(f"Hôm nay, lúc {bb.tao_luc:%H:%M} ngày {bb.tao_luc:%d/%m/%Y}, tại Công ty BRICON, "
+                  f"chúng tôi lập biên bản về việc vi phạm nội quy của nhân viên dưới đây.", k_th),
+    ]
+
+    def _bang(hang):
+        t = Table([[Paragraph(a, k_nhan), Paragraph(b, k_gt)] for a, b in hang],
+                  colWidths=[rong * 0.3, rong * 0.7])
+        t.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.5, XAM_VIEN),
+            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        return t
+
+    pdf.append(Paragraph("NGƯỜI LẬP BIÊN BẢN", k_dm))
+    pdf.append(_bang([
+        ("Họ và tên", _pdf_txt(nl.ho_ten)),
+        ("Chức vụ", _pdf_txt(nl.chuc_vu.ten if nl.chuc_vu else nl.ten_vai_tro)),
+    ]))
+    pdf.append(Paragraph("NHÂN VIÊN VI PHẠM", k_dm))
+    pdf.append(_bang([
+        ("Họ và tên", _pdf_txt(nv.ho_ten)),
+        ("Mã nhân viên", _pdf_txt(nv.ma_dinh_danh)),
+        ("Chức vụ", _pdf_txt(nv.chuc_vu.ten if nv.chuc_vu else "—")),
+        ("Bộ phận", _pdf_txt(nv.ten_cac_bo_phan or "—")),
+    ]))
+    pdf.append(Paragraph("NỘI DUNG VI PHẠM", k_dm))
+    pdf.append(_bang([
+        ("Lỗi vi phạm", f"<b>{_pdf_txt(bb.ten_loi)}</b>"),
+        ("Ngày vi phạm", f"{bb.ngay_vi_pham:%d/%m/%Y}"),
+    ]))
+    pdf.append(Spacer(1, 6))
+    pdf.append(Paragraph(f"<b>Diễn biến sự việc:</b> {_pdf_txt(bb.noi_dung)}", k_th))
+    if bb.dinh_kem:
+        pdf.append(Paragraph(f"<i>Kèm theo {len(bb.dinh_kem)} ảnh/tệp bằng chứng (lưu trên hệ thống BRICON WORK).</i>", k_th))
+
+    pdf.append(Paragraph("HÌNH THỨC XỬ LÝ", k_dm))
+    if bb.so_tien:
+        pdf.append(Paragraph(f"Phạt tiền: <b>{dinh_dang_tien(bb.so_tien)}</b> "
+                             f"(Bằng chữ: {doc_so_tien(bb.so_tien)}). Khoản phạt được trừ vào lương tháng.", k_th))
+    else:
+        pdf.append(Paragraph("Nhắc nhở, không phạt tiền.", k_th))
+
+    pdf.append(Paragraph("Ý KIẾN CỦA NHÂN VIÊN", k_dm))
+    if bb.trang_thai == TrangThaiBienBan.CHO_KY:
+        mau, chu, dong1, dong2 = CAM_NHAT, CAM, "⏳ ĐANG CHỜ NHÂN VIÊN KÝ XÁC NHẬN", "Nhân viên chưa xem và ký biên bản."
+    elif bb.trang_thai == TrangThaiBienBan.DA_KY:
+        mau, chu, dong1 = XANH_NHAT, XANH, f"✓ NHÂN VIÊN ĐÃ KÝ XÁC NHẬN lúc {bb.ky_luc:%H:%M %d/%m/%Y}"
+        dong2 = bb.y_kien_nv or "Không có ý kiến."
+    elif bb.trang_thai == TrangThaiBienBan.KHONG_KY:
+        mau, chu = CAM_NHAT, CAM
+        dong1 = (f"NHÂN VIÊN KHÔNG KÝ — ghi nhận bởi {bb.xu_ly_boi.ho_ten if bb.xu_ly_boi else '—'} "
+                 f"lúc {bb.xu_ly_luc:%H:%M %d/%m/%Y}" if bb.xu_ly_luc else "NHÂN VIÊN KHÔNG KÝ")
+        dong2 = (bb.ly_do_xu_ly or "") + "\nBiên bản vẫn có hiệu lực."
+    else:
+        mau, chu = DO_NHAT, DO
+        dong1 = (f"✗ BIÊN BẢN ĐÃ HUỶ — bởi {bb.xu_ly_boi.ho_ten if bb.xu_ly_boi else '—'}"
+                 + (f" lúc {bb.xu_ly_luc:%H:%M %d/%m/%Y}" if bb.xu_ly_luc else ""))
+        dong2 = "Lý do huỷ: " + (bb.ly_do_xu_ly or "—")
+        if bb.y_kien_nv:
+            dong2 += "\nÝ kiến nhân viên: " + bb.y_kien_nv
+    k_o1 = ParagraphStyle("o1", fontName="DejaVu-Bold", fontSize=10, textColor=chu)
+    k_o2 = ParagraphStyle("o2", fontName="DejaVu", fontSize=10, textColor=DEN, leading=14)
+    o = Table([[[Paragraph(_pdf_txt(dong1), k_o1), Spacer(1, 4), Paragraph(_pdf_txt(dong2.strip()), k_o2)]]],
+              colWidths=[rong])
+    o.setStyle(TableStyle([
+        ("BOX", (0, 0), (0, 0), 0.75, chu), ("BACKGROUND", (0, 0), (0, 0), mau),
+        ("TOPPADDING", (0, 0), (0, 0), 8), ("BOTTOMPADDING", (0, 0), (0, 0), 8),
+        ("LEFTPADDING", (0, 0), (0, 0), 10), ("RIGHTPADDING", (0, 0), (0, 0), 10),
+    ]))
+    pdf.append(o)
+    pdf.append(Spacer(1, 10))
+
+    def _anh_ky(duong_dan, can_phai=False):
+        if not duong_dan:
+            return Paragraph("(chưa ký)", k_phai_nho if can_phai else k_trai_nho)
+        tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *duong_dan.split("/"))
+        try:
+            with open(tuyet_doi, "rb") as f:
+                anh = RLImage(BytesIO(f.read()))
+        except OSError:
+            return Paragraph("(không đọc được chữ ký)", k_phai_nho if can_phai else k_trai_nho)
+        ti_le = min(1.0, (5.2 * cm) / anh.imageWidth)
+        anh.drawWidth, anh.drawHeight = anh.imageWidth * ti_le, anh.imageHeight * ti_le
+        if not can_phai:
+            return anh
+        bang = Table([[anh]], colWidths=[rong * 0.5])
+        bang.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (0, 0), "RIGHT"), ("VALIGN", (0, 0), (0, 0), "TOP"),
+            ("LEFTPADDING", (0, 0), (0, 0), 0), ("RIGHTPADDING", (0, 0), (0, 0), 0),
+            ("TOPPADDING", (0, 0), (0, 0), 0), ("BOTTOMPADDING", (0, 0), (0, 0), 0),
+        ]))
+        return bang
+
+    pdf.append(Paragraph(f"TP.HCM, ngày {bb.tao_luc:%d} tháng {bb.tao_luc:%m} năm {bb.tao_luc:%Y}", k_phai))
+    pdf.append(Spacer(1, 4))
+    o_lap = [Paragraph("NGƯỜI LẬP BIÊN BẢN", k_trai_dam), Paragraph("(ký, ghi rõ họ tên)", k_trai_nho),
+             Spacer(1, 6), _anh_ky(bb.chu_ky_lap), Paragraph(_pdf_txt(nl.ho_ten), k_trai_dam)]
+    if bb.trang_thai == TrangThaiBienBan.KHONG_KY:
+        anh_nv = Paragraph("(Nhân viên không ký)", k_phai_nho)
+    else:
+        anh_nv = _anh_ky(bb.chu_ky_nv, can_phai=True)
+    o_nv = [Paragraph("NHÂN VIÊN VI PHẠM", k_phai_dam), Paragraph("(ký, ghi rõ họ tên)", k_phai_nho),
+            Spacer(1, 6), anh_nv, Paragraph(_pdf_txt(nv.ho_ten), k_phai_dam)]
+    bang_ky = Table([[o_lap, o_nv]], colWidths=[rong * 0.5, rong * 0.5])
+    bang_ky.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
+                                 ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    pdf.append(bang_ky)
+    doc.build(pdf)
+    return buf.getvalue()
+
+
+def luu_pdf_bien_ban(pdf_bytes: bytes) -> str:
+    tuong_doi, tuyet_doi = _duong_dan_moi("bien-ban.pdf", "bien-ban")
+    with open(tuyet_doi, "wb") as f:
+        f.write(pdf_bytes)
+    return tuong_doi
+
+
+def _link_bien_ban(bb) -> str:
+    return f"{current_app.config['BASE_URL']}/bien-ban/{bb.id}"
+
+
+def bao_bien_ban_moi(bb: "BienBanPhat"):
+    """Báo vào nhóm Zalo của nhân viên bị lập biên bản, nhắc vào ký xác nhận."""
+    tien = f"\nHình thức: phạt {dinh_dang_tien(bb.so_tien)}" if bb.so_tien else "\nHình thức: nhắc nhở"
+    nd = (
+        f"⚠️ BIÊN BẢN VI PHẠM {bb.so_bien_ban}\n\n"
+        f"Nhân viên: {bb.nguoi_vi_pham.ho_ten}\n"
+        f"Lỗi: {bb.ten_loi}\n"
+        f"Ngày vi phạm: {bb.ngay_vi_pham:%d/%m/%Y}{tien}\n"
+        f"Người lập: {bb.nguoi_lap.ho_ten}\n\n"
+        f"Vui lòng vào xem và ký xác nhận (có thể ghi ý kiến giải trình):\n{_link_bien_ban(bb)}"
+    )
+    gui_cho_nhan_vien(bb.nguoi_vi_pham, nd)
+
+
+def bao_bien_ban_da_ky(bb: "BienBanPhat"):
+    """Báo cho người lập biết nhân viên đã ký."""
+    y_kien = f"\nÝ kiến NV: {bb.y_kien_nv}" if bb.y_kien_nv else ""
+    nd = (f"✅ {bb.nguoi_vi_pham.ho_ten} đã ký biên bản {bb.so_bien_ban} ({bb.ten_loi}){y_kien}\n"
+          f"{_link_bien_ban(bb)}")
+    if bb.nguoi_lap.zalo_group_id:
+        gui_cho_nhan_vien(bb.nguoi_lap, nd)
+
+
+def bao_bien_ban_xu_ly(bb: "BienBanPhat"):
+    """Báo nhân viên khi biên bản bị huỷ hoặc được ghi nhận "không ký"."""
+    from models import TrangThaiBienBan
+    if bb.trang_thai == TrangThaiBienBan.DA_HUY:
+        nd = f"🗑 Biên bản {bb.so_bien_ban} ({bb.ten_loi}) đã được HUỶ.\nLý do: {bb.ly_do_xu_ly or '—'}"
+    else:
+        nd = (f"📌 Biên bản {bb.so_bien_ban} ({bb.ten_loi}) được ghi nhận: nhân viên không ký. "
+              f"Biên bản vẫn có hiệu lực.\n{_link_bien_ban(bb)}")
+    gui_cho_nhan_vien(bb.nguoi_vi_pham, nd)

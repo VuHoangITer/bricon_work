@@ -37,6 +37,8 @@
       <a href="{{ url_for('thong_bao.danh_sach') }}" class="side-link {{ 'active' if request.blueprint == 'thong_bao' }}"><span class="side-icon">📢</span><span>Thông báo</span></a>
       <a href="{{ url_for('de_xuat.danh_sach') }}" class="side-link {{ 'active' if request.blueprint == 'de_xuat' }}"><span class="side-icon">📝</span><span>Đề xuất</span></a>
       <a href="{{ url_for('dong_goi.moi') }}" class="side-link {{ 'active' if request.blueprint == 'dong_goi' }}"><span class="side-icon">📦</span><span>Đóng gói</span></a>
+      {% set _bb_cho = so_bien_ban_cho_ky() %}
+      <a href="{{ url_for('bien_ban.danh_sach') }}" class="side-link {{ 'active' if request.blueprint == 'bien_ban' }}"><span class="side-icon">⚠️</span><span>Biên bản phạt{% if _bb_cho %} <span class="dem-loc" style="background:var(--lam-lai);color:#fff">{{ _bb_cho }}</span>{% endif %}</span></a>
       {% if duoc_vao_cong_no() %}
       <a href="{{ url_for('cong_no.danh_sach') }}" class="side-link {{ 'active' if request.blueprint == 'cong_no' }}"><span class="side-icon">💳</span><span>Thanh toán công nợ</span></a>
       {% endif %}

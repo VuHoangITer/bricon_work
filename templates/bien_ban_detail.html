@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Biên bản {{ bb.so_bien_ban }} · BRICON{% endblock %}
+{% set mau_tt = {'cho_ky':'cho_duyet','da_ky':'hoan_thanh','khong_ky':'lam_lai','da_huy':'huy'} %}
+
+{% macro hien_tep(d) %}
+  {% set src = url_for('media', duong_dan=d.duong_dan) %}
+  {% if d.loai == LoaiDinhKem.ANH %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener"><img src="{{ src }}" alt="{{ d.ten_goc }}" loading="lazy"></a>
+  {% elif d.loai == LoaiDinhKem.VIDEO %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener"><video src="{{ src }}" preload="metadata" muted playsinline></video></a>
+  {% elif d.loai == LoaiDinhKem.GHI_AM %}
+    <div class="tep tep-am" style="grid-column:1/-1"><audio controls preload="none" src="{{ src }}"></audio></div>
+  {% else %}
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener"><span class="tep-khac">📄<span>{{ d.ten_goc|truncate(24) }}</span><span>{{ d.kich_thuoc_dep }}</span></span></a>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div style="margin-bottom:4px"><a href="{{ url_for('bien_ban.danh_sach') }}" style="font-size:.85rem">‹ Biên bản phạt</a></div>
+<h1>Biên bản {{ bb.so_bien_ban }} <span class="nhan" data-tt="{{ mau_tt[bb.trang_thai] }}">{{ bb.ten_trang_thai }}</span></h1>
+
+{% if duoc_ky %}
+<div class="the" style="border-color:var(--cho-duyet);background:var(--chinh-nhat)">
+  <strong>Biên bản này đang chờ bạn ký xác nhận.</strong> Đọc kỹ nội dung bên dưới, ghi ý kiến giải trình nếu có, rồi bấm "Ký xác nhận" ở cuối trang.
+</div>
+{% endif %}
+
+<div class="the">
+  <div class="dong-tt"><span>Nhân viên vi phạm</span><span>{{ bb.nguoi_vi_pham.ho_ten }} ({{ bb.nguoi_vi_pham.ma_dinh_danh }})</span></div>
+  <div class="dong-tt"><span>Lỗi vi phạm</span><span><strong>{{ bb.ten_loi }}</strong></span></div>
+  <div class="dong-tt"><span>Ngày vi phạm</span><span>{{ bb.ngay_vi_pham.strftime('%d/%m/%Y') }}</span></div>
+  <div class="dong-tt" style="align-items:flex-start"><span>Diễn biến</span><span style="white-space:pre-wrap;text-align:right;overflow-wrap:anywhere;min-width:0">{{ bb.noi_dung }}</span></div>
+  <div class="dong-tt"><span>Tiền phạt</span><span><strong>{{ "{:,}".format(bb.so_tien or 0).replace(",", ".") }} đ</strong>{% if not bb.so_tien %} (nhắc nhở){% endif %}</span></div>
+  <div class="dong-tt"><span>Người lập</span><span>{{ bb.nguoi_lap.ho_ten }} · {{ bb.tao_luc.strftime('%H:%M %d/%m/%Y') }}</span></div>
+  {% if bb.ky_luc %}<div class="dong-tt"><span>Nhân viên ký</span><span>{{ bb.ky_luc.strftime('%H:%M %d/%m/%Y') }}</span></div>{% endif %}
+  {% if bb.y_kien_nv %}<div class="dong-tt" style="align-items:flex-start"><span>Ý kiến nhân viên</span><span style="white-space:pre-wrap;text-align:right;overflow-wrap:anywhere;min-width:0">{{ bb.y_kien_nv }}</span></div>{% endif %}
+  {% if bb.xu_ly_luc %}
+  <div class="dong-tt" style="align-items:flex-start"><span>{{ 'Huỷ bởi' if bb.trang_thai == TrangThaiBienBan.DA_HUY else 'Ghi nhận không ký' }}</span>
+    <span style="text-align:right">{{ bb.xu_ly_boi.ho_ten if bb.xu_ly_boi else '—' }} · {{ bb.xu_ly_luc.strftime('%H:%M %d/%m/%Y') }}{% if bb.ly_do_xu_ly %}<br><span style="white-space:pre-wrap">{{ bb.ly_do_xu_ly }}</span>{% endif %}</span></div>
+  {% endif %}
+  {% if bb.duong_dan_pdf %}<div class="dong-tt"><span>Biên bản (PDF)</span><span><a href="{{ url_for('media', duong_dan=bb.duong_dan_pdf) }}" target="_blank" rel="noopener">Xem / tải</a></span></div>{% endif %}
+</div>
+
+{% if bb.dinh_kem %}
+<div class="tieu-khu"><h2>Bằng chứng đính kèm</h2><span class="dem">{{ bb.dinh_kem|length }}</span></div>
+<div class="luoi-tep">{% for d in bb.dinh_kem %}{{ hien_tep(d) }}{% endfor %}</div>
+{% endif %}
+
+{% if duoc_ky %}
+<div class="tieu-khu"><h2>Ký xác nhận</h2></div>
+<form class="the" method="post" action="{{ url_for('bien_ban.ky', id=bb.id) }}" id="form-ky-bien-ban">
+  <div class="o-nhap">
+    <label for="y_kien_nv">Ý kiến / giải trình của bạn (không bắt buộc)</label>
+    <textarea id="y_kien_nv" name="y_kien_nv" rows="3" placeholder="VD: Em đi muộn do xe hỏng giữa đường, xin rút kinh nghiệm…"></textarea>
+  </div>
+  <input type="hidden" name="chu_ky" id="chu_ky">
+  <button class="nut nut--rong" type="submit">✍ Ký xác nhận</button>
+</form>
+{% endif %}
+
+{% if duoc_ghi_khong_ky or duoc_huy or duoc_xoa %}
+<div class="tieu-khu"><h2>Xử lý</h2></div>
+<div class="the">
+  {% if duoc_ghi_khong_ky %}
+  <details style="margin-bottom:10px">
+    <summary style="cursor:pointer;font-weight:600">📌 Ghi nhận nhân viên không ký</summary>
+    <form method="post" action="{{ url_for('bien_ban.khong_ky', id=bb.id) }}" style="margin-top:8px"
+          onsubmit="return confirm('Ghi nhận nhân viên KHÔNG KÝ? Biên bản vẫn có hiệu lực.');">
+      <div class="o-nhap"><label for="ghi_chu">Ghi chú (không bắt buộc)</label>
+        <input type="text" id="ghi_chu" name="ghi_chu" placeholder="VD: Đã đưa xem trực tiếp, nhân viên từ chối ký"></div>
+      <button class="nut nut--phu nut--nho" type="submit">Ghi nhận không ký</button>
+    </form>
+  </details>
+  {% endif %}
+  {% if duoc_huy %}
+  <details style="margin-bottom:10px">
+    <summary style="cursor:pointer;font-weight:600">🗑 Huỷ biên bản</summary>
+    <form method="post" action="{{ url_for('bien_ban.huy', id=bb.id) }}" style="margin-top:8px"
+          onsubmit="return confirm('Huỷ biên bản {{ bb.so_bien_ban }}?');">
+      <div class="o-nhap"><label for="ly_do">Lý do huỷ</label>
+        <input type="text" id="ly_do" name="ly_do" required placeholder="VD: Lập nhầm người / nhân viên giải trình hợp lý"></div>
+      <button class="nut nut--do nut--nho" type="submit">Huỷ biên bản</button>
+    </form>
+  </details>
+  {% endif %}
+  {% if duoc_xoa %}
+  <form method="post" action="{{ url_for('bien_ban.xoa', id=bb.id) }}"
+        onsubmit="return confirm('XOÁ VĨNH VIỄN biên bản {{ bb.so_bien_ban }} kèm PDF, chữ ký, bằng chứng? Không khôi phục được.');">
+    <button class="nut nut--do nut--nho" type="submit">Xoá vĩnh viễn (chỉ Quản trị)</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if duoc_ky %}
+{% set form_ky_id = 'form-ky-bien-ban' %}{% set nut_ky_chu = 'Xác nhận & Ký' %}
+{% include "_ky_ten_bien_ban.html" %}
+{% endif %}
+{% endblock %}
