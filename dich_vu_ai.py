@@ -918,7 +918,7 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
 
     # Cụm từ thường gặp KHÔNG phải tên chức vụ — bỏ trước khi tách từ, VD
     # "hiện TẠI" từng khớp nhầm chức vụ "TÀI xế" (bỏ dấu thì tại = tài).
-    _CUM_BO = re.compile(r"\b(hiện tại|hien tai|bây giờ|bay gio|hiện giờ|hien gio|tại sao|tai sao)\b")
+    _CUM_BO = re.compile(r"\b(hiện tại|hien tai|bây giờ|bay gio|hiện giờ|hien gio|tại sao|tai sao|bao nhiêu|bao nhieu)\b")
 
     def _tach_tu(van_ban: str) -> set[str]:
         van_ban = _CUM_BO.sub(" ", (van_ban or "").lower())
@@ -983,6 +983,58 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     def _tra_loi(noi_dung: str) -> dict:
         return {"tra_loi": noi_dung, "duong_dan": None, "nhan_nut": None, "media": None}
 
+    # Hỏi phiếu đánh giá của 1 NGƯỜI theo tên ("phiếu đánh giá của Linh") ->
+    # tìm người đó (trong phạm vi được xem), lấy chức vụ của họ rồi trả ảnh
+    # phiếu của chức vụ đó. Chỉ chạy khi câu hỏi không nêu tên chức vụ nào.
+    # Câu nêu rõ tên chức vụ (khớp >= 2 chữ, VD "tài xế", "kinh doanh") thì
+    # hoặc khớp ĐỦ tên chức vụ, VD "kho") thì ưu tiên chức vụ; khớp 1 phần (VD
+    # "của Tài" ~ tài xế, "của Bảo" ~ bảo vệ) vẫn thử tìm người.
+    if ((nhac_chuc_vu or "phieu" in tin_tu)
+            and not any(len(k) >= 2 or (k and len(k) == len(_tu_rieng_co_dau(c.ten)))
+                        for c in ChucVu.query.all()
+                        for k in [_khop_co_dau(_tu_rieng_co_dau(c.ten), tin_tu_co_dau)])):
+        tu_khong_phai_ten = tu_chung | tu_bo_qua | {"danh", "gia", "lo", "trinh", "cong", "ty", "bricon"}
+        xep, ngoai_pham_vi = [], []
+        for n in NguoiDung.query.filter_by(dang_hoat_dong=True).all():
+            tu_ten = [t for t in re.findall(r"\w+", unicodedata.normalize("NFC", n.ho_ten.lower()))]
+            if not tu_ten:
+                continue
+            ten_goi = tu_ten[-1]
+            if _chuan_hoa_khong_dau(ten_goi) in tu_khong_phai_ten or not _khop_co_dau({ten_goi}, tin_tu_co_dau):
+                continue  # phải khớp TÊN GỌI (chữ cuối), VD "Linh"
+            diem = len(_khop_co_dau({t for t in tu_ten if _chuan_hoa_khong_dau(t) not in tu_khong_phai_ten},
+                                    tin_tu_co_dau))
+            if n.id == nd.id or (nd.la_quan_ly and nd.trong_pham_vi(n)):
+                xep.append((diem, n))
+            else:
+                ngoai_pham_vi.append(n)
+        if not xep and ngoai_pham_vi:
+            n = ngoai_pham_vi[0]
+            if nd.la_quan_ly:
+                return _tra_loi(f"{n.ho_ten} không thuộc bộ phận bạn quản lý nên mình không lấy phiếu được.")
+            return _tra_loi("Bạn chỉ xem được phiếu đánh giá của chính mình — hỏi \"phiếu đánh giá của tôi\".")
+        if xep:
+            cao_nhat = max(d for d, _ in xep)
+            ung = sorted((n for d, n in xep if d == cao_nhat), key=lambda n: n.ho_ten)
+            if len(ung) > 1:
+                return _tra_loi("Có nhiều người trùng tên:\n"
+                                + "\n".join(f"• {n.ho_ten} ({n.ma_dinh_danh}) — "
+                                             f"{n.chuc_vu.ten if n.chuc_vu else 'chưa gán chức vụ'}" for n in ung)
+                                + "\nGhi rõ họ tên đầy đủ để mình lấy đúng phiếu.")
+            n = ung[0]
+            if not n.chuc_vu:
+                return _tra_loi(f"{n.ho_ten} chưa được gán chức vụ nên chưa có phiếu đánh giá. "
+                                "Gán chức vụ ở Quản trị → Nhân sự → Nhân viên.")
+            if not n.chuc_vu.anh:
+                return _tra_loi(f"{n.ho_ten} là \"{n.chuc_vu.ten}\" — chức vụ này chưa có ảnh phiếu đánh giá. "
+                                "Tải ảnh lên ở Quản trị → Trợ lý AI → Chức vụ.")
+            return {
+                "tra_loi": f"{n.ho_ten} là \"{n.chuc_vu.ten}\". Đây là phiếu đánh giá của chức vụ này:",
+                "duong_dan": None,
+                "nhan_nut": None,
+                "media": url_for("media", duong_dan=n.chuc_vu.anh),
+            }
+
     if not nd.la_admin_sep:
         # (a) Nêu tên 1 chức vụ KHÁC (VD NV kho hỏi "phiếu đánh giá nhân viên
         #     kinh doanh") -> từ chối rõ ràng, không trả nhầm phiếu của mình.
@@ -1019,7 +1071,8 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     #    câu trả lời cũ của AI — từng khiến "giao việc/người nhận" trong câu
     #    trả lời trước kéo nhầm sang chức vụ "tài xế kiêm giao nhận").
     cv = _chon(tin_tu_co_dau)
-    hoi_danh_sach = bool(tin_tu & {"nhung", "gi", "sach", "liet", "ke", "may", "bao"})
+    hoi_danh_sach = bool(tin_tu & {"nhung", "gi", "sach", "liet", "may"}
+                         or re.search(r"bao nhi[eê]u", (tin_nhan or "").lower()))
     if not cv and nd.la_admin_sep and len(ung_vien) > 1 and hoi_danh_sach \
             and (nhac_chuc_vu or "phieu" in tin_tu):
         # 5) Admin/Sếp hỏi "hiện có NHỮNG phiếu đánh giá GÌ", "danh sách
