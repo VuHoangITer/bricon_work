@@ -916,11 +916,35 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     câu hỏi hiện tại (tin_nhan)."""
     from models import ChucVu
 
+    # Cụm từ thường gặp KHÔNG phải tên chức vụ — bỏ trước khi tách từ, VD
+    # "hiện TẠI" từng khớp nhầm chức vụ "TÀI xế" (bỏ dấu thì tại = tài).
+    _CUM_BO = re.compile(r"\b(hiện tại|hien tai|bây giờ|bay gio|hiện giờ|hien gio|tại sao|tai sao)\b")
+
     def _tach_tu(van_ban: str) -> set[str]:
+        van_ban = _CUM_BO.sub(" ", (van_ban or "").lower())
         return set(re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban)).split())
+
+    def _tach_tu_co_dau(van_ban: str) -> set[str]:
+        van_ban = _CUM_BO.sub(" ", unicodedata.normalize("NFC", (van_ban or "").lower()))
+        return set(re.findall(r"\w+", van_ban))
+
+    def _khop_co_dau(tu_cv: set[str], tu_hoi_co_dau: set[str]) -> set[str]:
+        """Các từ (dạng không dấu) của tên chức vụ khớp với câu hỏi. Người hỏi
+        gõ CÓ DẤU thì phải đúng dấu (tại ≠ tài); gõ không dấu thì khớp theo
+        không dấu như cũ."""
+        khop = set()
+        for c in tu_cv:
+            c_kd = _chuan_hoa_khong_dau(c)
+            for u in tu_hoi_co_dau:
+                u_kd = _chuan_hoa_khong_dau(u)
+                if u_kd == c_kd and (u == c or u == u_kd):
+                    khop.add(c_kd)
+                    break
+        return khop
 
     tu_xin_anh = {"anh", "hinh", "photo", "image", "phieu"}
     tin_tu = _tach_tu(tin_nhan)
+    tin_tu_co_dau = _tach_tu_co_dau(tin_nhan)
     if not tin_tu & tu_xin_anh:
         return None
 
@@ -931,11 +955,14 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
                               "the", "nay", "do", "cac", "la", "co", "nao", "di", "nhe", "a",
                               "ban", "dau", "chuc", "vu", "vi", "tri"}
 
-    def _chon(bo_tu: set):
+    def _tu_rieng_co_dau(ten: str) -> set[str]:
+        return {t for t in _tach_tu_co_dau(ten)
+                if _chuan_hoa_khong_dau(t) not in (tu_chung | tu_bo_qua)}
+
+    def _chon(bo_tu_co_dau: set):
         xep = []
         for ung in ung_vien:
-            tu_rieng = _tach_tu(ung.ten) - tu_chung - tu_bo_qua
-            diem = len(tu_rieng & bo_tu)
+            diem = len(_khop_co_dau(_tu_rieng_co_dau(ung.ten), bo_tu_co_dau))
             if diem:
                 xep.append((diem, ung))
         xep.sort(key=lambda x: x[0], reverse=True)
@@ -961,8 +988,8 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
         #     kinh doanh") -> từ chối rõ ràng, không trả nhầm phiếu của mình.
         khac = [c for c in ChucVu.query.all()
                 if c.id != (nd.chuc_vu_id or 0)
-                and (_tach_tu(c.ten) - tu_chung - tu_bo_qua) & tin_tu]
-        noi_ro_cua_minh = bool(nd.chuc_vu and (_tach_tu(nd.chuc_vu.ten) - tu_chung - tu_bo_qua) & tin_tu)
+                and _khop_co_dau(_tu_rieng_co_dau(c.ten), tin_tu_co_dau)]
+        noi_ro_cua_minh = bool(nd.chuc_vu and _khop_co_dau(_tu_rieng_co_dau(nd.chuc_vu.ten), tin_tu_co_dau))
         if khac and not noi_ro_cua_minh:
             cua_minh = f" — chức vụ của bạn là \"{nd.chuc_vu.ten}\"" if nd.chuc_vu else ""
             return _tra_loi(f"Bạn chỉ xem được phiếu/thông tin của chức vụ mình{cua_minh}. "
@@ -991,7 +1018,17 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
     # 1) Câu hỏi nêu rõ tên chức vụ -> chỉ xét ĐÚNG câu hiện tại (không đọc
     #    câu trả lời cũ của AI — từng khiến "giao việc/người nhận" trong câu
     #    trả lời trước kéo nhầm sang chức vụ "tài xế kiêm giao nhận").
-    cv = _chon(tin_tu)
+    cv = _chon(tin_tu_co_dau)
+    hoi_danh_sach = bool(tin_tu & {"nhung", "gi", "sach", "liet", "ke", "may", "bao"})
+    if not cv and nd.la_admin_sep and len(ung_vien) > 1 and hoi_danh_sach \
+            and (nhac_chuc_vu or "phieu" in tin_tu):
+        # 5) Admin/Sếp hỏi "hiện có NHỮNG phiếu đánh giá GÌ", "danh sách
+        #    phiếu"… -> chỉ liệt kê TÊN, không dội cả loạt ảnh ra khung chat.
+        ds = sorted(ung_vien, key=lambda x: x.ten)
+        return _tra_loi(f"Hiện có {len(ds)} phiếu đánh giá (theo chức vụ):\n"
+                        + "\n".join(f"{i}. {c.ten}" for i, c in enumerate(ds, 1))
+                        + "\n\nMuốn xem phiếu nào thì hỏi kèm tên, VD \"phiếu đánh giá "
+                        + ds[0].ten.lower() + "\".")
     if not cv:
         noi_dung_con_lai = tin_tu - tu_bo_qua - tu_chung
         if len(ung_vien) == 1 and (nhac_chuc_vu or not noi_dung_con_lai):
@@ -999,7 +1036,7 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
             #    "ảnh chức vụ của tôi", "phiếu đánh giá", "lộ trình" — hoặc
             #    chỉ gõ trơn "ảnh"/"phiếu". Hỏi ảnh thứ khác (VD "ảnh keo chà
             #    ron") thì KHÔNG trả ảnh chức vụ nữa.
-            cv = ung_vien[0] if (nhac_chuc_vu or _chon(_tach_tu(ngu_canh)) or not ngu_canh) else None
+            cv = ung_vien[0] if (nhac_chuc_vu or _chon(_tach_tu_co_dau(ngu_canh)) or not ngu_canh) else None
         elif (len(ung_vien) > 1 and not (noi_dung_con_lai - {"danh", "gia", "lo", "trinh"})
               and (nhac_chuc_vu or "phieu" in tin_tu)):
             # 4) Admin/Sếp hỏi CHUNG CHUNG "phiếu đánh giá nhân viên", "ảnh
@@ -1021,7 +1058,7 @@ def _thu_khop_anh_chuc_vu(nd: NguoiDung, tin_nhan: str, ngu_canh: str = "") -> d
         elif not noi_dung_con_lai:
             # 3) Chỉ gõ trơn "ảnh"/"cho xem ảnh" -> suy theo câu hỏi TRƯỚC
             #    của chính người dùng (ngu_canh chỉ chứa câu người dùng).
-            cv = _chon(_tach_tu(ngu_canh))
+            cv = _chon(_tach_tu_co_dau(ngu_canh))
     if not cv:
         return None
 
