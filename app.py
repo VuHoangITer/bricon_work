@@ -148,6 +148,11 @@ def create_app(config_class=Config):
         if cv:
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
+        # Ảnh quy trình nội bộ (quy trình kho…) — ai đăng nhập cũng xem được
+        from models import AnhQuyTrinh
+        if AnhQuyTrinh.query.filter_by(duong_dan=duong_dan).first():
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
         # Ảnh sản phẩm (TDS, bảng định mức...) — thông tin công khai của
         # công ty, ai đăng nhập cũng xem được, giống ảnh chức vụ
         asp = AnhSanPhamAI.query.filter_by(duong_dan=duong_dan).first()
@@ -257,7 +262,8 @@ def create_app(config_class=Config):
          "phu": []},
         {"ma": "ai", "nhan": "Trợ lý AI", "icon": "💬", "chi_admin": False,
          "tab": [("admin.info_ai", "Thông tin chung"), ("admin.info_ai_san_pham", "Sản phẩm"),
-                 ("admin.info_ai_faq", "Câu hỏi thường gặp"), ("admin.info_ai_chuc_vu", "Chức vụ"),
+                 ("admin.info_ai_faq", "Câu hỏi thường gặp"), ("admin.info_ai_quy_trinh", "Quy trình"),
+                 ("admin.info_ai_chuc_vu", "Chức vụ"),
                  ("admin.tro_ly_su_dung", "Thống kê sử dụng")],
          "phu": []},
         {"ma": "he_thong", "nhan": "Hệ thống", "icon": "⚙", "chi_admin": True,

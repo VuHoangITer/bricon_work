@@ -11,7 +11,7 @@ import dich_vu_ai
 import services
 from extensions import db
 from models import (HoSoNhanVien, LoaiDinhKem, LoaiHoSo, AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
-                    DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI,
+                    DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI, QuyTrinh, AnhQuyTrinh,
                     TroLySuDung, VaiTro, ngay_vn_hien_tai)
 
 bp = Blueprint("admin", __name__, url_prefix="/quan-tri")
@@ -806,6 +806,7 @@ def _trang_info_ai(muc: str):
         so_cau_faq=len(dich_vu_ai.tach_cau_faq(faq)),
         ds_chuc_vu=ChucVu.query.order_by(ChucVu.ten).all() if muc == "chuc_vu" else [],
         ds_san_pham_ai=SanPhamAI.query.order_by(SanPhamAI.ten).all() if muc == "san_pham" else [],
+        ds_quy_trinh=QuyTrinh.query.order_by(QuyTrinh.ten).all() if muc == "quy_trinh" else [],
     )
 
 
@@ -825,6 +826,78 @@ def info_ai_san_pham():
 @chi_admin
 def info_ai_faq():
     return _trang_info_ai("faq")
+
+
+@bp.route("/info-ai/muc/quy-trinh")
+@chi_admin
+def info_ai_quy_trinh():
+    return _trang_info_ai("quy_trinh")
+
+
+@bp.route("/info-ai/quy-trinh", methods=["POST"])
+@bp.route("/info-ai/quy-trinh/<int:qtid>", methods=["POST"])
+@chi_admin
+def luu_quy_trinh(qtid=None):
+    """Thêm/sửa 1 quy trình. Ảnh: mỗi ô chọn ảnh đi kèm 1 ô nhãn riêng
+    (anh_1 + nhan_1, anh_2 + nhan_2…) để mỗi ảnh có nhãn của nó; nhãn ảnh
+    cũ sửa ở các ô nhan_cu_<id>."""
+    qt = db.session.get(QuyTrinh, qtid) if qtid else QuyTrinh()
+    if qtid and not qt:
+        abort(404)
+    ten = " ".join((request.form.get("ten") or "").split())
+    if not ten:
+        flash("Cần nhập tên quy trình.", "error")
+        return redirect(url_for("admin.info_ai_quy_trinh"))
+    trung = QuyTrinh.query.filter(db.func.lower(QuyTrinh.ten) == ten.lower()).first()
+    if trung and trung.id != qt.id:
+        flash(f"Đã có quy trình \"{ten}\".", "error")
+        return redirect(url_for("admin.info_ai_quy_trinh"))
+    qt.ten = ten[:200]
+    qt.noi_dung = (request.form.get("noi_dung") or "").strip() or None
+    qt.tu_khoa = (request.form.get("tu_khoa") or "").strip()[:500] or None
+    for a in qt.anh:
+        if f"nhan_cu_{a.id}" in request.form:
+            a.nhan = (request.form.get(f"nhan_cu_{a.id}") or "").strip()[:255] or None
+    so_anh = 0
+    for i in range(1, 11):
+        for f in [f for f in request.files.getlist(f"anh_{i}") if f and f.filename]:
+            if services.phan_loai(f.filename, f.mimetype) != LoaiDinhKem.ANH:
+                flash(f"Bỏ qua {f.filename}: không phải ảnh.", "error")
+                continue
+            duong_dan, _ = services.luu_file(f, "quy-trinh")
+            qt.anh.append(AnhQuyTrinh(duong_dan=duong_dan,
+                                      nhan=(request.form.get(f"nhan_{i}") or "").strip()[:255] or None))
+            so_anh += 1
+    if not qtid:
+        db.session.add(qt)
+    db.session.commit()
+    flash(f"Đã lưu quy trình \"{qt.ten}\"" + (f" (+{so_anh} ảnh)." if so_anh else "."), "success")
+    return redirect(url_for("admin.info_ai_quy_trinh") + f"#qt-{qt.id}")
+
+
+@bp.route("/info-ai/quy-trinh/<int:qtid>/xoa", methods=["POST"])
+@chi_admin
+def xoa_quy_trinh(qtid):
+    qt = db.session.get(QuyTrinh, qtid) or abort(404)
+    for a in qt.anh:
+        services._xoa_file_tuong_doi(a.duong_dan)
+    ten = qt.ten
+    db.session.delete(qt)
+    db.session.commit()
+    flash(f"Đã xoá quy trình {ten}.", "success")
+    return redirect(url_for("admin.info_ai_quy_trinh"))
+
+
+@bp.route("/info-ai/quy-trinh/anh/<int:anh_id>/xoa", methods=["POST"])
+@chi_admin
+def xoa_anh_quy_trinh(anh_id):
+    a = db.session.get(AnhQuyTrinh, anh_id) or abort(404)
+    qtid = a.quy_trinh_id
+    services._xoa_file_tuong_doi(a.duong_dan)
+    db.session.delete(a)
+    db.session.commit()
+    flash("Đã xoá ảnh.", "success")
+    return redirect(url_for("admin.info_ai_quy_trinh") + f"#qt-{qtid}")
 
 
 @bp.route("/info-ai/muc/chuc-vu")

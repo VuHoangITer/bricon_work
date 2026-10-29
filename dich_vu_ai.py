@@ -348,7 +348,7 @@ _HUONG_DAN_HE_THONG_TRO_LY = (
     "chào hỏi), để duong_dan và nhan_nut là null.\n\n"
 
     "MEDIA: dữ liệu bên dưới có thể kèm theo các đoạn dạng [media:đường-dẫn] "
-    "ngay sau 1 việc hoặc 1 chức vụ có đối chứng/ảnh minh hoạ; kết quả tool "
+    "ngay sau 1 việc, 1 chức vụ, 1 sản phẩm hoặc 1 quy trình có ảnh; kết quả tool "
     "tra_cuu_dong_goi cũng có trường 'anh' chứa đường dẫn ảnh kiện hàng — "
     "dùng y hệt như [media:...]. Người hỏi "
     "muốn XEM/HIỆN 1 ảnh/video/ghi âm cụ thể và có đúng 1 đoạn [media:...] "
@@ -458,6 +458,9 @@ def _kiem_tra_media_hop_le(nd: NguoiDung, duong_dan: str) -> str | None:
     cv = ChucVu.query.filter_by(anh=duong_dan).first()
     if cv:
         return duong_dan
+    from models import AnhQuyTrinh
+    if AnhQuyTrinh.query.filter_by(duong_dan=duong_dan).first():
+        return duong_dan  # ảnh quy trình nội bộ — ai đăng nhập cũng xem được
     # Ảnh sản phẩm — thông tin chung công ty, ai đăng nhập cũng xem được
     # (cùng quy tắc với route /media).
     if AnhSanPhamAI.query.filter_by(duong_dan=duong_dan).first():
@@ -581,6 +584,95 @@ def _faq_lien_quan(van_ban: str, so_cau: int = _SO_CAU_FAQ_TOI_DA) -> list[dict]
     return [c for _, c in xep[:so_cau]]
 
 
+# ---------------------------------------------------------------------------
+# QUY TRÌNH NỘI BỘ (VD "Quy trình kho") — nội dung chữ + nhiều ảnh có nhãn.
+# ---------------------------------------------------------------------------
+_TU_BO_QUA_QT = _TU_BO_QUA_FAQ | {"quy", "trinh", "tac", "xem", "gui", "hinh", "cho", "hien",
+                                  "nao", "gi", "ve", "lai", "giup", "nhanh", "cua", "nhan", "vien"}
+_TU_XIN_XEM_QT = {"anh", "hinh", "xem", "gui", "hien", "show"}
+
+
+def _tu_qt(van_ban: str) -> set[str]:
+    tu = re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban)).split()
+    return {t for t in tu if t not in _TU_BO_QUA_QT and (len(t) > 1 or t.isdigit())}
+
+
+def _chuoi_chuan(van_ban: str) -> str:
+    return " " + " ".join(re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban)).split()) + " "
+
+
+def _cum_tu_khoa(qt) -> list[str]:
+    return [c.strip() for c in _chuoi_chuan((qt.tu_khoa or "").replace(",", " , ")).split(" , ")
+            if c.strip()]
+
+
+def _diem_quy_trinh(qt, van_ban: str) -> dict:
+    """Đo mức liên quan giữa câu hỏi và 1 quy trình."""
+    tu_hoi = _tu_qt(van_ban)
+    chuoi = _chuoi_chuan(van_ban)
+    tu_ten = _tu_qt(qt.ten)
+    khop_ten = bool(tu_ten) and tu_ten <= tu_hoi
+    khop_tu_khoa = any(f" {c} " in chuoi for c in _cum_tu_khoa(qt))
+    diem_anh = [(len(_tu_qt(a.nhan or "") & tu_hoi), a) for a in qt.anh]
+    # Từ về SẢN PHẨM (keo, chà ron, sơn…) không tính khi so với nội dung —
+    # nội dung quy trình kho có nhắc tên nhóm sản phẩm, tránh hỏi sản phẩm
+    # cũng kéo quy trình vào.
+    tu_noi_dung = _tu_qt(qt.noi_dung or "") - {"keo", "cha", "ron", "gach", "son", "chong", "tham",
+                                               "epoxy", "mau", "dan"} - _tu_ten_san_pham()
+    return {"khop_ten": khop_ten, "khop_tu_khoa": khop_tu_khoa, "diem_anh": diem_anh,
+            "diem_noi_dung": len(tu_hoi & tu_noi_dung), "tu_hoi": tu_hoi, "tu_ten": tu_ten}
+
+
+def _quy_trinh_lien_quan(van_ban: str) -> list:
+    from models import QuyTrinh
+    chuoi = _chuoi_chuan(van_ban)
+    hoi_chung = any(f" {c} " in chuoi for c in ("quy trinh", "quy tac", "ke hoach", "lich lam viec"))
+    ket_qua = []
+    for qt in QuyTrinh.query.order_by(QuyTrinh.ten).all():
+        d = _diem_quy_trinh(qt, van_ban)
+        if (d["khop_ten"] or d["khop_tu_khoa"] or max((x for x, _ in d["diem_anh"]), default=0) >= 2
+                or d["diem_noi_dung"] >= 2 or hoi_chung):
+            ket_qua.append(qt)
+    return ket_qua
+
+
+def _thu_khop_quy_trinh(tin_nhan: str) -> dict | None:
+    """Khớp trực tiếp (KHÔNG qua AI) khi người hỏi muốn XEM quy trình/ảnh:
+    - "quy trình kho", "ảnh quy trình kho" -> gửi TẤT CẢ ảnh của quy trình đó;
+    - "cho xem lịch làm việc kho", "ảnh quy tắc xử lý đơn" -> gửi đúng 1 ảnh
+      có nhãn khớp nhất.
+    Câu hỏi chi tiết ("thứ 4 kiểm kê nhóm gì") -> trả None để AI đọc nội
+    dung chữ trả lời. Câu về phiếu đánh giá / chức vụ thì nhường bộ khớp chức vụ."""
+    from models import QuyTrinh
+    chuoi = _chuoi_chuan(tin_nhan)
+    if any(f" {c} " in chuoi for c in ("danh gia", "chuc vu", "lo trinh")):
+        return None
+    tu_tho = set(chuoi.split())
+    muon_xem = bool(tu_tho & _TU_XIN_XEM_QT)
+    noi_quy_trinh = any(f" {c} " in chuoi for c in ("quy trinh", "quy tac"))
+    for qt in QuyTrinh.query.order_by(QuyTrinh.ten).all():
+        if not qt.anh:
+            continue
+        d = _diem_quy_trinh(qt, tin_nhan)
+        tu_con_lai = d["tu_hoi"] - d["tu_ten"] - set().union(*[_tu_qt(a.nhan or "") for a in qt.anh])
+        # 1 ảnh có nhãn khớp rõ nhất
+        xep = sorted(((x, a) for x, a in d["diem_anh"] if x >= 2), key=lambda t: t[0], reverse=True)
+        if muon_xem and xep and (len(xep) == 1 or xep[0][0] > xep[1][0]):
+            a = xep[0][1]
+            return {"tra_loi": f"Đây là \"{a.nhan or qt.ten}\" ({qt.ten}):", "duong_dan": None,
+                    "nhan_nut": None, "media": [url_for("media", duong_dan=a.duong_dan)]}
+        # cả quy trình
+        if ((d["khop_ten"] and (noi_quy_trinh or not tu_con_lai))
+                or (d["khop_tu_khoa"] and muon_xem and not tu_con_lai)):
+            ds = qt.anh[:_SO_ANH_TOI_DA]
+            tra_loi = f"{qt.ten} gồm {len(qt.anh)} ảnh:\n" + "\n".join(
+                f"{i}. {a.nhan or 'Ảnh ' + str(i)}" for i, a in enumerate(qt.anh, 1))
+            tra_loi += "\n\nCần hỏi chi tiết phần nào (VD lịch kiểm kê từng ngày) cứ hỏi tiếp nhé."
+            return {"tra_loi": tra_loi, "duong_dan": None, "nhan_nut": None,
+                    "media": [url_for("media", duong_dan=a.duong_dan) for a in ds]}
+    return None
+
+
 def _can_boi_canh_san_pham(van_ban: str) -> bool:
     tin_chuan = re.sub(r"[^a-z0-9]+", " ", _chuan_hoa_khong_dau(van_ban))
     tu = set(tin_chuan.split())
@@ -673,6 +765,22 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
                 "định mức thì tra đúng bảng số liệu có sẵn, không tự suy ra số mới "
                 "---\n" + "\n\n".join(khoi)
             )
+
+    ds_qt = _quy_trinh_lien_quan(van_ban_gan_day.split("\n")[0])
+    if ds_qt:
+        khoi = []
+        for qt in ds_qt[:3]:
+            phan = [f"===== QUY TRÌNH: {qt.ten} =====", (qt.noi_dung or "(chưa có nội dung chữ — xem ảnh)").strip()]
+            if qt.anh:
+                phan.append("Ảnh kèm theo: " + " | ".join(
+                    f"{(a.nhan + ': ') if a.nhan else ''}[media:{a.duong_dan}]" for a in qt.anh))
+            phan.append(f"===== HẾT QUY TRÌNH: {qt.ten} =====")
+            khoi.append("\n".join(phan))
+        dong.append(
+            "--- Quy trình nội bộ BRICON (áp dụng cho mọi nhân viên) liên quan câu đang hỏi. "
+            "Trả lời ĐÚNG theo nội dung này, không tự thêm bước. Khi trả lời về 1 phần có ảnh "
+            "tương ứng (theo nhãn ảnh) thì đưa đường dẫn ảnh đó vào trường media để người hỏi "
+            "xem kèm ---\n" + "\n\n".join(khoi))
 
     if nd.la_admin_sep:
         from models import ChucVu
@@ -1464,6 +1572,11 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
     if cau_nguoi_dung and cau_nguoi_dung[-1].strip() == tin_nhan.strip():
         cau_nguoi_dung = cau_nguoi_dung[:-1]
     cau_truoc = " ".join(cau_nguoi_dung[-1:])
+
+    ket_qua_qt = _thu_khop_quy_trinh(tin_nhan)
+    if ket_qua_qt:
+        ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
+        return ket_qua_qt, None
 
     ket_qua_anh = _thu_khop_anh_chuc_vu(nd, tin_nhan, cau_truoc)
     if ket_qua_anh:

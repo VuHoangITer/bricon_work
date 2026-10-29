@@ -3,6 +3,7 @@
   "chung": ("Thông tin chung", "Chế độ, chính sách, giờ làm, hotline… áp dụng cho mọi nhân viên. Trợ lý AI luôn đọc phần này."),
   "san_pham": ("Sản phẩm", "Kiến thức từng sản phẩm (mô tả, thông số, định mức) kèm ảnh TDS/bảng định mức. Trợ lý AI chỉ đọc khi câu hỏi liên quan sản phẩm."),
   "faq": ("Câu hỏi thường gặp", "Bộ FAQ chính thức. Mỗi lần hỏi, Trợ lý AI tự chọn vài câu liên quan nhất — thêm bao nhiêu câu cũng không tốn thêm token."),
+  "quy_trinh": ("Quy trình", "Quy trình, quy tắc, lịch làm việc nội bộ (VD Quy trình kho) — nội dung chữ để Trợ lý AI trả lời chi tiết, kèm ảnh để gửi khi được hỏi. Ai trong công ty cũng hỏi được."),
   "chuc_vu": ("Chức vụ", "Mô tả công việc, lương, chế độ riêng từng vị trí. Nhân viên chỉ được Trợ lý AI trả lời về đúng chức vụ của mình."),
 } %}
 {% set tieu_de, mo_ta_muc = TIEU_DE_MUC[muc] %}
@@ -187,6 +188,101 @@
 </script>
 
 {# ================================= SẢN PHẨM ================================= #}
+{% elif muc == "quy_trinh" %}
+<p class="ai-mo-ta">{{ mo_ta_muc }}</p>
+
+{% macro o_anh_moi(so_dong) %}
+<div class="o-nhap qt-anh-moi"><label>Ảnh mới — mỗi ảnh 1 nhãn riêng (không bắt buộc)</label>
+  {% for i in range(1, so_dong + 1) %}
+  <div class="hang qt-dong-anh" style="margin-bottom:6px">
+    <input type="file" name="anh_{{ i }}" accept="image/*" style="flex:1 1 200px">
+    <input type="text" name="nhan_{{ i }}" placeholder="Nhãn ảnh — VD: Kế hoạch làm việc cố định của kho" style="flex:2 1 260px">
+  </div>
+  {% endfor %}
+  <button type="button" class="nut nut--phu nut--nho qt-them-dong">+ Thêm dòng ảnh</button>
+  <p class="ai-goi-y">Đặt nhãn rõ ràng — bot dựa vào nhãn để gửi đúng ảnh khi được hỏi (VD hỏi "lịch làm việc kho" → gửi ảnh có nhãn "Kế hoạch làm việc…").</p>
+</div>
+{% endmacro %}
+
+<details class="ai-them" {{ 'open' if not ds_quy_trinh }}>
+  <summary><span class="ai-them-nhan">+ Thêm quy trình</span></summary>
+  <div class="the">
+    <form method="post" action="{{ url_for('admin.luu_quy_trinh') }}" enctype="multipart/form-data">
+      <div class="o-nhap"><label>Tên quy trình</label>
+        <input type="text" name="ten" required maxlength="200" placeholder="VD: Quy trình kho"></div>
+      <div class="o-nhap"><label>Nội dung (bot đọc phần này để trả lời chi tiết)</label>
+        <textarea name="noi_dung" rows="10" placeholder="Chép nội dung các ảnh thành chữ — bot KHÔNG tự đọc được chữ trong ảnh."></textarea></div>
+      <div class="o-nhap"><label>Từ khoá thêm (không bắt buộc)</label>
+        <input type="text" name="tu_khoa" placeholder="VD: kiểm kê, lịch kho, đơn shopee, vật tư đóng gói">
+        <p class="ai-goi-y">Cách nhau bằng dấu phẩy — giúp bot nhận ra câu hỏi về quy trình này dù không nói đúng tên.</p></div>
+      {{ o_anh_moi(4) }}
+      <button class="nut" type="submit">Lưu quy trình</button>
+    </form>
+  </div>
+</details>
+
+<div class="ai-hang-tieu-de"><h2>Danh sách quy trình <span class="dem">{{ ds_quy_trinh|length }}</span></h2></div>
+
+{% for qt in ds_quy_trinh %}
+<details class="the ai-muc" id="qt-{{ qt.id }}">
+  <summary>
+    <strong>{{ qt.ten }}</strong>
+    {% if qt.anh %}<span class="dem">{{ qt.anh|length }} ảnh</span>{% endif %}
+    <span class="ai-tom-tat">{{ (qt.noi_dung or 'Chưa có nội dung chữ')|replace('#','')|truncate(90) }}</span>
+  </summary>
+  <div class="ai-muc-than">
+    <form method="post" action="{{ url_for('admin.luu_quy_trinh', qtid=qt.id) }}" enctype="multipart/form-data">
+      <div class="o-nhap"><label>Tên quy trình</label><input type="text" name="ten" value="{{ qt.ten }}" required maxlength="200"></div>
+      <div class="o-nhap"><label>Nội dung</label><textarea name="noi_dung" rows="12">{{ qt.noi_dung or '' }}</textarea></div>
+      <div class="o-nhap"><label>Từ khoá thêm</label><input type="text" name="tu_khoa" value="{{ qt.tu_khoa or '' }}"></div>
+      {% if qt.anh %}
+      <div class="o-nhap"><label>Ảnh hiện tại — sửa nhãn ngay dưới ảnh</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+          {% for a in qt.anh %}
+          <div>
+            <a href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener">
+              <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.nhan or qt.ten }}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--bk-n);border:1px solid var(--vien)"></a>
+            <input type="text" name="nhan_cu_{{ a.id }}" value="{{ a.nhan or '' }}" placeholder="Nhãn ảnh" style="margin-top:4px;font-size:.8rem">
+            <button type="submit" form="xoa-anh-qt-{{ a.id }}" class="nut nut--phu nut--nho" style="margin-top:4px;color:var(--lam-lai)">✕ Xoá ảnh</button>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {{ o_anh_moi(2) }}
+      <div class="ai-hang-nut"><button class="nut nut--nho" type="submit">Lưu thay đổi</button></div>
+    </form>
+    {% for a in qt.anh %}
+    <form method="post" id="xoa-anh-qt-{{ a.id }}" action="{{ url_for('admin.xoa_anh_quy_trinh', anh_id=a.id) }}"
+          onsubmit="return confirm('Xoá ảnh {{ (a.nhan or '')|e }}?')" hidden></form>
+    {% endfor %}
+    <form method="post" action="{{ url_for('admin.xoa_quy_trinh', qtid=qt.id) }}" style="margin-top:8px"
+          onsubmit="return confirm('Xoá quy trình {{ qt.ten|e }} (kèm toàn bộ ảnh)?')">
+      <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">Xoá quy trình</button>
+    </form>
+  </div>
+</details>
+{% else %}
+<div class="trong"><strong>Chưa có quy trình nào</strong>Bấm “+ Thêm quy trình” ở trên để thêm.</div>
+{% endfor %}
+
+<script>
+document.querySelectorAll('.qt-them-dong').forEach(function (nut) {
+  nut.addEventListener('click', function () {
+    var khu = nut.closest('.qt-anh-moi');
+    var dong = khu.querySelectorAll('.qt-dong-anh');
+    if (dong.length >= 10) return;
+    var moi = dong[dong.length - 1].cloneNode(true);
+    var i = dong.length + 1;
+    moi.querySelector('input[type=file]').name = 'anh_' + i;
+    moi.querySelector('input[type=file]').value = '';
+    moi.querySelector('input[type=text]').name = 'nhan_' + i;
+    moi.querySelector('input[type=text]').value = '';
+    dong[dong.length - 1].after(moi);
+  });
+});
+</script>
+
 {% elif muc == "san_pham" %}
 <p class="ai-mo-ta">{{ mo_ta_muc }}</p>
 

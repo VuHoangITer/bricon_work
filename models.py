@@ -1135,3 +1135,30 @@ class DinhKemBienBan(db.Model):
         if n < 1024 * 1024:
             return f"{n / 1024:.0f} KB"
         return f"{n / 1048576:.1f} MB"
+
+
+class QuyTrinh(db.Model):
+    """Quy trình / tài liệu nội bộ cho Trợ lý AI (VD "Quy trình kho"): nội
+    dung chữ (bot đọc để trả lời chi tiết) + nhiều ảnh có nhãn (bot gửi
+    kèm). Ai đăng nhập cũng hỏi/xem được."""
+    __tablename__ = "quy_trinh"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ten = db.Column(db.String(200), nullable=False, unique=True)
+    noi_dung = db.Column(db.Text)
+    tu_khoa = db.Column(db.String(500))  # từ khoá thêm để bot nhận ra câu hỏi, cách nhau bằng dấu phẩy
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    anh = db.relationship("AnhQuyTrinh", back_populates="quy_trinh",
+                          cascade="all, delete-orphan", order_by="AnhQuyTrinh.id")
+
+
+class AnhQuyTrinh(db.Model):
+    __tablename__ = "anh_quy_trinh"
+
+    id = db.Column(db.Integer, primary_key=True)
+    quy_trinh_id = db.Column(db.Integer, db.ForeignKey("quy_trinh.id"), nullable=False, index=True)
+    duong_dan = db.Column(db.String(500), nullable=False)
+    nhan = db.Column(db.String(255))  # VD "Kế hoạch làm việc cố định của kho"
+
+    quy_trinh = db.relationship("QuyTrinh", back_populates="anh")
