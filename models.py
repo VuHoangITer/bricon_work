@@ -518,6 +518,9 @@ class CongViec(db.Model):
     hoan_thanh_luc = db.Column(db.DateTime, index=True)
 
     so_sao_cuoi = db.Column(db.Integer)  # sao của lần duyệt cuối, để xếp KPI nhanh
+    # Việc được hệ thống tự tạo từ mẫu Việc định kỳ (VD việc cố định hằng
+    # ngày của kho) — dùng để không tạo trùng trong cùng 1 ngày.
+    viec_dinh_ky_id = db.Column(db.Integer, db.ForeignKey("viec_dinh_ky.id", ondelete="SET NULL"), index=True)
     da_nhac_sap_qua_han = db.Column(db.Boolean, default=False, nullable=False)  # tránh nhắc lặp lại
 
     nguoi_giao = db.relationship("NguoiDung", foreign_keys=[nguoi_giao_id])
@@ -1162,3 +1165,38 @@ class AnhQuyTrinh(db.Model):
     nhan = db.Column(db.String(255))  # VD "Kế hoạch làm việc cố định của kho"
 
     quy_trinh = db.relationship("QuyTrinh", back_populates="anh")
+
+
+class ViecDinhKy(db.Model):
+    """Mẫu công việc lặp lại theo thứ trong tuần, áp dụng cho 1 CHỨC VỤ —
+    VD kho: 08:30 "Kiểm tra kho, vệ sinh sàn", thứ 2 16:30 "Kiểm kê nhóm
+    công cụ thi công"… Mỗi sáng (cron tao-viec-dinh-ky) hệ thống tự tạo việc
+    cho từng nhân viên đang có chức vụ đó, người giao = Quản lý bộ phận của
+    nhân viên. Bỏ qua ngày nghỉ công ty và buổi nhân viên xin nghỉ."""
+    __tablename__ = "viec_dinh_ky"
+
+    id = db.Column(db.Integer, primary_key=True)
+    chuc_vu_id = db.Column(db.Integer, db.ForeignKey("chuc_vu.id", ondelete="CASCADE"), nullable=False, index=True)
+    tieu_de = db.Column(db.String(255), nullable=False)
+    mo_ta = db.Column(db.Text)
+    cac_thu = db.Column(db.String(20), nullable=False, default="0,1,2,3,4,5")  # 0 = thứ Hai … 6 = Chủ nhật
+    gio_han = db.Column(db.String(5), nullable=False, default="17:00")       # "HH:MM"
+    dang_dung = db.Column(db.Boolean, nullable=False, default=True)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    chuc_vu = db.relationship("ChucVu")
+
+    TEN_THU = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+
+    @property
+    def ds_thu(self) -> list[int]:
+        return sorted({int(x) for x in (self.cac_thu or "").split(",") if x.strip().isdigit() and int(x) < 7})
+
+    @property
+    def ten_cac_thu(self) -> str:
+        ds = self.ds_thu
+        if ds == [0, 1, 2, 3, 4, 5]:
+            return "T2 – T7"
+        if ds == list(range(7)):
+            return "Mọi ngày"
+        return ", ".join(self.TEN_THU[i] for i in ds)

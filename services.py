@@ -2885,3 +2885,129 @@ def bao_bien_ban_xu_ly(bb: "BienBanPhat"):
         nd = (f"📌 Biên bản {bb.so_bien_ban} ({bb.ten_loi}) được ghi nhận: nhân viên không ký. "
               f"Biên bản vẫn có hiệu lực.\n{_link_bien_ban(bb)}")
     gui_cho_nhan_vien(bb.nguoi_vi_pham, nd)
+
+
+# ---------------------------------------------------------------------------
+# VIỆC ĐỊNH KỲ — tự giao việc cố định hằng ngày theo chức vụ
+# ---------------------------------------------------------------------------
+
+def nguoi_giao_mac_dinh(nv: NguoiDung) -> NguoiDung | None:
+    """Người đứng tên giao/duyệt việc định kỳ của nv: Quản lý bộ phận của nv
+    (ưu tiên cùng bộ phận CHÍNH), không có thì Ban giám đốc, rồi Quản trị."""
+    ds_ql = [q for q in NguoiDung.query.filter_by(vai_tro=VaiTro.QUAN_LY, dang_hoat_dong=True).all()
+             if q.id != nv.id and q.cung_bo_phan(nv)]
+    if ds_ql:
+        ds_ql.sort(key=lambda q: (q.bo_phan_id != nv.bo_phan_id, q.id))
+        return ds_ql[0]
+    for vt in (VaiTro.SEP, VaiTro.ADMIN):
+        q = (NguoiDung.query.filter_by(vai_tro=vt, dang_hoat_dong=True)
+             .filter(NguoiDung.id != nv.id).order_by(NguoiDung.id).first())
+        if q:
+            return q
+    return None
+
+
+def tao_viec_dinh_ky(ngay: date | None = None, gui_zalo_bao: bool = True) -> dict:
+    """Tạo việc định kỳ cho ngày `ngay` (mặc định hôm nay) — chạy bằng cron
+    mỗi sáng. An toàn khi chạy lại nhiều lần: việc đã tạo (cùng mẫu, cùng
+    người, cùng ngày) thì bỏ qua. Bỏ qua ngày nghỉ công ty; nhân viên xin
+    nghỉ cả ngày thì không giao, nghỉ buổi sáng/chiều thì bỏ việc có hạn
+    rơi vào buổi đó (hạn trước 12:00 = sáng)."""
+    from models import BuoiNghi, TrangThai, ViecDinhKy, XinNghi
+    ngay = ngay or ngay_vn_hien_tai()
+    kq = {"ngay": ngay, "so_viec": 0, "so_nguoi": 0, "bo_qua": ""}
+    if la_ngay_nghi(ngay):
+        kq["bo_qua"] = "ngày nghỉ công ty"
+        return kq
+    mau = [m for m in ViecDinhKy.query.filter_by(dang_dung=True).all() if ngay.weekday() in m.ds_thu]
+    if not mau:
+        return kq
+    dau_ngay = datetime.combine(ngay, datetime.min.time())
+    cuoi_ngay = dau_ngay + timedelta(days=1)
+    theo_nguoi: dict[int, list] = {}
+    for m in sorted(mau, key=lambda x: x.gio_han):
+        for nv in NguoiDung.query.filter_by(chuc_vu_id=m.chuc_vu_id, dang_hoat_dong=True).all():
+            if nv.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
+                continue
+            nghi = {x.buoi for x in XinNghi.query.filter_by(nguoi_dung_id=nv.id, ngay=ngay).all()}
+            try:
+                gio, phut = (int(x) for x in m.gio_han.split(":"))
+            except ValueError:
+                continue
+            han = datetime(ngay.year, ngay.month, ngay.day, gio, phut)
+            if BuoiNghi.CA_NGAY in nghi or (BuoiNghi.SANG in nghi and gio < 12) \
+                    or (BuoiNghi.CHIEU in nghi and gio >= 12):
+                continue
+            da_co = CongViec.query.filter(CongViec.viec_dinh_ky_id == m.id, CongViec.nguoi_nhan_id == nv.id,
+                                          CongViec.han >= dau_ngay, CongViec.han < cuoi_ngay).first()
+            if da_co:
+                continue
+            giao = nguoi_giao_mac_dinh(nv)
+            if not giao:
+                continue
+            v = CongViec(tieu_de=m.tieu_de, mo_ta=m.mo_ta, han=han, do_uu_tien="thap",
+                         nguoi_giao_id=giao.id, nguoi_nhan_id=nv.id, trang_thai=TrangThai.MOI,
+                         viec_dinh_ky_id=m.id)
+            db.session.add(v)
+            theo_nguoi.setdefault(nv.id, []).append(v)
+    db.session.flush()
+    for ds in theo_nguoi.values():
+        for v in ds:
+            gan_ma(v)
+    db.session.commit()
+    kq["so_viec"] = sum(len(x) for x in theo_nguoi.values())
+    kq["so_nguoi"] = len(theo_nguoi)
+    if gui_zalo_bao:
+        base = current_app.config["BASE_URL"]
+        for nid, ds in theo_nguoi.items():
+            nv = db.session.get(NguoiDung, nid)
+            nd = (f"📋 Việc cố định hôm nay {ngay:%d/%m} ({len(ds)} việc):\n\n"
+                  + "\n".join(f"• {v.han:%H:%M} — {v.tieu_de}" for v in sorted(ds, key=lambda x: x.han))
+                  + f"\n\nLàm xong việc nào thì nộp đối chứng việc đó trước giờ hạn.\n{base}/viec")
+            gui_cho_nhan_vien(nv, nd)
+        db.session.commit()
+    return kq
+
+
+MAU_VIEC_KHO = [
+    # (tiêu đề, mô tả, các thứ 0=T2..5=T7, giờ hạn)
+    ("Kiểm tra kho, vệ sinh sàn và đổ rác", "Khung giờ 08:00 – 08:30. Chụp ảnh kho sau khi vệ sinh làm đối chứng.",
+     "0,1,2,3,4,5", "08:30"),
+    ("Sản xuất, đóng gói, xử lý đơn hỏa tốc/đơn gấp (buổi sáng)",
+     "Khung giờ 08:30 – 11:30. Sản xuất, đóng gói và xử lý các đơn hàng hỏa tốc, đơn hàng gấp.", "0,1,2,3,4,5", "11:30"),
+    ("Sản xuất, đóng gói, xử lý đơn hỏa tốc/đơn gấp (buổi chiều)",
+     "Khung giờ 13:00 – 16:00. Tiếp tục sản xuất, đóng gói và xử lý các đơn hàng hỏa tốc, đơn hàng gấp.",
+     "0,1,2,3,4,5", "16:00"),
+    ("Lấy phiếu kiểm kê – kiểm kê nhóm công cụ thi công",
+     "Khung giờ 16:00 – 16:30 (thứ Hai). Ghi số liệu thực tế vào phiếu, chụp phiếu làm đối chứng.", "0", "16:30"),
+    ("Lấy phiếu kiểm kê – kiểm kê nhóm keo dán gạch và nguyên liệu đóng gói",
+     "Khung giờ 16:00 – 16:30 (thứ Ba). Ghi số liệu thực tế vào phiếu, chụp phiếu làm đối chứng.", "1", "16:30"),
+    ("Lấy phiếu kiểm kê – kiểm kê nhóm keo chà ron bột",
+     "Khung giờ 16:00 – 16:30 (thứ Tư). Ghi số liệu thực tế vào phiếu, chụp phiếu làm đối chứng.", "2", "16:30"),
+    ("Lấy phiếu kiểm kê – kiểm kê nhóm sơn, chống thấm và epoxy",
+     "Khung giờ 16:00 – 16:30 (thứ Năm). Ghi số liệu thực tế vào phiếu, chụp phiếu làm đối chứng.", "3", "16:30"),
+    ("Lấy phiếu kiểm kê – kiểm kê nhóm sản phẩm khuyến mãi",
+     "Khung giờ 16:00 – 16:30 (thứ Sáu). Ghi số liệu thực tế vào phiếu, chụp phiếu làm đối chứng.", "4", "16:30"),
+    ("Họp kho", "Khung giờ 16:00 – 16:30 (thứ Bảy).", "5", "16:30"),
+    ("Gửi hàng", "Khung giờ 16:30 – 17:00. Chụp ảnh bàn giao hàng làm đối chứng.", "0,1,2,3,4,5", "17:00"),
+    ("Che phủ hàng hóa, vệ sinh kho, trả sổ xuất nhập kho",
+     "Khung giờ 17:00 – 17:30. Kiểm tra việc che phủ hàng hóa, đặc biệt là keo dán gạch. Vệ sinh kho trước khi "
+     "ra về. Trả sổ xuất, nhập kho về phòng kế toán.", "0,1,2,3,4,5", "17:30"),
+    ("Bàn giao toàn bộ phiếu nhập, xuất hàng trong tuần cho anh Long",
+     "Riêng thứ Bảy, khung giờ 17:00 – 17:30.", "5", "17:30"),
+]
+
+
+def nap_mau_viec_kho(chuc_vu_id: int) -> int:
+    """Nạp bộ việc cố định của kho (theo ảnh "Kế hoạch làm việc cố định của
+    kho") cho 1 chức vụ — mẫu nào trùng tên đã có thì bỏ qua."""
+    from models import ViecDinhKy
+    co_san = {m.tieu_de for m in ViecDinhKy.query.filter_by(chuc_vu_id=chuc_vu_id).all()}
+    so = 0
+    for tieu_de, mo_ta, thu, gio in MAU_VIEC_KHO:
+        if tieu_de in co_san:
+            continue
+        db.session.add(ViecDinhKy(chuc_vu_id=chuc_vu_id, tieu_de=tieu_de, mo_ta=mo_ta, cac_thu=thu, gio_han=gio))
+        so += 1
+    db.session.commit()
+    return so

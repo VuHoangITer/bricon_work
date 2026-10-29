@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Việc định kỳ · Quản trị{% endblock %}
+
+{% macro o_thu(chon) %}
+<div style="display:flex;flex-wrap:wrap;gap:6px 14px">
+  {% for t in TEN_THU %}
+  <label style="display:flex;gap:5px;align-items:center;margin:0;font-weight:400">
+    <input type="checkbox" name="thu" value="{{ loop.index0 }}" {{ 'checked' if loop.index0 in chon }} style="width:auto"> {{ t }}
+  </label>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Việc định kỳ</h1>
+    <p>Việc cố định tự giao mỗi ngày theo chức vụ — ai mang chức vụ đó sẽ tự nhận việc mỗi sáng. Người giao/duyệt là Quản lý bộ phận của nhân viên.</p></div>
+  <div class="page-actions">
+    <form method="post" action="{{ url_for('admin.tao_viec_dinh_ky_hom_nay') }}"
+          onsubmit="return confirm('Tạo ngay việc định kỳ của hôm nay? (chạy lại không bị trùng)');">
+      <button class="nut nut--phu" type="submit" {{ 'disabled' if hom_nay_nghi }}>▶ Tạo việc hôm nay</button>
+    </form>
+  </div>
+</div>
+
+{% include "_tab_quan_tri.html" %}
+
+<p class="goi-y" style="margin-top:0">Hệ thống tự tạo việc lúc sáng sớm mỗi ngày làm việc (bỏ qua Chủ nhật/ngày lễ). Nhân viên xin nghỉ cả ngày không nhận việc; nghỉ buổi sáng/chiều thì bỏ việc có hạn trong buổi đó. Mỗi nhân viên nhận 1 tin Zalo tóm tắt việc trong ngày.</p>
+
+<div class="hang" style="align-items:flex-start">
+<details class="the" style="flex:1 1 380px" {{ 'open' if not theo_cv }}>
+  <summary style="cursor:pointer;font-weight:600">＋ Thêm việc định kỳ</summary>
+  <form method="post" style="margin-top:10px">
+    <div class="o-nhap"><label>Chức vụ áp dụng</label>
+      <select name="chuc_vu_id" required>
+        <option value="">— Chọn chức vụ —</option>
+        {% for cv in ds_cv %}<option value="{{ cv.id }}" {{ 'selected' if cv_chon == cv.id }}>{{ cv.ten }}</option>{% endfor %}
+      </select></div>
+    <div class="o-nhap"><label>Tên việc</label><input type="text" name="tieu_de" required maxlength="255" placeholder="VD: Kiểm tra kho, vệ sinh sàn và đổ rác"></div>
+    <div class="o-nhap"><label>Mô tả / yêu cầu đối chứng (không bắt buộc)</label><textarea name="mo_ta" rows="2" placeholder="VD: Khung giờ 08:00 – 08:30. Chụp ảnh kho sau khi vệ sinh."></textarea></div>
+    <div class="hang">
+      <div class="o-nhap"><label>Các thứ trong tuần</label>{{ o_thu([0,1,2,3,4,5]) }}</div>
+      <div class="o-nhap" style="flex:0 0 140px"><label>Giờ hạn</label><input type="time" name="gio_han" value="17:00" required></div>
+    </div>
+    <button class="nut nut--nho" type="submit">Thêm</button>
+  </form>
+</details>
+
+<details class="the" style="flex:1 1 300px">
+  <summary style="cursor:pointer;font-weight:600">📦 Nạp sẵn việc cố định của kho</summary>
+  <form method="post" action="{{ url_for('admin.nap_mau_viec_kho') }}" style="margin-top:10px">
+    <p class="goi-y" style="margin-top:0">Tạo sẵn 12 việc theo "Kế hoạch làm việc cố định của kho" (vệ sinh 8h30, sản xuất/đóng gói, kiểm kê nhóm theo từng thứ, họp kho T7, gửi hàng 17h, che phủ + trả sổ 17h30, bàn giao phiếu T7). Nạp xong sửa/tắt từng việc tuỳ ý.</p>
+    <div class="o-nhap"><label>Cho chức vụ</label>
+      <select name="chuc_vu_id" required>
+        <option value="">— Chọn chức vụ —</option>
+        {% for cv in ds_cv %}<option value="{{ cv.id }}" {{ 'selected' if 'kho' in cv.ten|lower and not cv_chon }}>{{ cv.ten }}</option>{% endfor %}
+      </select></div>
+    <button class="nut nut--nho" type="submit">Nạp mẫu kho</button>
+  </form>
+</details>
+</div>
+
+{% for cv, ds, so_nv in theo_cv %}
+<div class="tieu-khu" id="cv-{{ cv.id }}"><h2>{{ cv.ten }}</h2>
+  <span class="dem">{{ ds|selectattr('dang_dung')|list|length }} việc · {{ so_nv }} người</span></div>
+{% if not so_nv %}<p class="goi-y" style="margin:-6px 0 8px">Chưa có nhân viên nào mang chức vụ này — gán ở Nhân sự → Nhân viên.</p>{% endif %}
+{% for m in ds %}
+<details class="the" style="margin-bottom:8px{{ ';opacity:.55' if not m.dang_dung }}">
+  <summary style="cursor:pointer;display:flex;gap:10px;align-items:center;justify-content:space-between">
+    <span><strong style="font-variant-numeric:tabular-nums">{{ m.gio_han }}</strong> · {{ m.tieu_de }}
+      {% if not m.dang_dung %}<span class="nhan" data-tt="huy">Tạm tắt</span>{% endif %}</span>
+    <span style="margin-left:auto;white-space:nowrap;color:var(--muc-mo);font-size:.82rem">{{ m.ten_cac_thu }}</span>
+  </summary>
+  <form method="post" style="margin-top:10px">
+    <input type="hidden" name="id" value="{{ m.id }}">
+    <input type="hidden" name="chuc_vu_id" value="{{ cv.id }}">
+    <div class="o-nhap"><label>Tên việc</label><input type="text" name="tieu_de" value="{{ m.tieu_de }}" required maxlength="255"></div>
+    <div class="o-nhap"><label>Mô tả</label><textarea name="mo_ta" rows="2">{{ m.mo_ta or '' }}</textarea></div>
+    <div class="hang">
+      <div class="o-nhap"><label>Các thứ</label>{{ o_thu(m.ds_thu) }}</div>
+      <div class="o-nhap" style="flex:0 0 140px"><label>Giờ hạn</label><input type="time" name="gio_han" value="{{ m.gio_han }}" required></div>
+    </div>
+    <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin-bottom:10px">
+      <input type="checkbox" name="dang_dung" {{ 'checked' if m.dang_dung }} style="width:auto"> Đang dùng (bỏ tick để tạm ngừng giao)</label>
+    <button class="nut nut--nho" type="submit">Lưu</button>
+  </form>
+  <form method="post" action="{{ url_for('admin.xoa_viec_dinh_ky', mid=m.id) }}" style="margin-top:8px"
+        onsubmit="return confirm('Xoá mẫu việc này? Việc đã giao trước đó vẫn giữ nguyên.');">
+    <button class="nut nut--do nut--nho" type="submit">Xoá</button>
+  </form>
+</details>
+{% endfor %}
+{% else %}
+<div class="the" style="color:var(--muc-mo)">Chưa có việc định kỳ nào. Bấm "Nạp sẵn việc cố định của kho" để bắt đầu nhanh.</div>
+{% endfor %}
+{% endblock %}

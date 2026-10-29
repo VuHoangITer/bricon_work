@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 from datetime import date, timedelta
 from functools import wraps
@@ -11,7 +12,7 @@ import dich_vu_ai
 import services
 from extensions import db
 from models import (HoSoNhanVien, LoaiDinhKem, LoaiHoSo, AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
-                    DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI, QuyTrinh, AnhQuyTrinh,
+                    DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI, QuyTrinh, AnhQuyTrinh, ViecDinhKy,
                     TroLySuDung, VaiTro, ngay_vn_hien_tai)
 
 bp = Blueprint("admin", __name__, url_prefix="/quan-tri")
@@ -1091,3 +1092,84 @@ def xoa_chuc_vu(cvid):
     db.session.commit()
     flash(f"Đã xoá chức vụ {ten}.", "success")
     return redirect(url_for("admin.info_ai_chuc_vu"))
+
+
+# ------------------------------------------------------------ việc định kỳ
+@bp.route("/viec-dinh-ky", methods=["GET", "POST"])
+@chi_admin
+def viec_dinh_ky():
+    """Mẫu việc tự giao hằng ngày theo chức vụ (VD việc cố định của kho)."""
+    if request.method == "POST":
+        mid = request.form.get("id", type=int)
+        m = db.session.get(ViecDinhKy, mid) if mid else ViecDinhKy()
+        if mid and not m:
+            abort(404)
+        tieu_de = " ".join((request.form.get("tieu_de") or "").split())
+        cv = db.session.get(ChucVu, request.form.get("chuc_vu_id", type=int) or 0)
+        thu = sorted({int(x) for x in request.form.getlist("thu") if x.isdigit() and int(x) < 7})
+        gio = (request.form.get("gio_han") or "").strip()
+        if not tieu_de or not cv or not thu or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", gio):
+            flash("Cần nhập tên việc, chọn chức vụ, ít nhất 1 thứ và giờ hạn hợp lệ.", "error")
+            return redirect(url_for("admin.viec_dinh_ky"))
+        m.tieu_de = tieu_de[:255]
+        m.mo_ta = (request.form.get("mo_ta") or "").strip() or None
+        m.chuc_vu_id = cv.id
+        m.cac_thu = ",".join(map(str, thu))
+        m.gio_han = gio
+        m.dang_dung = request.form.get("dang_dung") == "on" if mid else True
+        if not mid:
+            db.session.add(m)
+        db.session.commit()
+        flash(f"Đã lưu việc định kỳ \"{m.tieu_de}\".", "success")
+        return redirect(url_for("admin.viec_dinh_ky", cv=cv.id))
+
+    ds_cv = ChucVu.query.order_by(ChucVu.ten).all()
+    theo_cv = []
+    for cv in ds_cv:
+        ds = sorted(ViecDinhKy.query.filter_by(chuc_vu_id=cv.id).all(), key=lambda x: (x.gio_han, x.ds_thu))
+        if ds:
+            so_nv = NguoiDung.query.filter_by(chuc_vu_id=cv.id, dang_hoat_dong=True).count()
+            theo_cv.append((cv, ds, so_nv))
+    hom_nay = ngay_vn_hien_tai()
+    return render_template("admin_viec_dinh_ky.html", ds_cv=ds_cv, theo_cv=theo_cv,
+                           cv_chon=request.args.get("cv", type=int), TEN_THU=ViecDinhKy.TEN_THU,
+                           hom_nay=hom_nay, hom_nay_nghi=services.la_ngay_nghi(hom_nay))
+
+
+@bp.route("/viec-dinh-ky/<int:mid>/xoa", methods=["POST"])
+@chi_admin
+def xoa_viec_dinh_ky(mid):
+    m = db.session.get(ViecDinhKy, mid) or abort(404)
+    CongViec.query.filter_by(viec_dinh_ky_id=m.id).update({"viec_dinh_ky_id": None})
+    ten = m.tieu_de
+    db.session.delete(m)
+    db.session.commit()
+    flash(f"Đã xoá mẫu \"{ten}\" — việc đã giao trước đó vẫn giữ nguyên.", "success")
+    return redirect(url_for("admin.viec_dinh_ky"))
+
+
+@bp.route("/viec-dinh-ky/nap-mau-kho", methods=["POST"])
+@chi_admin
+def nap_mau_viec_kho():
+    cv = db.session.get(ChucVu, request.form.get("chuc_vu_id", type=int) or 0)
+    if not cv:
+        flash("Chọn chức vụ cần nạp mẫu.", "error")
+        return redirect(url_for("admin.viec_dinh_ky"))
+    so = services.nap_mau_viec_kho(cv.id)
+    flash(f"Đã nạp {so} việc cố định của kho cho chức vụ \"{cv.ten}\"." if so
+          else "Các việc mẫu đã có sẵn, không nạp thêm.", "success")
+    return redirect(url_for("admin.viec_dinh_ky", cv=cv.id))
+
+
+@bp.route("/viec-dinh-ky/tao-hom-nay", methods=["POST"])
+@chi_admin
+def tao_viec_dinh_ky_hom_nay():
+    """Tạo ngay việc định kỳ của hôm nay (bình thường cron tự chạy mỗi sáng)
+    — chạy lại không bị trùng."""
+    kq = services.tao_viec_dinh_ky()
+    if kq["bo_qua"]:
+        flash(f"Hôm nay là {kq['bo_qua']} — không giao việc.", "info")
+    else:
+        flash(f"Đã tạo {kq['so_viec']} việc cho {kq['so_nguoi']} nhân viên"
+              + (" và báo Zalo." if kq["so_viec"] else " (việc hôm nay đã được tạo trước đó)."), "success")
+    return redirect(url_for("admin.viec_dinh_ky"))

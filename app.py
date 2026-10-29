@@ -255,7 +255,8 @@ def create_app(config_class=Config):
     # trang Tìm Group ID) khai báo ở "phu" để sidebar vẫn sáng đúng nhóm.
     NHOM_QUAN_TRI = [
         {"ma": "nhan_su", "nhan": "Nhân sự", "icon": "👥", "chi_admin": False,
-         "tab": [("admin.nhan_vien", "Nhân viên"), ("admin.bo_phan", "Bộ phận")],
+         "tab": [("admin.nhan_vien", "Nhân viên"), ("admin.bo_phan", "Bộ phận"),
+                 ("admin.viec_dinh_ky", "Việc định kỳ")],
          "phu": ["admin.chi_tiet_nhan_vien"]},
         {"ma": "cham_cong", "nhan": "Cấu hình chấm công", "icon": "📍", "chi_admin": False,
          "tab": [("admin.diem_cham_cong", "Điểm chấm công"), ("admin.ngay_nghi", "Ngày nghỉ")],
@@ -535,6 +536,17 @@ def create_app(config_class=Config):
         so_luong = services.nhac_cham_cong_chieu()
         db.session.commit()
         click.echo(f"Đã nhắc chấm công ra {so_luong} người.")
+
+    @app.cli.command("tao-viec-dinh-ky")
+    def tao_viec_dinh_ky():
+        """Chạy bằng cron mỗi sáng (VD 07:30 thứ 2–7): tự giao việc cố định
+        hằng ngày theo chức vụ (Quản trị → Nhân sự → Việc định kỳ)."""
+        import services
+        kq = services.tao_viec_dinh_ky()
+        if kq["bo_qua"]:
+            click.echo(f"{kq['ngay']:%d/%m/%Y}: {kq['bo_qua']}, không giao việc.")
+        else:
+            click.echo(f"{kq['ngay']:%d/%m/%Y}: đã tạo {kq['so_viec']} việc cho {kq['so_nguoi']} nhân viên.")
 
     @app.cli.command("nhac-viec-hom-nay")
     def nhac_viec_hom_nay():
