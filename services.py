@@ -2915,7 +2915,8 @@ def tao_viec_dinh_ky(ngay: date | None = None, gui_zalo_bao: bool = True) -> dic
     rơi vào buổi đó (hạn trước 12:00 = sáng)."""
     from models import BuoiNghi, TrangThai, ViecDinhKy, XinNghi
     ngay = ngay or ngay_vn_hien_tai()
-    kq = {"ngay": ngay, "so_viec": 0, "so_nguoi": 0, "bo_qua": ""}
+    kq = {"ngay": ngay, "so_viec": 0, "so_nguoi": 0, "bo_qua": "", "qua_gio": 0}
+    bay_gio = gio_vn_hien_tai()
     if la_ngay_nghi(ngay):
         kq["bo_qua"] = "ngày nghỉ công ty"
         return kq
@@ -2937,6 +2938,11 @@ def tao_viec_dinh_ky(ngay: date | None = None, gui_zalo_bao: bool = True) -> dic
             han = datetime(ngay.year, ngay.month, ngay.day, gio, phut)
             if BuoiNghi.CA_NGAY in nghi or (BuoiNghi.SANG in nghi and gio < 12) \
                     or (BuoiNghi.CHIEU in nghi and gio >= 12):
+                continue
+            if han <= bay_gio:
+                # Chạy trễ (VD bấm "Tạo việc hôm nay" lúc 10h) -> không giao việc
+                # đã quá giờ hạn, tránh bị tự đóng 0★ oan.
+                kq["qua_gio"] += 1
                 continue
             da_co = CongViec.query.filter(CongViec.viec_dinh_ky_id == m.id, CongViec.nguoi_nhan_id == nv.id,
                                           CongViec.han >= dau_ngay, CongViec.han < cuoi_ngay).first()

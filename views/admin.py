@@ -1170,6 +1170,14 @@ def tao_viec_dinh_ky_hom_nay():
     if kq["bo_qua"]:
         flash(f"Hôm nay là {kq['bo_qua']} — không giao việc.", "info")
     else:
-        flash(f"Đã tạo {kq['so_viec']} việc cho {kq['so_nguoi']} nhân viên"
-              + (" và báo Zalo." if kq["so_viec"] else " (việc hôm nay đã được tạo trước đó)."), "success")
+        if kq["so_viec"]:
+            thong_bao = f"Đã tạo {kq['so_viec']} việc cho {kq['so_nguoi']} nhân viên và báo Zalo."
+        elif kq["qua_gio"]:
+            thong_bao = "Không tạo thêm việc nào."
+        else:
+            thong_bao = ("Không tạo việc nào — kiểm tra: nhân viên đã được gán đúng chức vụ chưa, mẫu việc "
+                         "có tick thứ hôm nay và đang dùng không, hoặc việc hôm nay đã được tạo trước đó.")
+        if kq["qua_gio"]:
+            thong_bao += f" Bỏ qua {kq['qua_gio']} việc đã quá giờ hạn hôm nay."
+        flash(thong_bao, "success" if kq["so_viec"] else "info")
     return redirect(url_for("admin.viec_dinh_ky"))

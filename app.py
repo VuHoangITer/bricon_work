@@ -546,7 +546,8 @@ def create_app(config_class=Config):
         if kq["bo_qua"]:
             click.echo(f"{kq['ngay']:%d/%m/%Y}: {kq['bo_qua']}, không giao việc.")
         else:
-            click.echo(f"{kq['ngay']:%d/%m/%Y}: đã tạo {kq['so_viec']} việc cho {kq['so_nguoi']} nhân viên.")
+            click.echo(f"{kq['ngay']:%d/%m/%Y}: đã tạo {kq['so_viec']} việc cho {kq['so_nguoi']} nhân viên"
+                       f" (bỏ qua {kq['qua_gio']} việc đã quá giờ hạn).")
 
     @app.cli.command("nhac-viec-hom-nay")
     def nhac_viec_hom_nay():
