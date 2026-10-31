@@ -40,6 +40,18 @@ def chi_nap_ai(f):
     return wrapper
 
 
+def chi_giay_to(f):
+    """Giấy tờ nhân sự: Ban giám đốc, Quản trị, hoặc người được tick
+    "Quản lý giấy tờ nhân sự" ở Nhân sự."""
+    @wraps(f)
+    @login_required
+    def wrapper(*args, **kwargs):
+        if not current_user.duoc_quan_ly_giay_to:
+            abort(403)
+        return f(*args, **kwargs)
+    return wrapper
+
+
 def chi_admin_thuan(f):
     """Chặt hơn chi_admin — chỉ đúng role Quản trị (Admin), Ban giám đốc
     cũng không qua được. Dùng riêng cho xoá vĩnh viễn nhân viên."""
@@ -157,8 +169,16 @@ def doi_anh_dai_dien_nv(uid):
     return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid))
 
 
+def _ve_trang_giay_to(uid: int, loai: str):
+    """Tải lên/xoá xong quay về trang đã bấm: Giấy tờ nhân sự hoặc trang chi
+    tiết nhân viên (trang này chỉ Ban giám đốc/Quản trị vào được)."""
+    if request.form.get("ve") == "giay_to" or not current_user.la_admin_sep:
+        return redirect(url_for("admin.giay_to_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+
+
 @bp.route("/nhan-vien/<int:uid>/ho-so", methods=["POST"])
-@chi_admin
+@chi_giay_to
 def tai_ho_so(uid):
     nd = db.session.get(NguoiDung, uid) or abort(404)
     loai = request.form.get("loai")
@@ -167,7 +187,7 @@ def tai_ho_so(uid):
     files = [f for f in request.files.getlist("tep") if f and f.filename]
     if not files:
         flash("Chưa chọn file nào.", "error")
-        return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+        return _ve_trang_giay_to(uid, loai)
     ghi_chu = (request.form.get("ghi_chu") or "").strip()[:255] or None
     ngay_ky, ngay_het_han = _doc_ngay("ngay_ky"), _doc_ngay("ngay_het_han")
     for f in files:
@@ -179,11 +199,11 @@ def tai_ho_so(uid):
         ))
     db.session.commit()
     flash(f"Đã thêm {len(files)} file vào \"{LoaiHoSo.NHAN[loai]}\" của {nd.ho_ten}.", "success")
-    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+    return _ve_trang_giay_to(uid, loai)
 
 
 @bp.route("/nhan-vien/ho-so/<int:hid>/xoa", methods=["POST"])
-@chi_admin
+@chi_giay_to
 def xoa_ho_so(hid):
     h = db.session.get(HoSoNhanVien, hid) or abort(404)
     uid, loai = h.nguoi_dung_id, h.loai
@@ -191,7 +211,45 @@ def xoa_ho_so(hid):
     db.session.delete(h)
     db.session.commit()
     flash("Đã xoá file.", "success")
-    return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) + f"#ho-so-{loai}")
+    return _ve_trang_giay_to(uid, loai)
+
+
+@bp.route("/giay-to")
+@chi_giay_to
+def giay_to():
+    """Giấy tờ nhân sự tách riêng khỏi trang Nhân viên: bảng tổng hợp mọi
+    nhân viên × từng loại giấy tờ, lọc theo bộ phận / tên / loại còn thiếu."""
+    tim = (request.args.get("q") or "").strip()
+    bo_phan_id = request.args.get("bo_phan", type=int)
+    thieu = request.args.get("thieu") or ""
+    hien_nghi = request.args.get("nghi") == "1"
+    q = NguoiDung.query
+    if not hien_nghi:
+        q = q.filter(NguoiDung.dang_hoat_dong.is_(True))
+    if tim:
+        q = q.filter(db.or_(NguoiDung.ho_ten.ilike(f"%{tim}%"), NguoiDung.ma_dinh_danh.ilike(f"%{tim}%")))
+    if bo_phan_id:
+        q = q.filter(NguoiDung.thuoc_bo_phan([bo_phan_id]))
+    ds = q.order_by(NguoiDung.dang_hoat_dong.desc(), NguoiDung.ho_ten).all()
+    if thieu in LoaiHoSo.NHAN:
+        ds = [n for n in ds if not n.ho_so_theo_loai(thieu)]
+    hd_can_chu_y = []
+    for n in ds:
+        hd = [h for h in n.ho_so_theo_loai(LoaiHoSo.HOP_DONG) if h.ngay_het_han]
+        if n.dang_hoat_dong and hd:
+            moi_nhat = max(hd, key=lambda h: h.ngay_het_han)
+            if moi_nhat.so_ngay_con_han is not None and moi_nhat.so_ngay_con_han <= 30:
+                hd_can_chu_y.append((n, moi_nhat))
+    return render_template("admin_giay_to.html", ds=ds, LoaiHoSo=LoaiHoSo, hd_can_chu_y=hd_can_chu_y,
+                           bo_phans=BoPhan.query.order_by(BoPhan.ten).all(),
+                           f_q=tim, f_bo_phan=bo_phan_id, f_thieu=thieu, f_nghi=hien_nghi)
+
+
+@bp.route("/giay-to/<int:uid>")
+@chi_giay_to
+def giay_to_nhan_vien(uid):
+    nd = db.session.get(NguoiDung, uid) or abort(404)
+    return render_template("admin_giay_to_nv.html", n=nd, LoaiHoSo=LoaiHoSo)
 
 
 @bp.route("/nhan-vien/luu", methods=["POST"])
@@ -238,6 +296,7 @@ def luu_nhan_vien():
     nd.dang_hoat_dong = request.form.get("dang_hoat_dong") == "on"
     if "co_quyen_nap_ai" in request.form:  # chỉ trang chi tiết có ô này
         nd.nap_kien_thuc_ai = request.form.get("nap_kien_thuc_ai") == "on"
+        nd.quan_ly_giay_to = request.form.get("quan_ly_giay_to") == "on"
     if "ngay_vao_lam" in request.form:
         nd.ngay_vao_lam = _doc_ngay("ngay_vao_lam")
     if "ngay_sinh" in request.form:

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Giấy tờ nhân sự · Quản trị{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>Giấy tờ nhân sự</h1>
+    <p>Hợp đồng lao động, giấy bàn giao tài sản, cam kết, biên bản vi phạm và giấy tờ khác của từng nhân viên. Bấm vào 1 người để xem, tải lên hoặc xoá.</p></div>
+</div>
+
+{% include "_tab_quan_tri.html" %}
+
+{% if hd_can_chu_y %}
+<div class="the" style="border-color:var(--cho-duyet);background:var(--chinh-nhat)">
+  <strong>⏰ Hợp đồng sắp hết hạn / đã hết hạn</strong>
+  <ul style="margin:6px 0 0;padding-left:18px;font-size:.88rem">
+    {% for n, h in hd_can_chu_y %}
+    <li><a href="{{ url_for('admin.giay_to_nhan_vien', uid=n.id) }}">{{ n.ho_ten }}</a> —
+      {% if h.so_ngay_con_han < 0 %}<b style="color:var(--lam-lai)">đã hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }}</b>
+      {% else %}hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }} (còn {{ h.so_ngay_con_han }} ngày){% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<form class="the bo-loc" method="get">
+  <div class="bo-loc-chi-tiet">
+    <select name="bo_phan" onchange="this.form.submit()" aria-label="Bộ phận">
+      <option value="">Mọi bộ phận</option>
+      {% for b in bo_phans %}<option value="{{ b.id }}" {{ 'selected' if f_bo_phan == b.id }}>{{ b.ten }}</option>{% endfor %}
+    </select>
+    <select name="thieu" onchange="this.form.submit()" aria-label="Lọc thiếu giấy tờ">
+      <option value="">Mọi trạng thái giấy tờ</option>
+      {% for loai, ten in LoaiHoSo.NHAN.items() %}<option value="{{ loai }}" {{ 'selected' if f_thieu == loai }}>Chưa có: {{ ten }}</option>{% endfor %}
+    </select>
+    <label style="display:flex;gap:6px;align-items:center;margin:0;font-weight:400;white-space:nowrap">
+      <input type="checkbox" name="nghi" value="1" {{ 'checked' if f_nghi }} onchange="this.form.submit()" style="width:auto"> Hiện cả người đã nghỉ</label>
+  </div>
+  <div class="bo-loc-tim">
+    <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm tên hoặc mã nhân viên">
+    <button class="nut nut--phu" type="submit">Tìm</button>
+    <button type="button" class="nut nut--phu bo-loc-nut" aria-expanded="false">Lọc</button>
+  </div>
+</form>
+
+<div class="tieu-khu"><h2>Nhân viên</h2><span class="dem">{{ ds|length }}</span></div>
+<div class="the the--khong-dem bang-cuon">
+  <table class="bang-the">
+    <thead><tr><th>Nhân viên</th><th>Bộ phận</th>
+      {% for loai, ten in LoaiHoSo.NHAN.items() %}<th title="{{ ten }}">{{ LoaiHoSo.ICON[loai] }} {{ ten }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for n in ds %}
+      <tr onclick="location.href='{{ url_for('admin.giay_to_nhan_vien', uid=n.id) }}'" style="cursor:pointer{{ ';opacity:.55' if not n.dang_hoat_dong }}">
+        <td class="o-tieu-de"><a href="{{ url_for('admin.giay_to_nhan_vien', uid=n.id) }}">{{ n.ho_ten }}</a>
+          <small style="display:block;color:var(--muc-mo)">{{ n.ma_dinh_danh }}{% if not n.dang_hoat_dong %} · đã nghỉ{% endif %}</small></td>
+        <td>{{ n.ten_cac_bo_phan or '—' }}</td>
+        {% for loai in LoaiHoSo.NHAN %}
+        {% set so = n.ho_so_theo_loai(loai)|length %}
+        <td>{% if so %}<strong>{{ so }}</strong> file{% else %}<span style="color:var(--muc-nhat)">—</span>{% endif %}</td>
+        {% endfor %}
+      </tr>
+    {% else %}
+      <tr><td colspan="{{ 2 + LoaiHoSo.NHAN|length }}" style="color:var(--muc-mo)">Không có nhân viên nào khớp bộ lọc.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

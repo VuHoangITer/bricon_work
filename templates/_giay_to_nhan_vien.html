@@ -1,0 +1,146 @@
+{# Khung giấy tờ nhân sự của 1 nhân viên (n) — dùng chung cho trang chi tiết
+   nhân viên và trang Giấy tờ nhân sự. set ve_trang trước khi include
+   ('nhan_vien' hoặc 'giay_to') để tải lên/xoá xong quay về đúng trang. #}
+<style>
+  .hs-nhom { border-top:1px solid var(--vien); padding-top:14px; margin-top:14px; }
+  .hs-nhom:first-of-type { border-top:0; padding-top:0; margin-top:0; }
+  .hs-nhom-dau { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .hs-nhom-dau strong { font-size:.9rem; }
+  .hs-tep { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--vien); border-radius:10px;
+    margin-bottom:6px; background:#fff; }
+  .hs-tep-icon { font-size:1.2rem; flex:0 0 auto; }
+  .hs-tep-nd { flex:1; min-width:0; }
+  .hs-tep-nd a { font-weight:600; font-size:.84rem; overflow-wrap:anywhere; }
+  .hs-tep-nd small { display:block; color:var(--muc-mo); font-size:.72rem; }
+  .hs-tep button { border:0; background:transparent; color:var(--lam-lai); cursor:pointer; font-size:.9rem; padding:4px; }
+  .hs-them > summary { list-style:none; cursor:pointer; font-size:.8rem; font-weight:600; color:var(--chinh-dam); }
+  .hs-them > summary::-webkit-details-marker { display:none; }
+  .hs-them[open] > summary { margin-bottom:8px; }
+  .hs-trong { color:var(--muc-mo); font-size:.8rem; padding:4px 0 6px; }
+  .hs-da-chon { display:flex; flex-direction:column; gap:4px; margin:8px 0 4px; }
+  .hs-da-chon div { display:flex; align-items:center; gap:8px; font-size:.8rem; padding:5px 8px;
+    border:1px dashed var(--vien-dam, #ccc); border-radius:8px; background:#fafaf8; }
+  .hs-da-chon img { width:34px; height:34px; object-fit:cover; border-radius:5px; flex:0 0 auto; }
+  .hs-da-chon span { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .hs-da-chon small { color:var(--muc-mo); white-space:nowrap; }
+  .hs-da-chon button { border:0; background:transparent; color:var(--lam-lai); cursor:pointer; padding:2px 4px; }
+</style>
+  <div class="the">
+    <h3>📁 Giấy tờ nhân sự</h3>
+    <p class="goi-y" style="margin:-6px 0 12px">Ảnh chụp hoặc PDF bản ký. Chỉ Quản trị, Ban giám đốc, người được giao quản lý giấy tờ và chính nhân viên này xem được (nhân viên chỉ xem, không sửa/xoá).</p>
+
+    {% for loai, ten_loai in LoaiHoSo.NHAN.items() %}
+    {% set ds = n.ho_so_theo_loai(loai) %}
+    <div class="hs-nhom" id="ho-so-{{ loai }}">
+      <div class="hs-nhom-dau">
+        <strong>{{ LoaiHoSo.ICON[loai] }} {{ ten_loai }} <span class="dem">{{ ds|length }}</span></strong>
+      </div>
+
+      {% for h in ds %}
+      <div class="hs-tep">
+        <span class="hs-tep-icon">{{ '🖼' if (h.mime or '').startswith('image') else '📄' }}</span>
+        <div class="hs-tep-nd">
+          <a href="{{ url_for('media', duong_dan=h.duong_dan) }}" target="_blank" rel="noopener">{{ h.ten_goc or 'Tệp' }}</a>
+          <small>
+            {% if h.ngay_ky %}Ký {{ h.ngay_ky.strftime('%d/%m/%Y') }} · {% endif %}
+            {% if h.ngay_het_han %}
+              {% if h.so_ngay_con_han < 0 %}<b style="color:var(--lam-lai)">Đã hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }}</b>
+              {% elif h.so_ngay_con_han <= 30 %}<b style="color:var(--chinh-dam)">Hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }} (còn {{ h.so_ngay_con_han }} ngày)</b>
+              {% else %}Hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }}{% endif %} ·
+            {% endif %}
+            {{ h.kich_thuoc_dep }}{% if h.ghi_chu %} · {{ h.ghi_chu }}{% endif %}
+          </small>
+        </div>
+        <form method="post" action="{{ url_for('admin.xoa_ho_so', hid=h.id) }}" onsubmit="return confirm('Xoá file {{ (h.ten_goc or '')|e }}?')">
+          <input type="hidden" name="ve" value="{{ ve_trang }}">
+          <button type="submit" title="Xoá file">✕</button></form>
+      </div>
+      {% else %}
+      <div class="hs-trong">Chưa có file nào.</div>
+      {% endfor %}
+
+      <details class="hs-them">
+        <summary>+ Thêm {{ ten_loai|lower }}</summary>
+        <form method="post" action="{{ url_for('admin.tai_ho_so', uid=n.id) }}" enctype="multipart/form-data">
+          <input type="hidden" name="loai" value="{{ loai }}">
+          <input type="hidden" name="ve" value="{{ ve_trang }}">
+          <div class="o-nhap hs-chon">
+            <input type="file" name="tep" multiple hidden class="hs-tep-gui">
+            <input type="file" multiple accept="image/*" hidden class="hs-chon-anh">
+            <input type="file" multiple hidden class="hs-chon-file"
+                   accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+            <div class="hang-nut" style="flex-wrap:wrap">
+              <button type="button" class="nut nut--phu nut--nho hs-nut-anh">📷 Ảnh / chụp</button>
+              <button type="button" class="nut nut--phu nut--nho hs-nut-file">📎 File (PDF, Word…)</button>
+            </div>
+            <div class="hs-da-chon"></div>
+            <div class="goi-y">Chọn được nhiều lần, ảnh và file lẫn nhau — tất cả được gộp lại rồi tải lên cùng lúc.</div>
+          </div>
+          <div class="hang">
+            <div class="o-nhap"><label>Ngày ký</label><input type="date" name="ngay_ky"></div>
+            {% if loai == LoaiHoSo.HOP_DONG %}
+            <div class="o-nhap"><label>Ngày hết hạn (nếu có)</label><input type="date" name="ngay_het_han"></div>
+            {% endif %}
+          </div>
+          <div class="o-nhap"><input type="text" name="ghi_chu" maxlength="255"
+               placeholder="{{ {'hop_dong': 'VD: HĐ thử việc 2 tháng / HĐ chính thức 1 năm', 'ban_giao': 'VD: Laptop Dell + điện thoại công ty', 'cam_ket': 'VD: Cam kết bảo mật thông tin', 'vi_pham': 'VD: Biên bản đi muộn ngày 20/10', 'khac': 'VD: CCCD, sơ yếu lý lịch, bằng cấp'}.get(loai, 'Ghi chú') }}"></div>
+          <button class="nut nut--nho" type="submit" disabled>Tải lên</button>
+        </form>
+      </details>
+    </div>
+    {% endfor %}
+  </div>
+<script>
+// Mỗi form tải giấy tờ: 2 nút chọn (ảnh/chụp và file) CỘNG DỒN vào 1 danh
+// sách — chọn nhiều lần không mất lựa chọn trước, bỏ được từng file chọn
+// nhầm; khi gửi, gom hết vào input "tep" thật bằng DataTransfer.
+document.querySelectorAll('.hs-chon').forEach((hop) => {
+  const form = hop.closest('form');
+  const oGui = hop.querySelector('.hs-tep-gui');
+  const oAnh = hop.querySelector('.hs-chon-anh');
+  const oFile = hop.querySelector('.hs-chon-file');
+  const dsHien = hop.querySelector('.hs-da-chon');
+  const nutGui = form.querySelector('button[type=submit]');
+  let ds = [];
+
+  function kichThuoc(n) {
+    return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  }
+  function ve() {
+    dsHien.innerHTML = '';
+    ds.forEach((f, i) => {
+      const d = document.createElement('div');
+      if (f.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        d.appendChild(img);
+      } else {
+        d.insertAdjacentHTML('beforeend', '<b>📄</b>');
+      }
+      const ten = document.createElement('span'); ten.textContent = f.name; d.appendChild(ten);
+      const kt = document.createElement('small'); kt.textContent = kichThuoc(f.size); d.appendChild(kt);
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.title = 'Bỏ file này';
+      x.addEventListener('click', () => { ds.splice(i, 1); ve(); });
+      d.appendChild(x);
+      dsHien.appendChild(d);
+    });
+    const dt = new DataTransfer();
+    ds.forEach((f) => dt.items.add(f));
+    oGui.files = dt.files;
+    nutGui.disabled = ds.length === 0;
+    nutGui.textContent = ds.length ? `Tải lên (${ds.length} file)` : 'Tải lên';
+  }
+  function them(input) {
+    for (const f of input.files) {
+      if (!ds.some((c) => c.name === f.name && c.size === f.size)) ds.push(f);
+    }
+    input.value = '';
+    ve();
+  }
+  hop.querySelector('.hs-nut-anh').addEventListener('click', () => oAnh.click());
+  hop.querySelector('.hs-nut-file').addEventListener('click', () => oFile.click());
+  oAnh.addEventListener('change', () => them(oAnh));
+  oFile.addEventListener('change', () => them(oFile));
+  form.addEventListener('submit', () => { nutGui.disabled = true; nutGui.textContent = 'Đang tải lên…'; });
+});
+</script>

@@ -272,6 +272,10 @@ class NguoiDung(UserMixin, db.Model):
     # Quyền riêng: được vào Quản trị → Trợ lý AI để nạp kiến thức cho bot
     # (mọi tab trừ Thống kê sử dụng) dù không phải Ban giám đốc/Quản trị.
     nap_kien_thuc_ai = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    # Quyền riêng: được vào Quản trị → Nhân sự → Giấy tờ để xem/tải lên/xoá
+    # giấy tờ nhân sự (hợp đồng, bàn giao, cam kết, biên bản vi phạm…) của
+    # mọi nhân viên, dù không phải Ban giám đốc/Quản trị.
+    quan_ly_giay_to = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
 
     bo_phan = db.relationship("BoPhan", back_populates="nhan_vien")
     ho_so = db.relationship("HoSoNhanVien", back_populates="nguoi_dung",
@@ -336,6 +340,10 @@ class NguoiDung(UserMixin, db.Model):
         """Được nạp kiến thức Trợ lý AI: Ban giám đốc, Quản trị, hoặc người
         được tick quyền riêng ở trang Nhân sự."""
         return self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) or bool(self.nap_kien_thuc_ai)
+
+    @property
+    def duoc_quan_ly_giay_to(self) -> bool:
+        return self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) or bool(self.quan_ly_giay_to)
 
     @property
     def la_admin_thuan(self) -> bool:
@@ -452,19 +460,24 @@ class LoaiHoSo:
     BAN_GIAO = "ban_giao"
     CAM_KET = "cam_ket"
 
+    VI_PHAM = "vi_pham"
+    KHAC = "khac"
+
     NHAN = {
         HOP_DONG: "Hợp đồng lao động",
         BAN_GIAO: "Giấy bàn giao tài sản",
         CAM_KET: "Cam kết",
+        VI_PHAM: "Biên bản vi phạm",
+        KHAC: "Giấy tờ khác",
     }
-    ICON = {HOP_DONG: "📄", BAN_GIAO: "📦", CAM_KET: "✍️"}
+    ICON = {HOP_DONG: "📄", BAN_GIAO: "📦", CAM_KET: "✍️", VI_PHAM: "⚠️", KHAC: "🗂"}
 
 
 class HoSoNhanVien(db.Model):
     """1 file giấy tờ nhân sự (scan/ảnh/PDF) của 1 nhân viên — hợp đồng lao
-    động, giấy bàn giao tài sản, cam kết. Mỗi loại có thể nhiều file (VD
-    hợp đồng thử việc + chính thức, phụ lục). Chỉ Admin/Ban giám đốc xem
-    và quản lý (dữ liệu nhạy cảm: lương, điều khoản)."""
+    động, giấy bàn giao tài sản, cam kết, biên bản vi phạm, giấy tờ khác.
+    Mỗi loại có thể nhiều file. Admin/Ban giám đốc và người được tick quyền
+    "Quản lý giấy tờ nhân sự" xem và quản lý; nhân viên xem giấy tờ của mình."""
     __tablename__ = "ho_so_nhan_vien"
 
     id = db.Column(db.Integer, primary_key=True)

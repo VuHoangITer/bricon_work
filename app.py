@@ -134,7 +134,7 @@ def create_app(config_class=Config):
         from models import HoSoNhanVien
         hs = HoSoNhanVien.query.filter_by(duong_dan=duong_dan).first()
         if hs:
-            if not (current_user.la_admin_sep or hs.nguoi_dung_id == current_user.id):
+            if not (current_user.duoc_quan_ly_giay_to or hs.nguoi_dung_id == current_user.id):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
@@ -256,8 +256,8 @@ def create_app(config_class=Config):
     NHOM_QUAN_TRI = [
         {"ma": "nhan_su", "nhan": "Nhân sự", "icon": "👥", "chi_admin": False,
          "tab": [("admin.nhan_vien", "Nhân viên"), ("admin.bo_phan", "Bộ phận"),
-                 ("admin.viec_dinh_ky", "Việc định kỳ")],
-         "phu": ["admin.chi_tiet_nhan_vien"]},
+                 ("admin.giay_to", "Giấy tờ"), ("admin.viec_dinh_ky", "Việc định kỳ")],
+         "phu": ["admin.chi_tiet_nhan_vien", "admin.giay_to_nhan_vien"]},
         {"ma": "cham_cong", "nhan": "Cấu hình chấm công", "icon": "📍", "chi_admin": False,
          "tab": [("admin.diem_cham_cong", "Điểm chấm công"), ("admin.ngay_nghi", "Ngày nghỉ")],
          "phu": []},
@@ -300,6 +300,21 @@ def create_app(config_class=Config):
         return url_for("media", duong_dan=duong_dan) if duong_dan else None
 
     app.jinja_env.globals["anh_tro_ly"] = anh_tro_ly
+
+    def tab_duoc_xem(ep: str) -> bool:
+        """Tab Quản trị nào hiện cho người đang đăng nhập: Ban giám đốc/Quản trị
+        thấy hết; người có quyền riêng chỉ thấy đúng phần được giao."""
+        if not current_user.is_authenticated:
+            return False
+        if current_user.la_admin_sep:
+            return True
+        if ep == "admin.giay_to":
+            return current_user.duoc_quan_ly_giay_to
+        if ep.startswith("admin.info_ai"):
+            return current_user.duoc_nap_ai
+        return False
+
+    app.jinja_env.globals["tab_duoc_xem"] = tab_duoc_xem
 
     def duoc_vao_cong_no():
         from views.cong_no import duoc_vao

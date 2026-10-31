@@ -5,7 +5,7 @@
 {% set nhom = nhom_quan_tri_hien_tai() %}
 {% if nhom %}
 <div class="tab-quan-tri">
-  {% for ep, nhan in nhom.tab if current_user.la_admin_sep or (nhom.ma == "ai" and ep != "admin.tro_ly_su_dung") %}
+  {% for ep, nhan in nhom.tab if tab_duoc_xem(ep) %}
   <a class="tab-quan-tri-nut {{ 'active' if request.endpoint == ep }}" href="{{ url_for(ep) }}">{{ nhan }}</a>
   {% endfor %}
 </div>

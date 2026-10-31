@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Giấy tờ · {{ n.ho_ten }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:4px"><a href="{{ url_for('admin.giay_to') }}" style="font-size:.85rem">‹ Giấy tờ nhân sự</a></div>
+<div class="page-head">
+  <div class="page-head-copy"><h1>{{ n.ho_ten }}</h1>
+    <p>{{ n.ma_dinh_danh }} · {{ n.chuc_vu.ten if n.chuc_vu else 'Chưa gán chức vụ' }} · {{ n.ten_cac_bo_phan or 'Chưa gán bộ phận' }}{% if not n.dang_hoat_dong %} · <b>đã nghỉ</b>{% endif %}</p></div>
+</div>
+<div style="max-width:760px">
+  {% set ve_trang = "giay_to" %}{% include "_giay_to_nhan_vien.html" %}
+</div>
+{% endblock %}
