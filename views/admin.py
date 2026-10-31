@@ -28,6 +28,18 @@ def chi_admin(f):
     return wrapper
 
 
+def chi_nap_ai(f):
+    """Trang nạp kiến thức Trợ lý AI: Ban giám đốc, Quản trị, hoặc người được
+    tick "Được nạp kiến thức Trợ lý AI" ở Nhân sự."""
+    @wraps(f)
+    @login_required
+    def wrapper(*args, **kwargs):
+        if not current_user.duoc_nap_ai:
+            abort(403)
+        return f(*args, **kwargs)
+    return wrapper
+
+
 def chi_admin_thuan(f):
     """Chặt hơn chi_admin — chỉ đúng role Quản trị (Admin), Ban giám đốc
     cũng không qua được. Dùng riêng cho xoá vĩnh viễn nhân viên."""
@@ -224,6 +236,8 @@ def luu_nhan_vien():
     nd.bot_zalo_id = bot_zalo_id
     nd.chuc_vu_id = request.form.get("chuc_vu_id", type=int) or None
     nd.dang_hoat_dong = request.form.get("dang_hoat_dong") == "on"
+    if "co_quyen_nap_ai" in request.form:  # chỉ trang chi tiết có ô này
+        nd.nap_kien_thuc_ai = request.form.get("nap_kien_thuc_ai") == "on"
     if "ngay_vao_lam" in request.form:
         nd.ngay_vao_lam = _doc_ngay("ngay_vao_lam")
     if "ngay_sinh" in request.form:
@@ -812,32 +826,32 @@ def _trang_info_ai(muc: str):
 
 
 @bp.route("/info-ai")
-@chi_admin
+@chi_nap_ai
 def info_ai():
     return _trang_info_ai("chung")
 
 
 @bp.route("/info-ai/muc/san-pham")
-@chi_admin
+@chi_nap_ai
 def info_ai_san_pham():
     return _trang_info_ai("san_pham")
 
 
 @bp.route("/info-ai/muc/faq")
-@chi_admin
+@chi_nap_ai
 def info_ai_faq():
     return _trang_info_ai("faq")
 
 
 @bp.route("/info-ai/muc/quy-trinh")
-@chi_admin
+@chi_nap_ai
 def info_ai_quy_trinh():
     return _trang_info_ai("quy_trinh")
 
 
 @bp.route("/info-ai/quy-trinh", methods=["POST"])
 @bp.route("/info-ai/quy-trinh/<int:qtid>", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def luu_quy_trinh(qtid=None):
     """Thêm/sửa 1 quy trình. Ảnh: mỗi ô chọn ảnh đi kèm 1 ô nhãn riêng
     (anh_1 + nhan_1, anh_2 + nhan_2…) để mỗi ảnh có nhãn của nó; nhãn ảnh
@@ -877,7 +891,7 @@ def luu_quy_trinh(qtid=None):
 
 
 @bp.route("/info-ai/quy-trinh/<int:qtid>/xoa", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def xoa_quy_trinh(qtid):
     qt = db.session.get(QuyTrinh, qtid) or abort(404)
     for a in qt.anh:
@@ -890,7 +904,7 @@ def xoa_quy_trinh(qtid):
 
 
 @bp.route("/info-ai/quy-trinh/anh/<int:anh_id>/xoa", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def xoa_anh_quy_trinh(anh_id):
     a = db.session.get(AnhQuyTrinh, anh_id) or abort(404)
     qtid = a.quy_trinh_id
@@ -902,13 +916,13 @@ def xoa_anh_quy_trinh(anh_id):
 
 
 @bp.route("/info-ai/muc/chuc-vu")
-@chi_admin
+@chi_nap_ai
 def info_ai_chuc_vu():
     return _trang_info_ai("chuc_vu")
 
 
 @bp.route("/info-ai/anh-tro-ly", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def luu_anh_tro_ly():
     """Ảnh đại diện của Trợ lý công việc (hiện ở nút chat nổi + đầu khung
     chat). Tải ảnh mới thì thay ảnh cũ (xoá luôn file cũ trên đĩa); tick
@@ -944,7 +958,7 @@ def luu_anh_tro_ly():
 
 
 @bp.route("/info-ai/chung", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def luu_thong_tin_chung():
     noi_dung = (request.form.get("thong_tin_chung") or "").strip()
     services.dat_cai_dat("thong_tin_chung_cong_ty", noi_dung)
@@ -954,7 +968,7 @@ def luu_thong_tin_chung():
 
 
 @bp.route("/info-ai/faq", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def luu_faq():
     """Lưu bộ Câu hỏi thường gặp (FAQ) cho Trợ lý AI — dán nguyên văn
     dạng Markdown, mỗi câu hỏi bắt đầu bằng dòng "## <câu hỏi>". Trợ lý chỉ
@@ -972,7 +986,7 @@ def luu_faq():
 
 
 @bp.route("/info-ai/san-pham", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def luu_thong_tin_san_pham():
     noi_dung = (request.form.get("thong_tin_san_pham") or "").strip()
     services.dat_cai_dat("thong_tin_san_pham", noi_dung)
@@ -983,7 +997,7 @@ def luu_thong_tin_san_pham():
 
 @bp.route("/info-ai/san-pham-ai", methods=["POST"])
 @bp.route("/info-ai/san-pham-ai/<int:spid>", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def luu_san_pham_ai(spid=None):
     """Thêm mới (spid=None) hoặc sửa tên/mô tả 1 sản phẩm AI hiện có.
     Có thể đính kèm nhiều ảnh cùng lúc ngay trong lần lưu này — mỗi ảnh
@@ -1016,7 +1030,7 @@ def luu_san_pham_ai(spid=None):
 
 
 @bp.route("/info-ai/san-pham-ai/<int:spid>/xoa", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def xoa_san_pham_ai(spid):
     sp = db.session.get(SanPhamAI, spid) or abort(404)
     for a in sp.anh:
@@ -1033,7 +1047,7 @@ def xoa_san_pham_ai(spid):
 
 
 @bp.route("/info-ai/san-pham-ai/anh/<int:anh_id>/xoa", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def xoa_anh_san_pham_ai(anh_id):
     a = db.session.get(AnhSanPhamAI, anh_id) or abort(404)
     duong_dan_tuyet_doi = os.path.join(current_app.config["UPLOAD_ROOT"], *a.duong_dan.split("/"))
@@ -1048,7 +1062,7 @@ def xoa_anh_san_pham_ai(anh_id):
 
 
 @bp.route("/info-ai/chuc-vu", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def luu_chuc_vu():
     cvid = request.form.get("id", type=int)
     cv = db.session.get(ChucVu, cvid) if cvid else ChucVu()
@@ -1079,7 +1093,7 @@ def luu_chuc_vu():
 
 
 @bp.route("/info-ai/chuc-vu/<int:cvid>/xoa", methods=["POST"])
-@chi_admin
+@chi_nap_ai
 def xoa_chuc_vu(cvid):
     cv = db.session.get(ChucVu, cvid) or abort(404)
     so_nv = NguoiDung.query.filter_by(chuc_vu_id=cv.id).count()

@@ -96,6 +96,13 @@
         <div class="o-nhap"><label>Bộ phận chính</label>
           <select name="bo_phan_id"><option value="">—</option>{% for b in bo_phans %}<option value="{{ b.id }}" {{ 'selected' if n.bo_phan_id == b.id }}>{{ b.ten }}</option>{% endfor %}</select></div>
       </div>
+      <div class="o-nhap">
+        <input type="hidden" name="co_quyen_nap_ai" value="1">
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0">
+          <input type="checkbox" name="nap_kien_thuc_ai" {{ 'checked' if n.nap_kien_thuc_ai or n.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) }}
+                 {{ 'disabled' if n.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) }} style="width:auto"> Được nạp kiến thức Trợ lý AI</label>
+        <div class="goi-y">Cho vào Quản trị → Trợ lý AI (Thông tin chung, Sản phẩm, Câu hỏi thường gặp, Quy trình, Chức vụ) để nạp kiến thức cho bot. Không vào được các phần quản trị khác. Ban giám đốc/Quản trị luôn có quyền này.</div>
+      </div>
       <div class="o-nhap"><label>Bộ phận khác (kiêm nhiệm)</label>
         <input type="hidden" name="co_bo_phan_phu" value="1">
         <div style="display:flex;flex-wrap:wrap;gap:6px 18px">

@@ -269,6 +269,9 @@ class NguoiDung(UserMixin, db.Model):
     ngay_vao_lam = db.Column(db.Date)
     ngay_sinh = db.Column(db.Date)
     anh_dai_dien = db.Column(db.String(300))  # ảnh vuông đã cắt, tương đối so với UPLOAD_ROOT
+    # Quyền riêng: được vào Quản trị → Trợ lý AI để nạp kiến thức cho bot
+    # (mọi tab trừ Thống kê sử dụng) dù không phải Ban giám đốc/Quản trị.
+    nap_kien_thuc_ai = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
 
     bo_phan = db.relationship("BoPhan", back_populates="nhan_vien")
     ho_so = db.relationship("HoSoNhanVien", back_populates="nguoi_dung",
@@ -327,6 +330,12 @@ class NguoiDung(UserMixin, db.Model):
     def la_admin_sep(self) -> bool:
         """Chỉ Admin/Ban giám đốc — được mở lại và xoá vĩnh viễn công việc."""
         return self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP)
+
+    @property
+    def duoc_nap_ai(self) -> bool:
+        """Được nạp kiến thức Trợ lý AI: Ban giám đốc, Quản trị, hoặc người
+        được tick quyền riêng ở trang Nhân sự."""
+        return self.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) or bool(self.nap_kien_thuc_ai)
 
     @property
     def la_admin_thuan(self) -> bool:

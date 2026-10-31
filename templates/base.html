@@ -42,6 +42,10 @@
       {% if duoc_vao_cong_no() %}
       <a href="{{ url_for('cong_no.danh_sach') }}" class="side-link {{ 'active' if request.blueprint == 'cong_no' }}"><span class="side-icon">💳</span><span>Thanh toán công nợ</span></a>
       {% endif %}
+      {% if current_user.duoc_nap_ai and current_user.vai_tro not in (VaiTro.ADMIN, VaiTro.SEP) %}
+      <div class="side-nav-label side-nav-label--spaced">Quản trị</div>
+      <a href="{{ url_for('admin.info_ai') }}" class="side-link {{ 'active' if (request.endpoint or '').startswith('admin.info_ai') }}"><span class="side-icon">💬</span><span>Trợ lý AI</span></a>
+      {% endif %}
       {% if current_user.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) %}
       <div class="side-nav-label side-nav-label--spaced">Quản trị</div>
       {% set nhom_dang_mo = nhom_quan_tri_hien_tai() %}
