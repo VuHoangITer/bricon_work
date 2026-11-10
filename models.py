@@ -1172,10 +1172,22 @@ class QuyTrinh(db.Model):
     ten = db.Column(db.String(200), nullable=False, unique=True)
     noi_dung = db.Column(db.Text)
     tu_khoa = db.Column(db.String(500))  # từ khoá thêm để bot nhận ra câu hỏi, cách nhau bằng dấu phẩy
+    # Ai được hỏi/xem: "tat_ca" (mọi người) hoặc "quan_ly" (Quản lý bộ phận,
+    # Ban giám đốc, Quản trị) — VD bộ hồ sơ cộng tác viên chỉ cho quản lý.
+    pham_vi = db.Column(db.String(20), nullable=False, default="tat_ca", server_default="tat_ca")
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     anh = db.relationship("AnhQuyTrinh", back_populates="quy_trinh",
                           cascade="all, delete-orphan", order_by="AnhQuyTrinh.id")
+    tep = db.relationship("TepQuyTrinh", back_populates="quy_trinh",
+                          cascade="all, delete-orphan", order_by="TepQuyTrinh.id")
+
+    PHAM_VI = {"tat_ca": "Mọi nhân viên", "quan_ly": "Chỉ Quản lý bộ phận, Ban giám đốc, Quản trị"}
+
+    def duoc_xem_boi(self, nd) -> bool:
+        if self.pham_vi == "quan_ly":
+            return bool(nd and nd.la_quan_ly)
+        return True
 
 
 class AnhQuyTrinh(db.Model):
@@ -1222,3 +1234,23 @@ class ViecDinhKy(db.Model):
         if ds == list(range(7)):
             return "Mọi ngày"
         return ", ".join(self.TEN_THU[i] for i in ds)
+
+
+class TepQuyTrinh(db.Model):
+    """Tệp đính kèm quy trình/tài liệu (Word, PDF, Excel…) — bot gửi kèm để
+    người hỏi tải về, VD "BRICON-bo-ho-so-cong-tac-vien.docx"."""
+    __tablename__ = "tep_quy_trinh"
+
+    id = db.Column(db.Integer, primary_key=True)
+    quy_trinh_id = db.Column(db.Integer, db.ForeignKey("quy_trinh.id"), nullable=False, index=True)
+    duong_dan = db.Column(db.String(500), nullable=False)
+    ten_goc = db.Column(db.String(255), nullable=False)
+    kich_thuoc = db.Column(db.Integer)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    quy_trinh = db.relationship("QuyTrinh", back_populates="tep")
+
+    @property
+    def kich_thuoc_dep(self):
+        n = self.kich_thuoc or 0
+        return f"{max(1, n // 1024)} KB" if n < 1048576 else f"{n / 1048576:.1f} MB"

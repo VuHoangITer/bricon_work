@@ -191,6 +191,23 @@
 {% elif muc == "quy_trinh" %}
 <p class="ai-mo-ta">{{ mo_ta_muc }}</p>
 
+{% macro o_pham_vi(chon) %}
+<div class="o-nhap"><label>Ai được hỏi / xem</label>
+  <select name="pham_vi">
+    <option value="tat_ca" {{ 'selected' if chon == 'tat_ca' }}>Mọi nhân viên</option>
+    <option value="quan_ly" {{ 'selected' if chon == 'quan_ly' }}>Chỉ Quản lý bộ phận, Ban giám đốc, Quản trị</option>
+  </select>
+  <p class="ai-goi-y">Chọn "Chỉ Quản lý…" thì nhân viên thường hỏi bot sẽ không thấy nội dung, ảnh hay tệp của mục này.</p>
+</div>
+{% endmacro %}
+
+{% macro o_tep_moi() %}
+<div class="o-nhap"><label>Tệp đính kèm — Word, PDF, Excel… (không bắt buộc)</label>
+  <input type="file" name="tep" multiple accept=".doc,.docx,.pdf,.xls,.xlsx,.ppt,.pptx,.txt,.zip">
+  <p class="ai-goi-y">Khi được hỏi tới mục này, bot gửi kèm tệp để người hỏi bấm tải về (VD bộ hồ sơ cộng tác viên .docx).</p>
+</div>
+{% endmacro %}
+
 {% macro o_anh_moi(so_dong) %}
 <div class="o-nhap qt-anh-moi"><label>Ảnh mới — mỗi ảnh 1 nhãn riêng (không bắt buộc)</label>
   {% for i in range(1, so_dong + 1) %}
@@ -215,7 +232,9 @@
       <div class="o-nhap"><label>Từ khoá thêm (không bắt buộc)</label>
         <input type="text" name="tu_khoa" placeholder="VD: kiểm kê, lịch kho, đơn shopee, vật tư đóng gói">
         <p class="ai-goi-y">Cách nhau bằng dấu phẩy — giúp bot nhận ra câu hỏi về quy trình này dù không nói đúng tên.</p></div>
+      {{ o_pham_vi('tat_ca') }}
       {{ o_anh_moi(4) }}
+      {{ o_tep_moi() }}
       <button class="nut" type="submit">Lưu quy trình</button>
     </form>
   </div>
@@ -228,6 +247,8 @@
   <summary>
     <strong>{{ qt.ten }}</strong>
     {% if qt.anh %}<span class="dem">{{ qt.anh|length }} ảnh</span>{% endif %}
+    {% if qt.tep %}<span class="dem">{{ qt.tep|length }} tệp</span>{% endif %}
+    {% if qt.pham_vi == 'quan_ly' %}<span class="dem" title="Chỉ Quản lý bộ phận, Ban giám đốc, Quản trị">🔒 Quản lý</span>{% endif %}
     <span class="ai-tom-tat">{{ (qt.noi_dung or 'Chưa có nội dung chữ')|replace('#','')|truncate(90) }}</span>
   </summary>
   <div class="ai-muc-than">
@@ -235,6 +256,19 @@
       <div class="o-nhap"><label>Tên quy trình</label><input type="text" name="ten" value="{{ qt.ten }}" required maxlength="200"></div>
       <div class="o-nhap"><label>Nội dung</label><textarea name="noi_dung" rows="12">{{ qt.noi_dung or '' }}</textarea></div>
       <div class="o-nhap"><label>Từ khoá thêm</label><input type="text" name="tu_khoa" value="{{ qt.tu_khoa or '' }}"></div>
+      {{ o_pham_vi(qt.pham_vi) }}
+      {% if qt.tep %}
+      <div class="o-nhap"><label>Tệp hiện tại</label>
+        {% for t in qt.tep %}
+        <div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--vien);border-radius:8px;margin-bottom:6px;background:#fff">
+          <span>📄</span>
+          <a href="{{ url_for('media', duong_dan=t.duong_dan) }}" style="flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600;font-size:.85rem">{{ t.ten_goc }}</a>
+          <small style="color:var(--muc-mo)">{{ t.kich_thuoc_dep }}</small>
+          <button type="submit" form="xoa-tep-qt-{{ t.id }}" class="nut nut--phu nut--nho" style="color:var(--lam-lai)">✕</button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if qt.anh %}
       <div class="o-nhap"><label>Ảnh hiện tại — sửa nhãn ngay dưới ảnh</label>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
@@ -250,8 +284,13 @@
       </div>
       {% endif %}
       {{ o_anh_moi(2) }}
+      {{ o_tep_moi() }}
       <div class="ai-hang-nut"><button class="nut nut--nho" type="submit">Lưu thay đổi</button></div>
     </form>
+    {% for t in qt.tep %}
+    <form method="post" id="xoa-tep-qt-{{ t.id }}" action="{{ url_for('admin.xoa_tep_quy_trinh', tep_id=t.id) }}"
+          onsubmit="return confirm('Xoá tệp {{ t.ten_goc|e }}?')" hidden></form>
+    {% endfor %}
     {% for a in qt.anh %}
     <form method="post" id="xoa-anh-qt-{{ a.id }}" action="{{ url_for('admin.xoa_anh_quy_trinh', anh_id=a.id) }}"
           onsubmit="return confirm('Xoá ảnh {{ (a.nhan or '')|e }}?')" hidden></form>

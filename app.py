@@ -148,10 +148,20 @@ def create_app(config_class=Config):
         if cv:
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
-        # Ảnh quy trình nội bộ (quy trình kho…) — ai đăng nhập cũng xem được
-        from models import AnhQuyTrinh
-        if AnhQuyTrinh.query.filter_by(duong_dan=duong_dan).first():
+        # Ảnh / tệp quy trình nội bộ (quy trình kho, bộ hồ sơ CTV…) — theo
+        # phạm vi của quy trình: mọi người, hoặc chỉ Quản lý trở lên.
+        from models import AnhQuyTrinh, TepQuyTrinh
+        aqt = AnhQuyTrinh.query.filter_by(duong_dan=duong_dan).first()
+        if aqt:
+            if not aqt.quy_trinh.duoc_xem_boi(current_user):
+                abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+        tqt = TepQuyTrinh.query.filter_by(duong_dan=duong_dan).first()
+        if tqt:
+            if not tqt.quy_trinh.duoc_xem_boi(current_user):
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan,
+                                       as_attachment=True, download_name=tqt.ten_goc)
 
         # Ảnh sản phẩm (TDS, bảng định mức...) — thông tin công khai của
         # công ty, ai đăng nhập cũng xem được, giống ảnh chức vụ

@@ -12,7 +12,7 @@ import dich_vu_ai
 import services
 from extensions import db
 from models import (HoSoNhanVien, LoaiDinhKem, LoaiHoSo, AnhSanPhamAI, BoPhan, BotZalo, ChamCong, ChucVu, CongViec,
-                    DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI, QuyTrinh, AnhQuyTrinh, ViecDinhKy,
+                    DanhGia, DiemChamCong, DinhKem, LogZalo, NguoiDung, SanPhamAI, QuyTrinh, AnhQuyTrinh, TepQuyTrinh, ViecDinhKy,
                     TroLySuDung, VaiTro, ngay_vn_hien_tai)
 
 bp = Blueprint("admin", __name__, url_prefix="/quan-tri")
@@ -929,6 +929,12 @@ def luu_quy_trinh(qtid=None):
     qt.ten = ten[:200]
     qt.noi_dung = (request.form.get("noi_dung") or "").strip() or None
     qt.tu_khoa = (request.form.get("tu_khoa") or "").strip()[:500] or None
+    qt.pham_vi = request.form.get("pham_vi") if request.form.get("pham_vi") in QuyTrinh.PHAM_VI else "tat_ca"
+    so_tep = 0
+    for f in [f for f in request.files.getlist("tep") if f and f.filename]:
+        duong_dan, kich_thuoc = services.luu_file(f, "quy-trinh")
+        qt.tep.append(TepQuyTrinh(duong_dan=duong_dan, ten_goc=f.filename[:255], kich_thuoc=kich_thuoc))
+        so_tep += 1
     for a in qt.anh:
         if f"nhan_cu_{a.id}" in request.form:
             a.nhan = (request.form.get(f"nhan_cu_{a.id}") or "").strip()[:255] or None
@@ -945,7 +951,8 @@ def luu_quy_trinh(qtid=None):
     if not qtid:
         db.session.add(qt)
     db.session.commit()
-    flash(f"Đã lưu quy trình \"{qt.ten}\"" + (f" (+{so_anh} ảnh)." if so_anh else "."), "success")
+    them = [x for x in (f"+{so_anh} ảnh" if so_anh else "", f"+{so_tep} tệp" if so_tep else "") if x]
+    flash(f"Đã lưu quy trình \"{qt.ten}\"" + (f" ({', '.join(them)})." if them else "."), "success")
     return redirect(url_for("admin.info_ai_quy_trinh") + f"#qt-{qt.id}")
 
 
@@ -953,13 +960,25 @@ def luu_quy_trinh(qtid=None):
 @chi_nap_ai
 def xoa_quy_trinh(qtid):
     qt = db.session.get(QuyTrinh, qtid) or abort(404)
-    for a in qt.anh:
+    for a in list(qt.anh) + list(qt.tep):
         services._xoa_file_tuong_doi(a.duong_dan)
     ten = qt.ten
     db.session.delete(qt)
     db.session.commit()
     flash(f"Đã xoá quy trình {ten}.", "success")
     return redirect(url_for("admin.info_ai_quy_trinh"))
+
+
+@bp.route("/info-ai/quy-trinh/tep/<int:tep_id>/xoa", methods=["POST"])
+@chi_nap_ai
+def xoa_tep_quy_trinh(tep_id):
+    t = db.session.get(TepQuyTrinh, tep_id) or abort(404)
+    qtid = t.quy_trinh_id
+    services._xoa_file_tuong_doi(t.duong_dan)
+    db.session.delete(t)
+    db.session.commit()
+    flash(f"Đã xoá tệp {t.ten_goc}.", "success")
+    return redirect(url_for("admin.info_ai_quy_trinh") + f"#qt-{qtid}")
 
 
 @bp.route("/info-ai/quy-trinh/anh/<int:anh_id>/xoa", methods=["POST"])

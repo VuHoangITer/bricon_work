@@ -195,6 +195,26 @@
         el.style.cssText = 'max-width:220px;border-radius:10px;display:block';
       } else if (['mp3', 'wav', 'm4a', 'ogg'].includes(duoi)) {
         el = document.createElement('audio'); el.src = m; el.controls = true;
+      } else {
+        // Tệp tài liệu (Word, PDF, Excel…) — hiện thành 1 nút tải về kèm tên tệp
+        let ten = '';
+        try { ten = new URL(m, location.href).searchParams.get('ten') || ''; } catch (e) { ten = ''; }
+        el = document.createElement('a');
+        el.href = m; el.rel = 'noopener';
+        el.setAttribute('download', ten || '');
+        el.title = 'Bấm để tải về';
+        el.style.cssText = 'display:flex;align-items:center;gap:8px;max-width:260px;padding:8px 12px;border-radius:10px;'
+          + 'border:1px solid rgba(0,0,0,.12);background:#fff;color:inherit;text-decoration:none;font-size:.85rem';
+        const icon = document.createElement('span');
+        icon.textContent = { doc: '📝', docx: '📝', pdf: '📕', xls: '📊', xlsx: '📊', ppt: '📽', pptx: '📽' }[duoi] || '📄';
+        icon.style.fontSize = '1.3rem';
+        const chu = document.createElement('span');
+        chu.style.cssText = 'min-width:0;overflow-wrap:anywhere;font-weight:600';
+        chu.textContent = ten || ('Tệp .' + duoi);
+        const tai = document.createElement('span');
+        tai.textContent = '⬇'; tai.style.marginLeft = 'auto';
+        el.append(icon, chu, tai);
+        if (nhieu) el.style.flexBasis = '100%';
       }
       if (el) { if (!nhieu) el.style.alignSelf = 'flex-start'; noiChua.appendChild(el); }
     });

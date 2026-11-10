@@ -458,9 +458,11 @@ def _kiem_tra_media_hop_le(nd: NguoiDung, duong_dan: str) -> str | None:
     cv = ChucVu.query.filter_by(anh=duong_dan).first()
     if cv:
         return duong_dan
-    from models import AnhQuyTrinh
-    if AnhQuyTrinh.query.filter_by(duong_dan=duong_dan).first():
-        return duong_dan  # ảnh quy trình nội bộ — ai đăng nhập cũng xem được
+    from models import AnhQuyTrinh, TepQuyTrinh
+    aqt = AnhQuyTrinh.query.filter_by(duong_dan=duong_dan).first() or \
+        TepQuyTrinh.query.filter_by(duong_dan=duong_dan).first()
+    if aqt:  # ảnh / tệp quy trình nội bộ — theo phạm vi của quy trình
+        return duong_dan if aqt.quy_trinh.duoc_xem_boi(nd) else None
     # Ảnh sản phẩm — thông tin chung công ty, ai đăng nhập cũng xem được
     # (cùng quy tắc với route /media).
     if AnhSanPhamAI.query.filter_by(duong_dan=duong_dan).first():
@@ -588,8 +590,11 @@ def _faq_lien_quan(van_ban: str, so_cau: int = _SO_CAU_FAQ_TOI_DA) -> list[dict]
 # QUY TRÌNH NỘI BỘ (VD "Quy trình kho") — nội dung chữ + nhiều ảnh có nhãn.
 # ---------------------------------------------------------------------------
 _TU_BO_QUA_QT = _TU_BO_QUA_FAQ | {"quy", "trinh", "tac", "xem", "gui", "hinh", "cho", "hien",
-                                  "nao", "gi", "ve", "lai", "giup", "nhanh", "cua", "nhan", "vien"}
-_TU_XIN_XEM_QT = {"anh", "hinh", "xem", "gui", "hien", "show"}
+                                  "nao", "gi", "ve", "lai", "giup", "nhanh", "cua", "nhan", "vien",
+                                  "nay", "nhe", "nha", "di", "voi", "oi", "ra", "lay", "loi", "dua", "file",
+                                  "word", "pdf", "tai", "ban", "em", "minh", "toi"}
+_TU_XIN_XEM_QT = {"anh", "hinh", "xem", "gui", "hien", "show", "loi", "dua", "lay", "tai", "file",
+                  "word", "pdf", "download", "mau"}
 
 
 def _tu_qt(van_ban: str) -> set[str]:
@@ -602,8 +607,9 @@ def _chuoi_chuan(van_ban: str) -> str:
 
 
 def _cum_tu_khoa(qt) -> list[str]:
-    return [c.strip() for c in _chuoi_chuan((qt.tu_khoa or "").replace(",", " , ")).split(" , ")
-            if c.strip()]
+    """Các cụm từ khoá (đã bỏ dấu, chữ thường) — tách theo dấu phẩy TRƯỚC khi
+    chuẩn hoá, vì chuẩn hoá xoá luôn dấu phẩy."""
+    return [c.strip() for c in (_chuoi_chuan(x) for x in re.split(r"[,;\n]", qt.tu_khoa or "")) if c.strip()]
 
 
 def _diem_quy_trinh(qt, van_ban: str) -> dict:
@@ -623,12 +629,14 @@ def _diem_quy_trinh(qt, van_ban: str) -> dict:
             "diem_noi_dung": len(tu_hoi & tu_noi_dung), "tu_hoi": tu_hoi, "tu_ten": tu_ten}
 
 
-def _quy_trinh_lien_quan(van_ban: str) -> list:
+def _quy_trinh_lien_quan(van_ban: str, nd=None) -> list:
     from models import QuyTrinh
     chuoi = _chuoi_chuan(van_ban)
     hoi_chung = any(f" {c} " in chuoi for c in ("quy trinh", "quy tac", "ke hoach", "lich lam viec"))
     ket_qua = []
     for qt in QuyTrinh.query.order_by(QuyTrinh.ten).all():
+        if not qt.duoc_xem_boi(nd):
+            continue
         d = _diem_quy_trinh(qt, van_ban)
         if (d["khop_ten"] or d["khop_tu_khoa"] or max((x for x, _ in d["diem_anh"]), default=0) >= 2
                 or d["diem_noi_dung"] >= 2 or hoi_chung):
@@ -636,7 +644,7 @@ def _quy_trinh_lien_quan(van_ban: str) -> list:
     return ket_qua
 
 
-def _thu_khop_quy_trinh(tin_nhan: str) -> dict | None:
+def _thu_khop_quy_trinh(tin_nhan: str, nd=None) -> dict | None:
     """Khớp trực tiếp (KHÔNG qua AI) khi người hỏi muốn XEM quy trình/ảnh:
     - "quy trình kho", "ảnh quy trình kho" -> gửi TẤT CẢ ảnh của quy trình đó;
     - "cho xem lịch làm việc kho", "ảnh quy tắc xử lý đơn" -> gửi đúng 1 ảnh
@@ -649,12 +657,20 @@ def _thu_khop_quy_trinh(tin_nhan: str) -> dict | None:
         return None
     tu_tho = set(chuoi.split())
     muon_xem = bool(tu_tho & _TU_XIN_XEM_QT)
+    # Câu HỎI chi tiết ("xử lý đơn shopee thế nào", "dưới 2 tấn thì sao") mà
+    # không xin xem/gửi -> để AI đọc nội dung trả lời bằng chữ.
+    la_cau_hoi = any(f" {c} " in chuoi for c in ("the nao", "ra sao", "lam sao", "bao nhieu", "khi nao",
+                                                  "o dau", "tai sao", "vi sao", "thi sao", "co duoc",
+                                                  "co phai"))
+    if la_cau_hoi and not muon_xem:
+        return None
     noi_quy_trinh = any(f" {c} " in chuoi for c in ("quy trinh", "quy tac"))
     for qt in QuyTrinh.query.order_by(QuyTrinh.ten).all():
-        if not qt.anh:
+        if not (qt.anh or qt.tep) or not qt.duoc_xem_boi(nd):
             continue
         d = _diem_quy_trinh(qt, tin_nhan)
-        tu_con_lai = d["tu_hoi"] - d["tu_ten"] - set().union(*[_tu_qt(a.nhan or "") for a in qt.anh])
+        tu_con_lai = (d["tu_hoi"] - d["tu_ten"] - set().union(*[_tu_qt(a.nhan or "") for a in qt.anh])
+                      - _tu_qt(qt.tu_khoa or ""))
         # 1 ảnh có nhãn khớp rõ nhất
         xep = sorted(((x, a) for x, a in d["diem_anh"] if x >= 2), key=lambda t: t[0], reverse=True)
         if muon_xem and xep and (len(xep) == 1 or xep[0][0] > xep[1][0]):
@@ -662,14 +678,20 @@ def _thu_khop_quy_trinh(tin_nhan: str) -> dict | None:
             return {"tra_loi": f"Đây là \"{a.nhan or qt.ten}\" ({qt.ten}):", "duong_dan": None,
                     "nhan_nut": None, "media": [url_for("media", duong_dan=a.duong_dan)]}
         # cả quy trình
-        if ((d["khop_ten"] and (noi_quy_trinh or not tu_con_lai))
-                or (d["khop_tu_khoa"] and muon_xem and not tu_con_lai)):
-            ds = qt.anh[:_SO_ANH_TOI_DA]
-            tra_loi = f"{qt.ten} gồm {len(qt.anh)} ảnh:\n" + "\n".join(
-                f"{i}. {a.nhan or 'Ảnh ' + str(i)}" for i, a in enumerate(qt.anh, 1))
-            tra_loi += "\n\nCần hỏi chi tiết phần nào (VD lịch kiểm kê từng ngày) cứ hỏi tiếp nhé."
-            return {"tra_loi": tra_loi, "duong_dan": None, "nhan_nut": None,
-                    "media": [url_for("media", duong_dan=a.duong_dan) for a in ds]}
+        if ((d["khop_ten"] and (noi_quy_trinh or muon_xem or not tu_con_lai))
+                or (d["khop_tu_khoa"] and (muon_xem or not tu_con_lai))):
+            phan = []
+            if qt.tep:
+                phan.append(f"📎 {len(qt.tep)} tệp (bấm để tải về):\n" + "\n".join(
+                    f"• {t.ten_goc} ({t.kich_thuoc_dep})" for t in qt.tep))
+            if qt.anh:
+                phan.append(f"🖼 {len(qt.anh)} ảnh:\n" + "\n".join(
+                    f"{i}. {a.nhan or 'Ảnh ' + str(i)}" for i, a in enumerate(qt.anh, 1)))
+            tra_loi = f"{qt.ten}\n\n" + "\n\n".join(phan)
+            tra_loi += "\n\nCần hỏi chi tiết phần nào cứ hỏi tiếp nhé."
+            media = ([url_for("media", duong_dan=t.duong_dan, ten=t.ten_goc) for t in qt.tep]
+                     + [url_for("media", duong_dan=a.duong_dan) for a in qt.anh])[:_SO_ANH_TOI_DA]
+            return {"tra_loi": tra_loi, "duong_dan": None, "nhan_nut": None, "media": media}
     return None
 
 
@@ -766,7 +788,7 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
                 "---\n" + "\n\n".join(khoi)
             )
 
-    ds_qt = _quy_trinh_lien_quan(van_ban_gan_day.split("\n")[0])
+    ds_qt = _quy_trinh_lien_quan(van_ban_gan_day.split("\n")[0], nd)
     if ds_qt:
         khoi = []
         for qt in ds_qt[:3]:
@@ -774,6 +796,9 @@ def _boi_canh_tro_ly(nd: NguoiDung, van_ban_gan_day: str = "") -> str:
             if qt.anh:
                 phan.append("Ảnh kèm theo: " + " | ".join(
                     f"{(a.nhan + ': ') if a.nhan else ''}[media:{a.duong_dan}]" for a in qt.anh))
+            if qt.tep:
+                phan.append("Tệp đính kèm (gửi khi được xin tài liệu/mẫu/file): " + " | ".join(
+                    f"{t.ten_goc}: [media:{t.duong_dan}]" for t in qt.tep))
             phan.append(f"===== HẾT QUY TRÌNH: {qt.ten} =====")
             khoi.append("\n".join(phan))
         dong.append(
@@ -1573,7 +1598,7 @@ def tro_ly_tra_loi(nd: NguoiDung, tin_nhan: str, lich_su: list[dict]) -> tuple[d
         cau_nguoi_dung = cau_nguoi_dung[:-1]
     cau_truoc = " ".join(cau_nguoi_dung[-1:])
 
-    ket_qua_qt = _thu_khop_quy_trinh(tin_nhan)
+    ket_qua_qt = _thu_khop_quy_trinh(tin_nhan, nd)
     if ket_qua_qt:
         ghi_nhan_su_dung_tro_ly(nd, 0)  # khớp trực tiếp, không gọi OpenAI
         return ket_qua_qt, None
@@ -1686,4 +1711,14 @@ def _duong_dan_media_da_xac_minh(nd: NguoiDung, duong_dan: str | None) -> str | 
     hop_le = _kiem_tra_media_hop_le(nd, duong_dan)
     if not hop_le:
         return None
-    return url_for("media", duong_dan=hop_le)
+    return _url_media(hop_le)
+
+
+def _url_media(duong_dan: str) -> str:
+    """URL /media cho trình duyệt; tệp quy trình (Word, PDF…) kèm ?ten=<tên
+    gốc> để khung chat hiện đúng tên tệp cho người bấm tải."""
+    from models import TepQuyTrinh
+    t = TepQuyTrinh.query.filter_by(duong_dan=duong_dan).first()
+    if t:
+        return url_for("media", duong_dan=duong_dan, ten=t.ten_goc)
+    return url_for("media", duong_dan=duong_dan)
