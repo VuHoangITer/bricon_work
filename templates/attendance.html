@@ -53,7 +53,7 @@
     {% for _ in range(o_trong_dau) %}<div></div>{% endfor %}
     {% for o in o_ngay %}
     {% set c = o.cc %}
-    <button type="button" class="cc-o cc-o--{{ o.tt }} {{ 'cc-o--hn' if o.ngay == ngay_hn }}" data-cc-o
+    <button type="button" class="cc-o cc-o--{{ o.tt }} {{ 'cc-o--ra-' ~ o.ra if o.ra }} {{ 'cc-o--hn' if o.ngay == ngay_hn }}" data-cc-o
       data-ngay="{{ o.ngay.strftime('%d/%m/%Y') }}"
       data-chi-tiet="
         {%- if c and c.gio_vao -%}Vào {{ c.gio_vao.strftime('%H:%M') }}{% if c.di_tre %} · trễ {{ c.so_phut_tre }}′{% if c.tre_co_phep %} (đã duyệt){% endif %}{% endif %} — Ra {{ c.gio_ra.strftime('%H:%M') if c.gio_ra else 'chưa chấm' }}{% if c.ve_som %} · sớm {{ c.so_phut_som }}′{% if c.som_co_phep %} (đã duyệt){% endif %}{% endif %}
@@ -77,6 +77,7 @@
     <div class="cc-tk-o cc-tk-o--nghi_kp"><strong>{{ dem.nghi_kp }}</strong><span>Không phép</span></div>
   </div>
   <div class="cc-chu-giai cc-chu-giai--phu">
+    <span><i class="cc-ch cc-ch--vien"></i>Viền cam/tím: về sớm / quên ra</span>
     <span><i class="cc-ch cc-ch--cty_nghi"></i>CN / lễ</span>
     <span><i class="cc-ch cc-ch--tuong_lai"></i>Chưa đến ngày</span>
     <span><i class="cc-ch cc-ch--don"></i>Có đơn từ</span>

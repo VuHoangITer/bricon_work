@@ -58,17 +58,17 @@ def _lich_thang(nd, ngay_hn) -> dict:
     d = dau
     while d < cuoi:
         c, nghi = cc_thang.get(d), nghi_thang.get(d, [])
+        ra = None  # tình trạng giờ RA, ghi nhận riêng với giờ vào
         if c and c.gio_vao and d <= ngay_hn:
-            if not c.gio_ra and d < ngay_hn and not nghi:
-                # Ngày đã qua mà không chấm ra -> chưa đủ công, không được
-                # hiện "Đúng giờ" (cần làm đơn Bổ sung công)
-                tt = "thieu_ra"
-            elif c.di_tre and not c.tre_co_phep:
-                tt = "tre"
+            # Giờ vào: đúng giờ / đi trễ — luôn được ghi nhận đầy đủ.
+            tt = "tre" if (c.di_tre and not c.tre_co_phep) else "dung"
+            # Giờ ra: về sớm / quên chấm ra (ngày đã qua) — đếm thêm, hiện
+            # bằng viền màu trên ô, không ghi đè kết quả giờ vào.
+            if not c.gio_ra:
+                if d < ngay_hn and not nghi:
+                    ra = "thieu_ra"
             elif c.ve_som and not c.som_co_phep:
-                tt = "som"
-            else:
-                tt = "dung"
+                ra = "som"
         elif services.la_ngay_nghi(d):
             # Chủ nhật / lễ: công ty nghỉ sẵn, không phải "nghỉ" của nhân viên
             tt = "cty_nghi"
@@ -84,7 +84,9 @@ def _lich_thang(nd, ngay_hn) -> dict:
             tt = "trong"
         if tt in dem:
             dem[tt] += 1
-        o_ngay.append({"ngay": d, "tt": tt, "cc": c, "nghi": nghi, "don": don_thang.get(d, []),
+        if ra:
+            dem[ra] += 1
+        o_ngay.append({"ngay": d, "tt": tt, "ra": ra, "cc": c, "nghi": nghi, "don": don_thang.get(d, []),
                        "ngay_nghi_cty": services.la_ngay_nghi(d)})
         d += timedelta(days=1)
 

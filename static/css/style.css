@@ -830,7 +830,11 @@ a.ql-dong:hover .ql-dong-ten strong, a.ql-dong:active .ql-dong-ten strong { colo
 .cc-tk-o--nghi_phep { background:#e9f1fc; } .cc-tk-o--nghi_phep strong { color:#3b7dd8; }
 .cc-tk-o--nghi_kp { background:#ecebe7; }
 .cc-tk-o--thieu_ra { background:#f3edfc; } .cc-tk-o--thieu_ra strong { color:#7a4cc0; }
-.cc-o--thieu_ra { background:#efe7fb; color:#6b3fb3; box-shadow:inset 0 0 0 2px #8e5cc7; }
+/* Viền = tình trạng giờ ra, nền = giờ vào (1 ngày có thể vừa đúng giờ vừa quên ra) */
+.cc-o--ra-thieu_ra { box-shadow:inset 0 0 0 3px #8e5cc7, inset 0 0 0 5px #fff; }
+.cc-o--ra-som { box-shadow:inset 0 0 0 3px #e8892b, inset 0 0 0 5px #fff; }
+.cc-o--hn.cc-o--ra-som { box-shadow:inset 0 0 0 3px #e8892b, inset 0 0 0 5px #fff, 0 0 0 3px #fff, 0 0 0 5px var(--chinh); }
+.cc-ch--vien { background:linear-gradient(90deg, #e8892b 50%, #8e5cc7 50%); }
 .cc-thieu-ra { display:flex; align-items:center; gap:8px; margin-top:12px; padding:10px 12px; border-radius:10px; background:#f3edfc; color:#5e3a9e; font-size:.8rem; font-weight:600; text-decoration:none; }
 .cc-thieu-ra .ic { flex:0 0 auto; }
 .cc-chu-giai--phu { margin-top:10px; font-size:.7rem; gap:4px 12px; }
