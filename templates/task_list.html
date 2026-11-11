@@ -31,20 +31,33 @@
 
 {% block content %}
 <div class="page-head">
-  <div class="page-head-copy"><h1>Công việc</h1><p>Theo dõi, lọc và xử lý toàn bộ công việc được giao.</p></div>
+  <div class="page-head-copy"><h1>{{ {'can_lam': 'Việc cần làm', 'doi_duyet': 'Việc đợi duyệt', 'can_duyet': 'Việc cần duyệt'}.get(f_xem, 'Công việc') }}</h1>
+    <p>{{ {'can_lam': 'Việc được giao cho bạn, chưa hoàn thành.', 'doi_duyet': 'Việc bạn đã gửi đối chứng, đang chờ quản lý duyệt.', 'can_duyet': 'Nhân viên đã gửi đối chứng, chờ bạn đánh giá.'}.get(f_xem, 'Theo dõi, lọc và xử lý toàn bộ công việc được giao.') }}</p></div>
   {% if current_user.la_quan_ly %}<div class="page-actions"><a class="nut nut--vang" href="{{ url_for('tasks.giao_viec') }}">{{ bi('plus') }} Giao việc</a></div>{% endif %}
 </div>
 
-{% set so_loc = [f_trang_thai, f_nguoi, (f_sao is not none) or '', f_tu_ngay, f_den_ngay]|select|list|length %}
+<div class="tab-chip">
+  {% if not current_user.la_admin_sep %}
+  <a href="{{ url_for('tasks.danh_sach', xem='can_lam') }}" class="{{ 'active' if f_xem == 'can_lam' }}">Cần làm</a>
+  <a href="{{ url_for('tasks.danh_sach', xem='doi_duyet') }}" class="{{ 'active' if f_xem == 'doi_duyet' }}">Đợi duyệt</a>
+  {% endif %}
+  {% if current_user.la_quan_ly %}
+  <a href="{{ url_for('tasks.danh_sach', xem='can_duyet') }}" class="{{ 'active' if f_xem == 'can_duyet' }}">Cần duyệt</a>
+  {% endif %}
+  <a href="{{ url_for('tasks.danh_sach') }}" class="{{ 'active' if not f_xem }}">Tất cả</a>
+</div>
+
+{% set so_loc = [f_trang_thai if not f_xem else '', f_nguoi, (f_sao is not none) or '', f_tu_ngay, f_den_ngay]|select|list|length %}
 <form class="the bo-loc" method="get">
   <div class="bo-loc-chi-tiet">
+    {% if f_xem %}<input type="hidden" name="xem" value="{{ f_xem }}">{% else %}
     <select name="trang_thai" onchange="this.form.submit()">
       <option value="" {{ 'selected' if not f_trang_thai }}>Chưa hoàn thành</option>
       <option value="{{ TrangThai.CHO_DUYET }}" {{ 'selected' if f_trang_thai == TrangThai.CHO_DUYET }}>Chờ duyệt</option>
       <option value="{{ TrangThai.HOAN_THANH }}" {{ 'selected' if f_trang_thai == TrangThai.HOAN_THANH }}>Hoàn thành</option>
       <option value="{{ TrangThai.HUY }}" {{ 'selected' if f_trang_thai == TrangThai.HUY }}>Đã huỷ</option>
-    </select>
-    {% if nhan_vien %}
+    </select>{% endif %}
+    {% if nhan_vien and f_xem not in ('can_lam', 'doi_duyet') %}
     <select name="nguoi" onchange="this.form.submit()">
       <option value="">Mọi nhân viên</option>
       {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f_nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
@@ -107,13 +120,13 @@
 {% if phan_trang.pages > 1 %}
 <div class="phan-trang">
   {% if phan_trang.has_prev %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">{{ bi('chevron-left') }} Trước</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', xem=f_xem or None, trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">{{ bi('chevron-left') }} Trước</a>
   {% else %}
     <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">{{ bi('chevron-left') }} Trước</span>
   {% endif %}
   <span class="phan-trang-so">Trang {{ phan_trang.page }}/{{ phan_trang.pages }}</span>
   {% if phan_trang.has_next %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau {{ bi('chevron-right') }}</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', xem=f_xem or None, trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau {{ bi('chevron-right') }}</a>
   {% else %}
     <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau {{ bi('chevron-right') }}</span>
   {% endif %}

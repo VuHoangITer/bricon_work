@@ -252,7 +252,20 @@ def danh_sach():
     tu_ngay_raw = request.args.get("tu_ngay") or ""
     den_ngay_raw = request.args.get("den_ngay") or ""
 
+    # xem: can_lam (việc của tôi chưa xong) / doi_duyet (việc tôi đã nộp,
+    # chờ duyệt) / can_duyet (việc chờ TÔI duyệt) / "" = tất cả như cũ
+    xem = request.args.get("xem", "")
     q = _viec_lien_quan()
+    if xem in ("can_lam", "doi_duyet"):
+        q = q.filter(CongViec.nguoi_nhan_id == current_user.id)
+        trang_thai = "" if xem == "can_lam" else TrangThai.CHO_DUYET
+    elif xem == "can_duyet":
+        trang_thai = TrangThai.CHO_DUYET
+        ids = [v.id for v in q.filter(CongViec.trang_thai == TrangThai.CHO_DUYET)
+               if current_user.duoc_duyet_viec(v)]
+        q = q.filter(CongViec.id.in_(ids or [-1]))
+    else:
+        xem = ""
     if nguoi:
         q = q.filter(CongViec.nguoi_nhan_id == nguoi)
     if tim:
@@ -275,7 +288,7 @@ def danh_sach():
     che_do_3_cot = trang_thai in ("", "dang_mo")
     ngu_canh_chung = dict(
         nhan_vien=_nhan_vien_duoc_giao() if current_user.la_quan_ly else [],
-        f_trang_thai=trang_thai, f_nguoi=nguoi, f_q=tim, f_sao=sao,
+        f_xem=xem, f_trang_thai=trang_thai, f_nguoi=nguoi, f_q=tim, f_sao=sao,
         f_tu_ngay=tu_ngay_raw, f_den_ngay=den_ngay_raw,
     )
 

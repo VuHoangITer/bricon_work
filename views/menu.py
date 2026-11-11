@@ -39,15 +39,29 @@ def _loai_de_xuat_dang_xem() -> str | None:
     return loai
 
 
-def _so_viec_can_xu_ly() -> int:
-    """Việc mới giao cho tôi + việc đã gửi đối chứng đang chờ tôi duyệt."""
+def _so_viec_can_lam() -> int:
+    """Việc giao cho tôi, chưa xong (mới giao / đang làm / phải làm lại)."""
+    from models import CongViec, TrangThai
+    return CongViec.query.filter(CongViec.nguoi_nhan_id == current_user.id,
+                                 CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count()
+
+
+def _so_viec_doi_duyet() -> int:
+    from models import CongViec, TrangThai
+    return CongViec.query.filter_by(nguoi_nhan_id=current_user.id, trang_thai=TrangThai.CHO_DUYET).count()
+
+
+def _so_viec_can_duyet() -> int:
+    """Việc nhân viên đã gửi đối chứng, đang chờ tôi duyệt."""
     from models import CongViec, TrangThai
     from views.tasks import _viec_lien_quan
-    n = CongViec.query.filter_by(nguoi_nhan_id=current_user.id, trang_thai=TrangThai.MOI).count()
-    if current_user.la_quan_ly:
-        n += sum(1 for v in _viec_lien_quan().filter(CongViec.trang_thai == TrangThai.CHO_DUYET)
-                 if current_user.duoc_duyet_viec(v))
-    return n
+    return sum(1 for v in _viec_lien_quan().filter(CongViec.trang_thai == TrangThai.CHO_DUYET)
+               if current_user.duoc_duyet_viec(v))
+
+
+def _xem_viec(ma):
+    """Mục menu việc nào đang mở: theo ?xem= trên trang danh sách việc."""
+    return lambda: request.endpoint == "tasks.danh_sach" and request.args.get("xem", "") == ma
 
 
 def menu_chinh() -> list[dict]:
@@ -63,10 +77,25 @@ def menu_chinh() -> list[dict]:
     dx_cho = _de_xuat_can_duyet()  # [] với nhân viên thường
     dx_dem = {loai: sum(1 for d in dx_cho if d.loai == loai) for loai in (LoaiDeXuat.CONG_VIEC, LoaiDeXuat.TAM_UNG)}
 
-    cong_viec = [
-        _muc("tasks.danh_sach", "Công việc", bi("clipboard-list"), "Việc được giao, giao việc",
-             dem=_so_viec_can_xu_ly(),
-             khop=lambda: request.endpoint in ("tasks.danh_sach", "tasks.chi_tiet", "tasks.giao_viec")),
+    cong_viec = []
+    if not current_user.la_admin_sep:
+        cong_viec.append(_muc("tasks.danh_sach", "Việc cần làm", bi("clipboard-list"),
+                              "Việc được giao, chưa hoàn thành", dem=_so_viec_can_lam(),
+                              kw={"xem": "can_lam"}, khop=_xem_viec("can_lam")))
+    if current_user.la_quan_ly:
+        cong_viec.append(_muc("tasks.danh_sach", "Việc cần duyệt", bi("check-circle"),
+                              "Nhân viên đã nộp, chờ bạn đánh giá", dem=_so_viec_can_duyet(),
+                              kw={"xem": "can_duyet"}, khop=_xem_viec("can_duyet")))
+    if not current_user.la_admin_sep:
+        n = _so_viec_doi_duyet()
+        cong_viec.append(_muc("tasks.danh_sach", "Việc đợi duyệt", bi("hourglass"),
+                              f"{n} việc đã nộp, chờ quản lý duyệt" if n else "Việc đã nộp, chờ quản lý duyệt",
+                              kw={"xem": "doi_duyet"}, khop=_xem_viec("doi_duyet")))
+    if current_user.la_quan_ly:
+        cong_viec.append(_muc("tasks.danh_sach", "Tất cả công việc", bi("briefcase"), "Giao việc, theo dõi cả bộ phận",
+                              khop=lambda: request.endpoint in ("tasks.chi_tiet", "tasks.giao_viec")
+                              or (request.endpoint == "tasks.danh_sach" and not request.args.get("xem"))))
+    cong_viec += [
         _muc("tasks.kpi", "KPI", bi("target"), "Điểm sao, xếp loại"),
         _muc("de_xuat.danh_sach", "Đề xuất công việc", bi("lightbulb"), "Mua sắm, đề xuất cải tiến",
              dem=dx_dem[LoaiDeXuat.CONG_VIEC], kw={"loai": "cong_viec"}, khop=lambda: _loai_de_xuat_dang_xem() == "cong_viec"),

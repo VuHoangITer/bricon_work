@@ -54,20 +54,26 @@ def _lich_thang(nd, ngay_hn) -> dict:
                                 DonTu.ngay >= dau, DonTu.ngay < cuoi):
         don_thang.setdefault(d.ngay, []).append(d)
 
-    o_ngay, dem = [], {"dung": 0, "tre": 0, "nghi": 0}
+    o_ngay, dem = [], {"dung": 0, "tre": 0, "som": 0, "nghi_phep": 0, "nghi_kp": 0}
     d = dau
     while d < cuoi:
         c, nghi = cc_thang.get(d), nghi_thang.get(d, [])
         if c and c.gio_vao and d <= ngay_hn:
-            tre = (c.di_tre and not c.tre_co_phep) or (c.ve_som and not c.som_co_phep)
-            tt = "tre" if tre else "dung"
+            if c.di_tre and not c.tre_co_phep:
+                tt = "tre"
+            elif c.ve_som and not c.som_co_phep:
+                tt = "som"
+            else:
+                tt = "dung"
         elif services.la_ngay_nghi(d):
             # Chủ nhật / lễ: công ty nghỉ sẵn, không phải "nghỉ" của nhân viên
             tt = "cty_nghi"
         elif d > ngay_hn:
             tt = "tuong_lai"
-        elif nghi or (c and c.nghi_khong_phep):
-            tt = "nghi"
+        elif c and c.nghi_khong_phep:
+            tt = "nghi_kp"
+        elif nghi:
+            tt = "nghi_phep"
         elif d == ngay_hn:
             tt = "chua"
         else:
