@@ -31,17 +31,10 @@ def _thong_bao_ngoai_pham_vi(diem, kc) -> str:
             f"Ra đúng khu vực rồi chấm công lại.")
 
 
-@bp.route("/")
-@login_required
-def trang_cham_cong():
-    if current_user.la_admin_sep:
-        # Sếp/Quản trị không tự chấm công — bấm vào đây thấy luôn bảng công.
-        return redirect(url_for("attendance.bang_cong"))
-
-    ngay_hn = ngay_vn_hien_tai()
-    hom_nay = ChamCong.query.filter_by(nguoi_dung_id=current_user.id, ngay=ngay_hn).first()
-
-    # Lịch tháng: ?thang=YYYY-MM, mặc định tháng hiện tại
+def _lich_thang(nd, ngay_hn) -> dict:
+    """Dữ liệu lịch công tháng của nhân viên nd (?thang=YYYY-MM, mặc định
+    tháng hiện tại) — dùng chung cho trang của chính mình và trang quản lý
+    xem 1 nhân viên."""
     try:
         nam, thg = (int(x) for x in (request.args.get("thang") or ngay_hn.strftime("%Y-%m")).split("-"))
         dau = date(nam, thg, 1)
@@ -50,13 +43,13 @@ def trang_cham_cong():
     cuoi = (dau + timedelta(days=32)).replace(day=1)
 
     cc_thang = {c.ngay: c for c in ChamCong.query.filter(
-        ChamCong.nguoi_dung_id == current_user.id, ChamCong.ngay >= dau, ChamCong.ngay < cuoi)}
+        ChamCong.nguoi_dung_id == nd.id, ChamCong.ngay >= dau, ChamCong.ngay < cuoi)}
     nghi_thang = {}
-    for x in XinNghi.query.filter(XinNghi.nguoi_dung_id == current_user.id,
+    for x in XinNghi.query.filter(XinNghi.nguoi_dung_id == nd.id,
                                   XinNghi.ngay >= dau, XinNghi.ngay < cuoi):
         nghi_thang.setdefault(x.ngay, []).append(x)
     don_thang = {}
-    for d in DonTu.query.filter(DonTu.nguoi_dung_id == current_user.id,
+    for d in DonTu.query.filter(DonTu.nguoi_dung_id == nd.id,
                                 DonTu.trang_thai.in_((TrangThaiDonTu.CHO_DUYET, TrangThaiDonTu.DA_DUYET)),
                                 DonTu.ngay >= dau, DonTu.ngay < cuoi):
         don_thang.setdefault(d.ngay, []).append(d)
@@ -65,12 +58,15 @@ def trang_cham_cong():
     d = dau
     while d < cuoi:
         c, nghi = cc_thang.get(d), nghi_thang.get(d, [])
-        if d > ngay_hn:
-            tt = "tuong_lai"
-        elif c and c.gio_vao:
+        if c and c.gio_vao and d <= ngay_hn:
             tre = (c.di_tre and not c.tre_co_phep) or (c.ve_som and not c.som_co_phep)
             tt = "tre" if tre else "dung"
-        elif nghi or (c and c.nghi_khong_phep) or services.la_ngay_nghi(d):
+        elif services.la_ngay_nghi(d):
+            # Chủ nhật / lễ: công ty nghỉ sẵn, không phải "nghỉ" của nhân viên
+            tt = "cty_nghi"
+        elif d > ngay_hn:
+            tt = "tuong_lai"
+        elif nghi or (c and c.nghi_khong_phep):
             tt = "nghi"
         elif d == ngay_hn:
             tt = "chua"
@@ -82,18 +78,42 @@ def trang_cham_cong():
                        "ngay_nghi_cty": services.la_ngay_nghi(d)})
         d += timedelta(days=1)
 
-    thang_truoc = (dau - timedelta(days=1)).strftime("%Y-%m")
-    thang_sau = cuoi.strftime("%Y-%m")
-    ca_vao, ca_ra = services.ca_lam_viec(current_user.id, ngay_hn)
-    return render_template(
-        "attendance.html",
-        hom_nay=hom_nay, ngay_hn=ngay_hn,
+    ca_vao, ca_ra = services.ca_lam_viec(nd.id, ngay_hn)
+    return dict(
+        nv=nd, ngay_hn=ngay_hn,
+        hom_nay=ChamCong.query.filter_by(nguoi_dung_id=nd.id, ngay=ngay_hn).first(),
         dau_thang=dau, o_ngay=o_ngay, o_trong_dau=dau.weekday(), dem=dem,
-        thang_truoc=thang_truoc, thang_sau=thang_sau if cuoi <= ngay_hn.replace(day=1) else None,
+        thang_truoc=(dau - timedelta(days=1)).strftime("%Y-%m"),
+        thang_sau=cuoi.strftime("%Y-%m") if cuoi <= ngay_hn.replace(day=1) else None,
         ca_vao=ca_vao, ca_ra=ca_ra,
+    )
+
+
+@bp.route("/")
+@login_required
+def trang_cham_cong():
+    if current_user.la_admin_sep:
+        # Sếp/Quản trị không tự chấm công — bấm vào đây thấy luôn bảng công.
+        return redirect(url_for("attendance.bang_cong"))
+    return render_template(
+        "attendance.html", xem_nv=False,
         diems=DiemChamCong.query.filter_by(dang_hoat_dong=True).all(),
         la_hom_nay_nghi=services.la_hom_nay_nghi(),
+        **_lich_thang(current_user, ngay_vn_hien_tai()),
     )
+
+
+@bp.route("/nhan-vien/<int:id>")
+@login_required
+def cham_cong_nhan_vien(id):
+    """Quản lý/Sếp bấm vào 1 nhân viên -> xem lịch chấm công tháng của
+    người đó (chỉ xem, không chấm hộ)."""
+    nd = db.session.get(NguoiDung, id) or abort(404)
+    if nd.id == current_user.id:
+        return redirect(url_for("attendance.trang_cham_cong", thang=request.args.get("thang")))
+    if not (current_user.la_admin_sep or (current_user.la_quan_ly and current_user.cung_bo_phan(nd))):
+        abort(403)
+    return render_template("attendance.html", xem_nv=True, **_lich_thang(nd, ngay_vn_hien_tai()))
 
 
 @bp.route("/vao", methods=["POST"])

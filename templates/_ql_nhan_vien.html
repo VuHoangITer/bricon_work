@@ -24,7 +24,7 @@
   <input type="search" class="ql-tim" data-ql-tim placeholder="Tìm nhân viên theo tên…">
   <div class="ql-ds" data-ql-ds>
     {% for d in ql.dong %}
-    <div class="ql-dong" data-ten="{{ d.nv.ho_ten|lower }}" data-tt="{{ d.ma_tt }}" {% if loop.index > 6 %}data-an hidden{% endif %}>
+    <a class="ql-dong" href="{{ url_for('attendance.cham_cong_nhan_vien', id=d.nv.id) }}" data-ten="{{ d.nv.ho_ten|lower }}" data-tt="{{ d.ma_tt }}" {% if loop.index > 6 %}data-an hidden{% endif %}>
       {{ avatar(d.nv, cls="don-avatar") }}
       <div class="ql-dong-ten">
         <strong>{{ d.nv.ho_ten }}</strong>
@@ -32,7 +32,7 @@
       </div>
       <span class="tt-chip tt-chip--{{ d.ma_tt }}">{{ d.nhan_tt }}</span>
       {% if d.gio %}<span class="ql-gio">{{ d.gio }}</span>{% endif %}
-    </div>
+    </a>
     {% else %}
     <div class="trong-rong">Chưa có nhân viên trong phạm vi quản lý.</div>
     {% endfor %}

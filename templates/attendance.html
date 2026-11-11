@@ -1,20 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Chấm công · BRICON{% endblock %}
+{% block title %}{{ 'Chấm công · ' ~ nv.ho_ten if xem_nv else 'Chấm công' }} · BRICON{% endblock %}
 
 {% block content %}
 {% from "_avatar.html" import avatar %}
+{% set ep_lich = 'attendance.cham_cong_nhan_vien' if xem_nv else 'attendance.trang_cham_cong' %}
+{% set kw_lich = {'id': nv.id} if xem_nv else {} %}
+{% if xem_nv %}
+<div>
+  <a class="quay-lai" href="{{ url_for('tasks.dashboard') }}">{{ bi('chevron-left') }} Tổng quan</a>
+</div>
+{% endif %}
 <div class="page-head">
   <div class="page-head-copy"><h1>Chấm công</h1></div>
+  {% if not xem_nv %}
   <div class="page-actions">
     <a class="nut nut--phu" href="{{ url_for('don_tu.danh_sach') }}">{{ bi('file-text') }} Đơn từ</a>
   </div>
+  {% endif %}
 </div>
 
 <div class="the cc-nguoi">
-  {{ avatar(current_user, cls="don-avatar") }}
+  {{ avatar(nv, cls="don-avatar") }}
   <div style="flex:1;min-width:0">
-    <strong>{{ current_user.ho_ten }}</strong>
-    <small>{{ current_user.chuc_vu.ten if current_user.chuc_vu else current_user.ten_vai_tro }}</small>
+    <strong>{{ nv.ho_ten }}</strong>
+    <small>{{ nv.chuc_vu.ten if nv.chuc_vu else (nv.bo_phan.ten if nv.bo_phan else nv.ten_vai_tro) }}</small>
   </div>
   <div class="cc-dong-ho">
     <span>{{ ngay_hn.strftime('%d/%m/%Y') }}</span>
@@ -22,12 +31,12 @@
   </div>
 </div>
 
-{% if la_hom_nay_nghi %}
+{% if not xem_nv and la_hom_nay_nghi %}
 <div class="canh-bao-nho" style="margin-bottom:12px;background:var(--chinh-nhat);border-left:3px solid var(--chinh)">
   {{ bi('sparkles') }} Hôm nay là ngày nghỉ (Chủ nhật/lễ) — không cần chấm công, không bị tính nghỉ không phép.
 </div>
 {% endif %}
-{% if not diems %}
+{% if not xem_nv and not diems %}
 <div class="canh-bao-nho" style="margin-bottom:12px">
   Chưa có điểm chấm công nào được cấu hình, hệ thống tạm thời không kiểm tra phạm vi.
 </div>
@@ -35,9 +44,9 @@
 
 <div class="the cc-lich">
   <div class="cc-lich-dau">
-    <a href="{{ url_for('attendance.trang_cham_cong', thang=thang_truoc) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
+    <a href="{{ url_for(ep_lich, thang=thang_truoc, **kw_lich) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
     <strong>Tháng {{ dau_thang.month }} / {{ dau_thang.year }}</strong>
-    {% if thang_sau %}<a href="{{ url_for('attendance.trang_cham_cong', thang=thang_sau) }}" aria-label="Tháng sau">{{ bi('chevron-right') }}</a>{% else %}<span></span>{% endif %}
+    {% if thang_sau %}<a href="{{ url_for(ep_lich, thang=thang_sau, **kw_lich) }}" aria-label="Tháng sau">{{ bi('chevron-right') }}</a>{% else %}<span></span>{% endif %}
   </div>
   <div class="cc-luoi">
     {% for t in ['T2','T3','T4','T5','T6','T7','CN'] %}<div class="cc-thu">{{ t }}</div>{% endfor %}
@@ -63,11 +72,21 @@
     <span><i class="cc-ch cc-ch--dung"></i>Đúng giờ</span>
     <span><i class="cc-ch cc-ch--tre"></i>Đi trễ</span>
     <span><i class="cc-ch cc-ch--nghi"></i>Nghỉ</span>
+    <span><i class="cc-ch cc-ch--cty_nghi"></i>CN / lễ</span>
     <span><i class="cc-ch cc-ch--tuong_lai"></i>Chưa đến ngày</span>
   </div>
   <div class="cc-chi-tiet" data-cc-chi-tiet hidden></div>
 
-  {% if not current_user.la_admin_sep %}
+  {% if xem_nv %}
+  <div class="cc-hom-nay">
+    {%- if hom_nay and hom_nay.gio_vao %}Hôm nay: vào <b>{{ hom_nay.gio_vao.strftime('%H:%M') }}</b>
+      {%- if hom_nay.di_tre %} · <span style="color:var(--lam-lai)">trễ {{ hom_nay.so_phut_tre }}′{% if hom_nay.tre_co_phep %} (đã duyệt){% endif %}</span>{% endif %}
+      · ra <b>{{ hom_nay.gio_ra.strftime('%H:%M') if hom_nay.gio_ra else 'chưa chấm' }}</b>
+      {%- if hom_nay.diem_vao %} · {{ hom_nay.diem_vao.ten }}{% endif %}
+    {%- elif hom_nay and hom_nay.nghi_khong_phep %}Hôm nay: nghỉ không phép
+    {%- else %}Hôm nay: chưa chấm công{% endif %}
+  </div>
+  {% elif not current_user.la_admin_sep %}
   {% if not hom_nay %}
   <form method="post" data-can-vi-tri action="{{ url_for('attendance.cham_cong_vao') }}" class="cc-form">
     <input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="do_chinh_xac">
@@ -102,7 +121,9 @@
     · {{ '%02d:%02d'|format(config.GIO_BAT_DAU_CHIEU[0], config.GIO_BAT_DAU_CHIEU[1]) }}–{{ '%02d:%02d'|format(ca_ra[0], ca_ra[1]) }}</strong>
 </div>
 
-{% if current_user.la_quan_ly %}
+{% if xem_nv %}
+<a class="nut nut--phu nut--rong" href="{{ url_for('attendance.bang_cong', thang=dau_thang.strftime('%Y-%m'), nguoi=nv.id) }}">{{ bi('bar-chart') }} Xem bảng công chi tiết tháng này</a>
+{% elif current_user.la_quan_ly %}
 <a class="nut nut--phu nut--rong" href="{{ url_for('attendance.bang_cong') }}">{{ bi('bar-chart') }} Xem bảng công cả bộ phận</a>
 {% endif %}
 {% endblock %}

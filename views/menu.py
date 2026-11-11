@@ -39,20 +39,37 @@ def _loai_de_xuat_dang_xem() -> str | None:
     return loai
 
 
+def _so_viec_can_xu_ly() -> int:
+    """Việc mới giao cho tôi + việc đã gửi đối chứng đang chờ tôi duyệt."""
+    from models import CongViec, TrangThai
+    from views.tasks import _viec_lien_quan
+    n = CongViec.query.filter_by(nguoi_nhan_id=current_user.id, trang_thai=TrangThai.MOI).count()
+    if current_user.la_quan_ly:
+        n += sum(1 for v in _viec_lien_quan().filter(CongViec.trang_thai == TrangThai.CHO_DUYET)
+                 if current_user.duoc_duyet_viec(v))
+    return n
+
+
 def menu_chinh() -> list[dict]:
     """[{ma, nhan, muc: [...]}] theo quyền của người đang đăng nhập."""
     if not current_user.is_authenticated:
         return []
     from models import BienBanPhat, TrangThaiBienBan
     from views.cong_no import duoc_vao as duoc_vao_cong_no
+    from models import LoaiDeXuat
+    from views.de_xuat import _de_xuat_can_duyet
     from views.don_tu import so_don_cho_duyet
+
+    dx_cho = _de_xuat_can_duyet()  # [] với nhân viên thường
+    dx_dem = {loai: sum(1 for d in dx_cho if d.loai == loai) for loai in (LoaiDeXuat.CONG_VIEC, LoaiDeXuat.TAM_UNG)}
 
     cong_viec = [
         _muc("tasks.danh_sach", "Công việc", bi("clipboard-list"), "Việc được giao, giao việc",
+             dem=_so_viec_can_xu_ly(),
              khop=lambda: request.endpoint in ("tasks.danh_sach", "tasks.chi_tiet", "tasks.giao_viec")),
         _muc("tasks.kpi", "KPI", bi("target"), "Điểm sao, xếp loại"),
         _muc("de_xuat.danh_sach", "Đề xuất công việc", bi("lightbulb"), "Mua sắm, đề xuất cải tiến",
-             kw={"loai": "cong_viec"}, khop=lambda: _loai_de_xuat_dang_xem() == "cong_viec"),
+             dem=dx_dem[LoaiDeXuat.CONG_VIEC], kw={"loai": "cong_viec"}, khop=lambda: _loai_de_xuat_dang_xem() == "cong_viec"),
         _muc("tasks.thu_vien", "Thư viện", bi("images"), "Ảnh, tệp đối chứng"),
         _muc("dong_goi.moi", "Đóng gói", bi("package"), "Chụp ảnh gói hàng",
              khop=lambda: request.blueprint == "dong_goi"),
@@ -67,7 +84,7 @@ def menu_chinh() -> list[dict]:
         _muc("don_tu.danh_sach", "Đơn từ", bi("file-text"), "Xin nghỉ, đi trễ, bổ sung công…",
              dem=so_don_cho_duyet(), khop=lambda: request.blueprint == "don_tu"),
         _muc("de_xuat.danh_sach", "Tạm ứng", bi("wallet"), "Đề xuất tạm ứng lương",
-             kw={"loai": "tam_ung"}, khop=lambda: _loai_de_xuat_dang_xem() == "tam_ung"),
+             dem=dx_dem[LoaiDeXuat.TAM_UNG], kw={"loai": "tam_ung"}, khop=lambda: _loai_de_xuat_dang_xem() == "tam_ung"),
         _muc("bien_ban.danh_sach", "Biên bản phạt", bi("alert-triangle"), "Vi phạm, phạt",
              dem=BienBanPhat.query.filter_by(nguoi_vi_pham_id=current_user.id,
                                              trang_thai=TrangThaiBienBan.CHO_KY).count(),

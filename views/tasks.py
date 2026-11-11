@@ -112,6 +112,7 @@ def _tong_quan_nhan_vien(hom_nay):
         nghi.setdefault(x.nguoi_dung_id, x)
 
     dong, dang_lam, so_nghi, chua_cham = [], 0, 0, 0
+    cty_nghi = services.la_ngay_nghi(hom_nay)  # Chủ nhật / lễ
     for n in nhan_vien:
         c, x = cc.get(n.id), nghi.get(n.id)
         if c and c.gio_vao:
@@ -128,12 +129,14 @@ def _tong_quan_nhan_vien(hom_nay):
         elif c and c.nghi_khong_phep:
             so_nghi += 1
             tt, gio = ("khong_phep", "Nghỉ không phép"), ""
+        elif cty_nghi:
+            tt, gio = ("cty_nghi", "Ngày nghỉ"), ""
         else:
             chua_cham += 1
             tt, gio = ("chua", "Chưa chấm"), ""
         dong.append({"nv": n, "ma_tt": tt[0], "nhan_tt": tt[1], "gio": gio})
 
-    thu_tu = {"tre": 0, "khong_phep": 1, "chua": 2, "tre_duyet": 3, "nghi": 4, "dung": 5}
+    thu_tu = {"tre": 0, "khong_phep": 1, "chua": 2, "tre_duyet": 3, "nghi": 4, "dung": 5, "cty_nghi": 6}
     dong.sort(key=lambda d: (thu_tu[d["ma_tt"]], d["nv"].ho_ten))
     return {"tong": len(nhan_vien), "dang_lam": dang_lam, "nghi": so_nghi,
             "chua_cham": chua_cham, "dong": dong, "don_cho_duyet": don_cho_duyet()}

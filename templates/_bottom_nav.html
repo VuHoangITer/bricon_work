@@ -6,12 +6,14 @@
 {% set _cv = _menu[0] %}
 {% set _ns = _menu[1] %}
 {% set _dem_duyet = so_don_cho_duyet() %}
+{% set _ns_dem = _ns.dem - (_dem_duyet if current_user.la_admin_sep else 0) %}
 <nav class="bottom-nav" aria-label="Menu chính">
   <a href="{{ url_for('tasks.dashboard') }}" class="bn-muc {{ 'active' if _ep == 'tasks.dashboard' }}">
     <span class="bn-icon">{{ bi('home') }}</span><span>{{ 'Tổng quan' if current_user.la_admin_sep else 'Trang chủ' }}</span>
   </a>
   <a href="{{ url_for('menu.cong_viec') }}" class="bn-muc {{ 'active' if _cv.active or _ep == 'menu.cong_viec' }}">
     <span class="bn-icon">{{ bi('clipboard-list') }}</span><span>Công việc</span>
+    {% if _cv.dem %}<span class="bn-dem">{{ _cv.dem }}</span>{% endif %}
   </a>
   {% if current_user.la_admin_sep %}
   <a href="{{ url_for('don_tu.danh_sach', tab='duyet') }}" class="bn-muc bn-muc--giua {{ 'active' if request.blueprint == 'don_tu' }}">
@@ -25,7 +27,7 @@
   {% endif %}
   <a href="{{ url_for('menu.nhan_su') }}" class="bn-muc {{ 'active' if (_ns.active and _ep != 'attendance.trang_cham_cong' and not (current_user.la_admin_sep and request.blueprint == 'don_tu')) or _ep == 'menu.nhan_su' }}">
     <span class="bn-icon">{{ bi('users') }}</span><span>Nhân sự</span>
-    {% if _ns.dem and not current_user.la_admin_sep %}<span class="bn-dem">{{ _ns.dem }}</span>{% endif %}
+    {% if _ns_dem > 0 %}<span class="bn-dem">{{ _ns_dem }}</span>{% endif %}
   </a>
   <a href="{{ url_for('menu.ca_nhan') }}" class="bn-muc {{ 'active' if _ep in ('menu.ca_nhan', 'auth.ho_so_cua_toi', 'auth.doi_mat_khau') or request.blueprint == 'admin' and not _ns.active }}">
     <span class="bn-icon">{{ bi('user') }}</span><span>Cá nhân</span>
