@@ -14,6 +14,7 @@
 
 <div class="hub-danh-sach the the--khong-dem">
   <a href="{{ url_for('auth.ho_so_cua_toi') }}"><span>{{ bi('user') }}</span>Hồ sơ của tôi<i>{{ bi('chevron-right') }}</i></a>
+  {% if not current_user.la_admin_sep %}<a href="{{ url_for('luong.cua_toi') }}"><span>{{ bi('credit-card') }}</span>Lương của tôi<i>{{ bi('chevron-right') }}</i></a>{% endif %}
   <a href="{{ url_for('thong_bao.danh_sach') }}"><span>{{ bi('megaphone') }}</span>Thông báo<i>{{ bi('chevron-right') }}</i></a>
   <a href="{{ url_for('auth.doi_mat_khau') }}"><span>{{ bi('lock') }}</span>Đổi mật khẩu<i>{{ bi('chevron-right') }}</i></a>
 </div>

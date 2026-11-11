@@ -124,7 +124,10 @@ def menu_chinh() -> list[dict]:
                             khop=lambda: request.endpoint in ("attendance.bang_cong", "attendance.sua_cham_cong")))
     if current_user.la_admin_sep:
         nhan_su.append(_muc("luong.bang_luong", "Bảng lương", bi("credit-card"), "Tính lương tự động, phiếu lương",
-                            khop=lambda: request.blueprint == "luong"))
+                            khop=lambda: request.blueprint == "luong" and request.endpoint != "luong.khen_thuong"))
+        nhan_su.append(_muc("luong.khen_thuong", "Khen thưởng", bi("sparkles"), "Thưởng tiền cho nhân viên làm tốt"))
+    else:
+        nhan_su.insert(1, _muc("luong.cua_toi", "Lương của tôi", bi("credit-card"), "Lương tạm tính đến hôm nay"))
     if current_user.duoc_quan_ly_giay_to:
         nhan_su.append(_muc("admin.giay_to", "Giấy tờ nhân sự", bi("folder"), "Hợp đồng, cam kết",
                             khop=lambda: request.endpoint in ("admin.giay_to", "admin.giay_to_nhan_vien")))

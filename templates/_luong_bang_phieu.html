@@ -1,0 +1,42 @@
+{# Bảng chi tiết phiếu lương + dòng Thực lĩnh — dùng chung cho phiếu in và Lương của tôi. Cần biến p. #}
+  <div class="bang-cuon">
+  <table class="pl-bang">
+    <thead><tr><th>Khoản</th><th class="so pl-phu">Mức tháng</th><th class="so pl-phu">Giá/ngày</th><th class="so">Công</th><th class="so">Thành tiền</th></tr></thead>
+    <tbody>
+      <tr class="pl-nhom"><td>I. Lương cơ bản</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.luong_cb|tien }}</td></tr>
+      {% for g in p.giai_doan %}
+      <tr><td>{{ g.vt.ten }}{% if p.giai_doan|length > 1 %}<small>{{ g.tu.strftime('%d/%m') }} – {{ g.den.strftime('%d/%m') }}</small>{% endif %}<small class="pl-chi-dt">Mức {{ g.muc_cb|tien }} · {{ g.cb_ngay|tien }}/ngày</small></td>
+        <td class="so pl-phu">{{ g.muc_cb|tien }}</td><td class="so pl-phu">{{ g.cb_ngay|tien }}</td><td class="so">{{ g.cong|cong }}</td><td class="so">{{ g.cb|tien }}</td></tr>
+      {% endfor %}
+
+      {% if p.trach_nhiem or p.giai_doan|selectattr('tn')|list %}
+      <tr class="pl-nhom"><td>II. Lương trách nhiệm</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.trach_nhiem|tien }}</td></tr>
+      {% for g in p.giai_doan %}{% for x in g.tn %}
+      <tr><td>{{ x.noi_dung }}{% if p.giai_doan|length > 1 %}<small>{{ g.vt.ten }} · {{ g.tu.strftime('%d/%m') }} – {{ g.den.strftime('%d/%m') }}</small>{% endif %}<small class="pl-chi-dt">Mức {{ x.muc|tien }} · {{ x.ngay|tien }}/ngày</small></td>
+        <td class="so pl-phu">{{ x.muc|tien }}</td><td class="so pl-phu">{{ x.ngay|tien }}</td><td class="so">{{ g.cong|cong }}</td><td class="so">{{ x.tien|tien }}</td></tr>
+      {% endfor %}{% endfor %}
+      {% endif %}
+
+      {% if p.nang_luc %}
+      <tr class="pl-nhom"><td>III. Năng lực / thưởng</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.tong_nang_luc|tien }}</td></tr>
+      {% for x in p.nang_luc %}
+      <tr><td>{{ x.noi_dung }}</td><td class="so pl-phu">{{ x.tien|tien }}</td><td class="so pl-phu">—</td><td class="so">—</td><td class="so">{{ x.tien|tien }}</td></tr>
+      {% endfor %}
+      {% endif %}
+
+      <tr class="pl-tong"><td>TỔNG THU NHẬP</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.thu|tien }}</td></tr>
+
+      {% if p.khau_tru %}
+      <tr class="pl-nhom pl-nhom--tru"><td>IV. Khấu trừ</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">−{{ p.tong_khau_tru|tien }}</td></tr>
+      {% for x in p.khau_tru %}
+      <tr class="pl-tru"><td>{{ x.noi_dung }}</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">−{{ x.tien|tien }}</td></tr>
+      {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="pl-thuc-linh">
+    <span>THỰC LĨNH</span>
+    <strong>{{ p.thuc_linh|tien }} ₫</strong>
+  </div>

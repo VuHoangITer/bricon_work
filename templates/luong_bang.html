@@ -8,6 +8,7 @@
     <p>Tự tính từ chấm công, tạm ứng đã duyệt và biên bản phạt. Công chuẩn tháng {{ thg }}: <b>{{ cong_chuan }}</b> ngày (T2 → T7).</p>
   </div>
   <div class="page-actions">
+    <a class="nut nut--vang" href="{{ url_for('luong.khen_thuong', thang=thang) }}">{{ bi('sparkles') }} Khen thưởng</a>
     <a class="nut nut--phu" href="{{ url_for('luong.ds_nhan_vien') }}">{{ bi('users') }} Vị trí nhân viên</a>
     <a class="nut nut--phu" href="{{ url_for('luong.vi_tri') }}">{{ bi('wallet') }} Mẫu lương</a>
   </div>
@@ -51,6 +52,7 @@
   <div class="luong-the-so">
     <span>Công <b>{{ p.cong|cong }}/{{ p.cong_chuan }}</b></span>
     <span>Thu nhập <b>{{ p.thu|tien }}</b></span>
+    {% if p.thuong %}<span class="xanh">Thưởng <b>+{{ p.thuong|tien }}</b></span>{% endif %}
     {% if p.tam_ung %}<span class="do">Tạm ứng <b>−{{ p.tam_ung|tien }}</b></span>{% endif %}
     {% if p.phat %}<span class="do">Phạt <b>−{{ p.phat|tien }}</b></span>{% endif %}
     {% if p.khau_tru_khac %}<span class="do">Khấu trừ <b>−{{ p.khau_tru_khac|tien }}</b></span>{% endif %}

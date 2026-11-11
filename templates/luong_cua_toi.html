@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Lương của tôi · BRICON{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Lương của tôi</h1>
+    <p>{% if p and p.dang_chay %}Tạm tính đến hôm nay {{ hom_nay.strftime('%d/%m/%Y') }} — cập nhật mỗi khi bạn chấm công.{% else %}Phiếu lương tháng {{ thg }}/{{ nam }}.{% endif %}</p>
+  </div>
+</div>
+
+<div class="the luong-thang">
+  <a href="{{ url_for('luong.cua_toi', thang=thang_truoc) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
+  <strong>Tháng {{ thg }} / {{ nam }}</strong>
+  {% if thang_sau %}<a href="{{ url_for('luong.cua_toi', thang=thang_sau) }}" aria-label="Tháng sau">{{ bi('chevron-right') }}</a>{% else %}<span></span>{% endif %}
+</div>
+
+{% if not p %}
+<div class="the trong-rong">{{ bi('wallet') }} Chưa có thông tin lương tháng này. Liên hệ quản trị để được gán vị trí lương.</div>
+{% else %}
+<div class="the luong-toi">
+  <span class="luong-toi-nhan">{{ 'Thực lĩnh tạm tính' if p.dang_chay else 'Thực lĩnh' }}</span>
+  <strong class="luong-toi-so">{{ p.thuc_linh|tien }} ₫</strong>
+  <div class="luong-toi-phu">
+    <span>Công <b>{{ p.cong|cong }}/{{ p.cong_chuan }}</b></span>
+    <span>Thu nhập <b>{{ p.thu|tien }}</b></span>
+    {% if p.thuong %}<span class="xanh">Thưởng <b>+{{ p.thuong|tien }}</b></span>{% endif %}
+    {% if p.tong_khau_tru %}<span class="do">Khấu trừ <b>−{{ p.tong_khau_tru|tien }}</b></span>{% endif %}
+  </div>
+  {% if p.dang_chay and p.con_lai %}
+  <div class="luong-toi-du-kien">
+    {{ bi('target') }}
+    <span>Đi làm đủ {{ p.con_lai }} ngày còn lại → dự kiến cả tháng <b>{{ p.du_kien|tien }} ₫</b></span>
+  </div>
+  {% endif %}
+</div>
+
+<div class="phieu-luong">
+  <div class="pl-tt">
+    <div><span>Vị trí</span><b>{{ p.ten_vi_tri }}</b></div>
+    <div><span>Kỳ</span><b>{{ p.dau.strftime('%d/%m') }} – {{ p.cuoi.strftime('%d/%m/%Y') }}</b></div>
+  </div>
+  {% include "_luong_bang_phieu.html" %}
+  <div class="pl-bang-chu">Bằng chữ: <i>{{ bang_chu }}</i></div>
+  <div class="goi-y" style="margin-top:10px">Lương CB và trách nhiệm = mức tháng ÷ {{ p.cong_chuan }} công chuẩn × số công thực tế. Chỉ ngày có chấm công mới được tính công. Thắc mắc về lương liên hệ quản trị.</div>
+</div>
+{% endif %}
+
+{% if thuong %}
+<div class="tieu-khu"><h2>Khen thưởng gần đây</h2></div>
+{% for k in thuong %}
+<div class="the luong-moc">
+  <span class="luong-kt-icon">{{ bi('sparkles') }}</span>
+  <div style="flex:1;min-width:0">
+    <strong>+{{ k.so_tien|tien }} ₫</strong>
+    <small>{{ k.ngay.strftime('%d/%m/%Y') }} · {{ k.ly_do }}</small>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

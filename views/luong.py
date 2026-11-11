@@ -15,16 +15,90 @@ from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import ChamCong, LuongNhanVien, NguoiDung, VaiTro, ViTriLuong, ngay_vn_hien_tai
+from models import ChamCong, KhenThuong, LuongNhanVien, NguoiDung, VaiTro, ViTriLuong, ngay_vn_hien_tai
 
 bp = Blueprint("luong", __name__, url_prefix="/luong")
+
+# Trang ai cũng vào được (chỉ thấy lương của chính mình)
+_TRANG_CA_NHAN = ("luong.cua_toi",)
 
 
 @bp.before_request
 @login_required
 def _chi_admin_sep():
+    if request.endpoint in _TRANG_CA_NHAN:
+        return None
     if not current_user.la_admin_sep:
         abort(403)
+
+
+# ---------------------------------------------------------------------------
+# Lương của tôi — nhân viên xem lương tạm tính đến hôm nay
+# ---------------------------------------------------------------------------
+@bp.route("/cua-toi")
+def cua_toi():
+    nam, thg, thang = _thang()
+    hn = ngay_vn_hien_tai()
+    p = services.tinh_luong(current_user, nam, thg)
+    thuong = (KhenThuong.query.filter(KhenThuong.nguoi_dung_id == current_user.id)
+              .order_by(KhenThuong.ngay.desc()).limit(10).all())
+    return render_template(
+        "luong_cua_toi.html", p=p, thang=thang, nam=nam, thg=thg, hom_nay=hn, thuong=thuong,
+        bang_chu=services.so_tien_bang_chu(p["thuc_linh"]) if p else "",
+        thang_truoc=_thang_lech(nam, thg, -1),
+        thang_sau=_thang_lech(nam, thg, 1) if (nam, thg) < (hn.year, hn.month) else None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Khen thưởng
+# ---------------------------------------------------------------------------
+@bp.route("/khen-thuong", methods=["GET", "POST"])
+def khen_thuong():
+    nam, thg, thang = _thang()
+    if request.method == "POST":
+        nd = db.session.get(NguoiDung, request.form.get("nguoi_dung_id", type=int) or 0)
+        so_tien = int("".join(ch for ch in request.form.get("so_tien", "") if ch.isdigit()) or 0)
+        ly_do = (request.form.get("ly_do") or "").strip()
+        try:
+            ngay = date.fromisoformat(request.form.get("ngay") or "")
+        except ValueError:
+            ngay = None
+        if not nd or not ngay or so_tien <= 0 or not ly_do:
+            flash("Chọn nhân viên, ngày, nhập số tiền và lý do khen thưởng.", "error")
+            return redirect(url_for("luong.khen_thuong", thang=thang))
+        kt = KhenThuong(nguoi_dung_id=nd.id, ngay=ngay, so_tien=so_tien, ly_do=ly_do, nguoi_tao_id=current_user.id)
+        db.session.add(kt)
+        db.session.commit()
+        services.gui_cho_nhan_vien(
+            nd, f"🎉 Chúc mừng {nd.ho_ten}!\nBạn được khen thưởng {services.dinh_dang_tien(so_tien)}"
+                f"\nLý do: {ly_do}\nKhoản thưởng được cộng vào lương tháng {ngay.month}/{ngay.year}.")
+        flash(f"Đã thưởng {nd.ho_ten} {services.dinh_dang_tien(so_tien)}.", "success")
+        return redirect(url_for("luong.khen_thuong", thang=f"{ngay.year:04d}-{ngay.month:02d}"))
+
+    dau = date(nam, thg, 1)
+    cuoi = date(nam + (thg == 12), thg % 12 + 1, 1)
+    ds = (KhenThuong.query.filter(KhenThuong.ngay >= dau, KhenThuong.ngay < cuoi)
+          .order_by(KhenThuong.ngay.desc(), KhenThuong.id.desc()).all())
+    hn = ngay_vn_hien_tai()
+    return render_template(
+        "luong_khen_thuong.html", ds=ds, tong=sum(k.so_tien for k in ds), thang=thang, nam=nam, thg=thg,
+        hom_nay=hn, thang_truoc=_thang_lech(nam, thg, -1), thang_sau=_thang_lech(nam, thg, 1),
+        nhan_vien=NguoiDung.query.filter(NguoiDung.dang_hoat_dong.is_(True),
+                                         NguoiDung.vai_tro.notin_((VaiTro.ADMIN,)))
+        .order_by(NguoiDung.ho_ten).all(),
+        chon_nv=request.args.get("nguoi", type=int),
+    )
+
+
+@bp.route("/khen-thuong/<int:id>/xoa", methods=["POST"])
+def xoa_khen_thuong(id):
+    kt = db.session.get(KhenThuong, id) or abort(404)
+    thang = f"{kt.ngay.year:04d}-{kt.ngay.month:02d}"
+    db.session.delete(kt)
+    db.session.commit()
+    flash("Đã xoá khoản thưởng.", "success")
+    return redirect(url_for("luong.khen_thuong", thang=thang))
 
 
 def _thang():

@@ -1482,3 +1482,21 @@ class LuongNhanVien(db.Model):
 
     nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
     vi_tri = db.relationship("ViTriLuong")
+
+
+class KhenThuong(db.Model):
+    """Khoản thưởng cho nhân viên (làm tốt, vượt chỉ tiêu…). Cộng vào mục
+    Năng lực / thưởng của phiếu lương tháng có ngày khen thưởng."""
+    __tablename__ = "khen_thuong"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id", ondelete="CASCADE"),
+                              nullable=False, index=True)
+    ngay = db.Column(db.Date, nullable=False, index=True)
+    so_tien = db.Column(db.Integer, nullable=False)
+    ly_do = db.Column(db.Text, nullable=False)
+    nguoi_tao_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
+    nguoi_tao = db.relationship("NguoiDung", foreign_keys=[nguoi_tao_id])

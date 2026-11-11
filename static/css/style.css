@@ -986,6 +986,7 @@ a.luong-the:hover { border-color:var(--vien-dam); }
 .pl-bang { width:100%; border-collapse:collapse; font-size:.82rem; min-width:520px; }
 .pl-bang th { background:var(--chinh); color:#fff; font-weight:700; padding:7px 8px; text-align:left; }
 .pl-bang td { padding:6px 8px; border-bottom:1px solid #eeece6; vertical-align:top; }
+.pl-bang th, .pl-bang td { white-space:normal; }
 .pl-bang .so { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .pl-bang td small { display:block; font-size:.72rem; color:var(--muc-mo); }
 .pl-bang td small.pl-chi-dt { display:none; }
@@ -1026,3 +1027,16 @@ a.luong-the:hover { border-color:var(--vien-dam); }
   .pl-bang td small.pl-chi-dt { display:none !important; }
   .pl-bang th, .pl-nhom td, .pl-tong td, .pl-thuc-linh { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
+.luong-toi { text-align:center; background:linear-gradient(135deg, #fffaf0 0%, #f6ecd4 100%); }
+.luong-toi-nhan { display:block; font-size:.78rem; color:var(--muc-mo); font-weight:600; }
+.luong-toi-so { display:block; font-size:2rem; font-weight:800; letter-spacing:-.02em; color:var(--chinh-dam); font-variant-numeric:tabular-nums; margin:2px 0 8px; }
+.luong-toi-phu { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 14px; font-size:.78rem; color:var(--muc-mo); }
+.luong-toi-phu b { color:var(--muc); }
+.luong-toi-phu .xanh b, .luong-the-so .xanh b { color:#2f8a4f; }
+.luong-toi-phu .do b { color:#b8483f; }
+.luong-toi-du-kien { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px; padding:9px 12px; border-radius:10px; background:#fff; font-size:.8rem; text-align:left; }
+.luong-toi-du-kien .ic { color:var(--chinh); flex:0 0 auto; }
+.luong-kt-icon { width:36px; height:36px; flex:0 0 auto; display:grid; place-items:center; border-radius:50%; background:#fff4dc; color:#c08a1e; }
+.luong-goi-y-tien { display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 10px; }
+.tab-chip-nut { border:1px solid var(--vien); background:#fff; border-radius:16px; padding:5px 11px; font:inherit; font-size:.78rem; font-weight:600; color:var(--muc); cursor:pointer; }
+.tab-chip-nut:hover { border-color:var(--chinh); color:var(--chinh-dam); }
