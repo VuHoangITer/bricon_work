@@ -1040,3 +1040,41 @@ a.luong-the:hover { border-color:var(--vien-dam); }
 .luong-goi-y-tien { display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 10px; }
 .tab-chip-nut { border:1px solid var(--vien); background:#fff; border-radius:16px; padding:5px 11px; font:inherit; font-size:.78rem; font-weight:600; color:var(--muc); cursor:pointer; }
 .tab-chip-nut:hover { border-color:var(--chinh); color:var(--chinh-dam); }
+
+/* ---- Phiếu thanh toán lương: đầu phiếu có banner ---- */
+.phieu-luong { overflow:hidden; padding-top:0; }
+.pl-banner { display:block; width:calc(100% + 40px); max-width:none; margin:0 -20px 0; height:auto; border-bottom:3px solid var(--chinh); }
+.pl-dau { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; text-align:left;
+  border-bottom:1px solid #e7e1d2; padding:12px 0 10px; margin-bottom:0; }
+.pl-dau-cty b { display:block; font-size:.95rem; font-weight:800; letter-spacing:.08em; color:var(--den); }
+.pl-dau-cty small { display:block; font-size:.72rem; letter-spacing:.06em; color:var(--muc-mo); text-transform:uppercase; }
+.pl-dau-so { display:flex; flex-direction:column; align-items:flex-end; font-size:.74rem; color:var(--muc-mo); line-height:1.5; }
+.pl-dau-so b { color:var(--den); font-variant-numeric:tabular-nums; }
+.pl-tieu-de { text-align:center; padding:16px 0 12px; }
+.pl-tieu-de h1 { margin:0; font-size:1.45rem; font-weight:800; letter-spacing:.1em; color:var(--den); }
+.pl-tieu-de h1::after { content:""; display:block; width:64px; height:3px; margin:8px auto 0; border-radius:2px; background:var(--chinh); }
+.pl-tieu-de .pl-ky { margin-top:8px; font-size:.82rem; color:var(--muc-mo); }
+.pl-tt { border:1px solid #e7e1d2; border-radius:10px; padding:8px 14px; background:#fdfbf6; }
+.pl-tt div { border-bottom:1px dashed #e7e1d2; padding:6px 0; }
+.pl-tt div:nth-last-child(-n+2) { border-bottom:0; }
+.pl-ky-cot { grid-template-columns:repeat(3, 1fr); }
+.pl-chan { margin-top:18px; padding-top:10px; border-top:1px solid #e7e1d2; font-size:.7rem; color:var(--muc-mo); text-align:center; font-style:italic; }
+@media (max-width: 600px) {
+  .pl-banner { width:calc(100% + 24px); margin:0 -12px; }
+  .pl-tieu-de h1 { font-size:1rem; letter-spacing:.04em; }
+  .pl-tieu-de .pl-ky { font-size:.74rem; }
+  .pl-dau { flex-direction:column; align-items:flex-start; gap:6px; }
+  .pl-dau-so { flex-direction:row; flex-wrap:wrap; gap:2px 12px; align-items:baseline; }
+  .pl-tt div { flex-wrap:wrap; }
+  .pl-dau-cty b { font-size:.8rem; }
+  .pl-tt div:nth-last-child(2) { border-bottom:1px dashed #e7e1d2; }
+  .pl-ky-cot { font-size:.74rem; }
+  .pl-ky-cot span { margin-top:44px; }
+}
+@media print {
+  .phieu-luong { padding:0 !important; }
+  .pl-banner { width:100%; margin:0 0 0; }
+  .pl-banner, .pl-tt, .pl-tieu-de h1::after { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .pl-tt { display:grid; grid-template-columns:1fr 1fr; }
+  .pl-ky-ten, .pl-chan { break-inside:avoid; }
+}

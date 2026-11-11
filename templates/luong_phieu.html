@@ -10,19 +10,29 @@
 </div>
 
 <div class="phieu-luong">
+  <img class="pl-banner" src="{{ url_for('static', filename='img/banner_phieu_luong.png') }}" alt="BRICON Việt Nam — Keo xây dựng và chống thấm">
   <div class="pl-dau">
-    <div class="pl-cty">CÔNG TY BRICON</div>
-    <h1>PHIẾU LƯƠNG</h1>
-    <div class="pl-ky">Kỳ lương tháng {{ '%02d'|format(p.thg) }} / {{ p.nam }}</div>
+    <div class="pl-dau-cty">
+      <b>BRICON VIỆT NAM</b>
+      <small>Keo xây dựng và chống thấm</small>
+    </div>
+    <div class="pl-dau-so">
+      <span>Số: <b>PL{{ p.nam }}{{ '%02d'|format(p.thg) }}-{{ p.nd.ma_dinh_danh|upper }}</b></span>
+      <span>Ngày lập: {{ hom_nay.strftime('%d/%m/%Y') }}</span>
+    </div>
+  </div>
+  <div class="pl-tieu-de">
+    <h1>PHIẾU THANH TOÁN LƯƠNG</h1>
+    <div class="pl-ky">Kỳ lương tháng {{ '%02d'|format(p.thg) }}/{{ p.nam }} &nbsp;·&nbsp; {{ p.dau.strftime('%d/%m/%Y') }} – {{ p.cuoi.strftime('%d/%m/%Y') }}</div>
   </div>
 
   <div class="pl-tt">
     <div><span>Họ và tên</span><b>{{ p.nd.ho_ten }}</b></div>
-    <div><span>Mã NV</span><b>{{ p.nd.ma_dinh_danh }}</b></div>
+    <div><span>Mã nhân viên</span><b>{{ p.nd.ma_dinh_danh }}</b></div>
     <div><span>Vị trí</span><b>{{ p.ten_vi_tri }}</b></div>
     <div><span>Phòng ban</span><b>{{ p.giai_doan[-1].vt.phong_ban or (p.nd.bo_phan.ten if p.nd.bo_phan else '—') }}</b></div>
-    <div><span>Kỳ</span><b>{{ p.dau.strftime('%d/%m/%Y') }} – {{ p.cuoi.strftime('%d/%m/%Y') }}</b></div>
-    <div><span>Ngày công</span><b>{{ p.cong|cong }} / {{ p.cong_chuan }} ngày</b></div>
+    <div><span>Ngày công thực tế</span><b>{{ p.cong|cong }} / {{ p.cong_chuan }} ngày</b></div>
+    <div><span>Tỉ lệ công</span><b>{{ '%.1f'|format(p.cong / p.cong_chuan * 100 if p.cong_chuan else 0) }}%</b></div>
   </div>
 
   {% include "_luong_bang_phieu.html" %}
@@ -32,8 +42,10 @@
     <div class="pl-ngay">TP. HCM, ngày {{ '%02d'|format(hom_nay.day) }} tháng {{ '%02d'|format(hom_nay.month) }} năm {{ hom_nay.year }}</div>
     <div class="pl-ky-cot">
       <div><b>Người lập phiếu</b><small>(Ký, ghi rõ họ tên)</small><span>{{ current_user.ho_ten }}</span></div>
-      <div><b>Nhân viên</b><small>(Ký, ghi rõ họ tên)</small><span>{{ p.nd.ho_ten }}</span></div>
+      <div><b>Giám đốc</b><small>(Ký, đóng dấu)</small><span>&nbsp;</span></div>
+      <div><b>Người nhận</b><small>(Ký, ghi rõ họ tên)</small><span>{{ p.nd.ho_ten }}</span></div>
     </div>
   </div>
+  <div class="pl-chan">Phiếu lương là thông tin bảo mật giữa công ty và nhân viên. Mọi thắc mắc vui lòng phản hồi trong vòng 03 ngày kể từ ngày nhận phiếu.</div>
 </div>
 {% endblock %}

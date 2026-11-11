@@ -36,6 +36,9 @@
 </div>
 
 <div class="phieu-luong">
+  <img class="pl-banner" src="{{ url_for('static', filename='img/banner_phieu_luong.png') }}" alt="BRICON Việt Nam">
+  <div class="pl-tieu-de"><h1>PHIẾU THANH TOÁN LƯƠNG</h1>
+    <div class="pl-ky">Kỳ lương tháng {{ '%02d'|format(p.thg) }}/{{ p.nam }}{% if p.dang_chay %} · tạm tính đến {{ hom_nay.strftime('%d/%m') }}{% endif %}</div></div>
   <div class="pl-tt">
     <div><span>Vị trí</span><b>{{ p.ten_vi_tri }}</b></div>
     <div><span>Kỳ</span><b>{{ p.dau.strftime('%d/%m') }} – {{ p.cuoi.strftime('%d/%m/%Y') }}</b></div>
