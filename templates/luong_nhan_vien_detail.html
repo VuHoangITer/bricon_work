@@ -13,7 +13,10 @@
     <strong>{{ nd.ho_ten }}</strong>
     <small>{{ nd.ma_dinh_danh }}{% if nd.bo_phan %} · {{ nd.bo_phan.ten }}{% endif %}</small>
   </div>
-  <a class="nut nut--phu nut--nho" href="{{ url_for('luong.phieu', id=nd.id) }}">{{ bi('file-text') }} Phiếu lương</a>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <a class="nut nut--phu nut--nho" href="{{ url_for('luong.khen_thuong', nguoi=nd.id) }}">{{ bi('sparkles') }} Thưởng</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('luong.phieu', id=nd.id) }}">{{ bi('file-text') }} Phiếu lương</a>
+  </div>
 </div>
 
 {% if ds_vi_tri %}
@@ -22,26 +25,30 @@
   <div class="don-dong"><label for="vi_tri_luong_id">{{ bi('wallet') }} Vị trí</label>
     <select id="vi_tri_luong_id" name="vi_tri_luong_id" required>
       <option value="">— Chọn vị trí —</option>
-      {% for v in ds_vi_tri %}<option value="{{ v.id }}">{{ v.ten }} · {{ v.tong_thang|tien }}</option>{% endfor %}
+      {% for v in ds_vi_tri %}<option value="{{ v.id }}">{{ v.ten }} · {{ v.tong_thang|tien }} ₫</option>{% endfor %}
     </select></div>
   <div class="don-dong"><label for="tu_ngay">{{ bi('calendar') }} Áp dụng từ ngày</label>
     <input id="tu_ngay" type="date" name="tu_ngay" required value="{{ hom_nay.isoformat() if ls else hom_nay.replace(day=1).isoformat() }}"></div>
   <div class="don-dong"><label for="ghi_chu">Ghi chú</label>
     <input id="ghi_chu" type="text" name="ghi_chu" placeholder="VD: Hết thử việc, lên chính thức"></div>
   <div class="goi-y">VD: thử việc từ 01/11, lên chính thức từ 15/11 → thêm 2 dòng. Lương tháng 11 = lương thử việc theo công 01–14 + lương chính thức theo công 15–30.</div>
-  <button class="nut nut--vang nut--rong" type="submit">{{ bi('check') }} Lưu</button>
+  <button class="nut nut--vang nut--rong" type="submit">{{ bi('check') }} Lưu mốc lương</button>
 </form>
 {% else %}
 <div class="the trong-rong">Chưa có mẫu lương nào. <a href="{{ url_for('luong.vi_tri') }}">Nhập mẫu lương</a> trước.</div>
 {% endif %}
 
-<div class="tieu-khu"><h2>Lịch sử vị trí lương</h2></div>
+<div class="tieu-khu"><h2>Lịch sử vị trí lương</h2><span class="dem">{{ ls|length }}</span></div>
 {% for m in ls %}
-<div class="the luong-moc {{ 'luong-moc--hien-tai' if m.tu_ngay <= hom_nay and (loop.first or ls[loop.index0 - 1].tu_ngay > hom_nay) }}">
+{% set dang_dung = m.tu_ngay <= hom_nay and (loop.first or ls[loop.index0 - 1].tu_ngay > hom_nay) %}
+<div class="the luong-moc {{ 'luong-moc--hien-tai' if dang_dung }}">
   <div style="flex:1;min-width:0">
-    <strong>{{ m.vi_tri.ten }}</strong>
-    <small>Từ {{ m.tu_ngay.strftime('%d/%m/%Y') }}{% if not loop.first %} đến {{ (ls[loop.index0 - 1].tu_ngay).strftime('%d/%m/%Y') }} (trước ngày){% endif %}
-      · {{ m.vi_tri.tong_thang|tien }}/tháng{% if m.ghi_chu %} · {{ m.ghi_chu }}{% endif %}</small>
+    <strong style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      {{ m.vi_tri.ten }}
+      {% if dang_dung %}<span class="nhan" data-tt="hoan_thanh">Đang áp dụng</span>{% elif m.tu_ngay > hom_nay %}<span class="nhan" data-tt="cho_duyet">Sắp áp dụng</span>{% endif %}
+    </strong>
+    <small>Từ {{ m.tu_ngay.strftime('%d/%m/%Y') }}{% if not loop.first %} đến trước {{ (ls[loop.index0 - 1].tu_ngay).strftime('%d/%m/%Y') }}{% endif %}
+      · <b>{{ m.vi_tri.tong_thang|tien }} ₫/tháng</b>{% if m.ghi_chu %} · {{ m.ghi_chu }}{% endif %}</small>
   </div>
   <form method="post" action="{{ url_for('luong.xoa_moc', id=m.id) }}" onsubmit="return confirm('Xoá mốc này?')">
     <button class="luong-khoan-xoa" type="submit" aria-label="Xoá">{{ bi('trash') }}</button>

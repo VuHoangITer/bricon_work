@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}Khen thưởng · BRICON{% endblock %}
 
 {% block content %}
@@ -7,51 +8,52 @@
     <h1>Khen thưởng</h1>
     <p>Nhân viên làm tốt → thưởng tiền. Khoản thưởng tự cộng vào phiếu lương tháng có ngày khen thưởng và nhân viên nhận thông báo Zalo.</p>
   </div>
-  <div class="page-actions">
-    <a class="nut nut--phu" href="{{ url_for('luong.bang_luong', thang=thang) }}">{{ bi('credit-card') }} Bảng lương</a>
-  </div>
 </div>
 
+{% include "_tab_luong.html" %}
+
 <form class="the don-form" method="post">
-  <h2 style="margin:0 0 4px">{{ bi('sparkles') }} Thưởng cho nhân viên</h2>
+  <h2 style="margin:0 0 4px;display:flex;align-items:center;gap:8px"><span class="luong-kt-icon" style="width:30px;height:30px">{{ bi('sparkles', 'ic--sm') }}</span> Thưởng cho nhân viên</h2>
   <div class="don-dong"><label for="nguoi_dung_id">{{ bi('user') }} Nhân viên</label>
     <select id="nguoi_dung_id" name="nguoi_dung_id" required>
       <option value="">— Chọn nhân viên —</option>
       {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if chon_nv == n.id }}>{{ n.ho_ten }}{% if n.bo_phan %} · {{ n.bo_phan.ten }}{% endif %}</option>{% endfor %}
     </select></div>
   <div class="don-dong don-dong--doi">
-    <div><label for="so_tien">Số tiền thưởng</label>
+    <div><label for="so_tien">{{ bi('wallet') }} Số tiền thưởng (₫)</label>
       <input id="so_tien" type="text" name="so_tien" inputmode="numeric" required placeholder="VD: 500.000" data-tien></div>
-    <div><label for="ngay">{{ bi('calendar') }} Ngày</label>
+    <div><label for="ngay">{{ bi('calendar') }} Ngày khen thưởng</label>
       <input id="ngay" type="date" name="ngay" required value="{{ hom_nay.isoformat() }}"></div>
   </div>
   <div class="luong-goi-y-tien">
-    {% for so in (100000, 200000, 500000, 1000000) %}<button type="button" class="tab-chip-nut" data-chon-tien="{{ so }}">{{ so|tien }}</button>{% endfor %}
+    {% for so in (100000, 200000, 300000, 500000, 1000000, 2000000) %}<button type="button" class="tab-chip-nut" data-chon-tien="{{ so }}">+{{ so|tien }} ₫</button>{% endfor %}
   </div>
-  <div class="don-dong"><label for="ly_do">{{ bi('message-circle') }} Lý do</label>
+  <div class="don-dong"><label for="ly_do">{{ bi('message-circle') }} Lý do khen thưởng</label>
     <textarea id="ly_do" name="ly_do" rows="2" required placeholder="VD: Hoàn thành vượt chỉ tiêu doanh số tháng"></textarea></div>
-  <button class="nut nut--vang nut--rong nut--lon" type="submit">{{ bi('check') }} Thưởng</button>
+  <button class="nut nut--vang nut--rong nut--lon" type="submit">{{ bi('sparkles') }} Xác nhận thưởng &amp; gửi Zalo</button>
 </form>
 
 <div class="the luong-thang">
   <a href="{{ url_for('luong.khen_thuong', thang=thang_truoc) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
-  <strong>Tháng {{ thg }} / {{ nam }}{% if ds %} · {{ tong|tien }} ₫{% endif %}</strong>
+  <strong>Tháng {{ thg }} / {{ nam }}{% if ds %} · <span style="color:var(--hoan-thanh)">+{{ tong|tien }} ₫</span> ({{ ds|length }} lượt){% endif %}</strong>
   <a href="{{ url_for('luong.khen_thuong', thang=thang_sau) }}" aria-label="Tháng sau">{{ bi('chevron-right') }}</a>
 </div>
 
 {% for k in ds %}
 <div class="the luong-moc">
-  <span class="luong-kt-icon">{{ bi('sparkles') }}</span>
+  {{ avatar(k.nguoi_dung, cls="don-avatar") }}
   <div style="flex:1;min-width:0">
-    <strong>{{ k.nguoi_dung.ho_ten }} · +{{ k.so_tien|tien }} ₫</strong>
-    <small>{{ k.ngay.strftime('%d/%m/%Y') }} · {{ k.ly_do }} · bởi {{ k.nguoi_tao.ho_ten }}</small>
+    <strong>{{ k.nguoi_dung.ho_ten }}</strong>
+    <div class="luong-kt-ly-do">{{ k.ly_do }}</div>
+    <small>{{ k.ngay.strftime('%d/%m/%Y') }} · Người thưởng: {{ k.nguoi_tao.ho_ten }}</small>
   </div>
-  <form method="post" action="{{ url_for('luong.xoa_khen_thuong', id=k.id) }}" onsubmit="return confirm('Xoá khoản thưởng này?')">
-    <button class="luong-khoan-xoa" type="submit" aria-label="Xoá">{{ bi('trash') }}</button>
+  <span class="luong-kt-so">+{{ k.so_tien|tien }} ₫</span>
+  <form method="post" action="{{ url_for('luong.xoa_khen_thuong', id=k.id) }}" onsubmit="return confirm('Xoá khoản thưởng {{ k.so_tien|tien }} ₫ của {{ k.nguoi_dung.ho_ten }}?')">
+    <button class="luong-khoan-xoa" type="submit" aria-label="Xoá" title="Xoá khoản thưởng">{{ bi('trash') }}</button>
   </form>
 </div>
 {% else %}
-<div class="the trong-rong">Tháng này chưa có khen thưởng nào.</div>
+<div class="the trong-rong">{{ bi('sparkles') }} Tháng {{ thg }}/{{ nam }} chưa có khoản khen thưởng nào.</div>
 {% endfor %}
 {% endblock %}
 
@@ -59,9 +61,14 @@
 <script>
 (function () {
   var o = document.getElementById('so_tien');
-  function dd() { var so = o.value.replace(/\D/g, ''); o.value = so ? (+so).toLocaleString('vi-VN') : ''; }
+  var nuts = document.querySelectorAll('[data-chon-tien]');
+  function dd() {
+    var so = o.value.replace(/\D/g, '');
+    o.value = so ? (+so).toLocaleString('vi-VN') : '';
+    nuts.forEach(function (b) { b.classList.toggle('active', b.dataset.chonTien === so); });
+  }
   o.addEventListener('input', dd);
-  document.querySelectorAll('[data-chon-tien]').forEach(function (b) {
+  nuts.forEach(function (b) {
     b.addEventListener('click', function () { o.value = b.dataset.chonTien; dd(); });
   });
 })();

@@ -20,7 +20,7 @@
       {% if p.nang_luc %}
       <tr class="pl-nhom"><td>III. Năng lực / thưởng</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.tong_nang_luc|tien }}</td></tr>
       {% for x in p.nang_luc %}
-      <tr><td>{{ x.noi_dung }}</td><td class="so pl-phu">{{ x.tien|tien }}</td><td class="so pl-phu">—</td><td class="so">—</td><td class="so">{{ x.tien|tien }}</td></tr>
+      <tr class="{{ 'pl-dong-thuong' if x.loai == 'thuong' }}"><td>{{ x.noi_dung }}</td><td class="so pl-phu">{{ x.tien|tien }}</td><td class="so pl-phu">—</td><td class="so">—</td><td class="so">{{ '+' if x.loai == 'thuong' }}{{ x.tien|tien }}</td></tr>
       {% endfor %}
       {% endif %}
 

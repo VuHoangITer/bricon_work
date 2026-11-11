@@ -1,0 +1,16 @@
+{# Thanh điều hướng nhanh giữa các mục Quản lý Lương & Khen thưởng #}
+{% set _thang = thang if thang is defined else None %}
+<div class="tab-chip khong-in">
+  <a href="{{ url_for('luong.bang_luong', thang=_thang) }}" class="{{ 'active' if request.endpoint in ('luong.bang_luong', 'luong.phieu') }}">
+    {{ bi('credit-card') }} Bảng lương
+  </a>
+  <a href="{{ url_for('luong.khen_thuong', thang=_thang) }}" class="{{ 'active' if request.endpoint == 'luong.khen_thuong' }}">
+    {{ bi('sparkles') }} Khen thưởng
+  </a>
+  <a href="{{ url_for('luong.ds_nhan_vien') }}" class="{{ 'active' if request.endpoint in ('luong.ds_nhan_vien', 'luong.nhan_vien') }}">
+    {{ bi('users') }} Vị trí nhân viên{% if chua_gan is defined and chua_gan %} <span class="dem-loc">{{ chua_gan|length }}</span>{% endif %}
+  </a>
+  <a href="{{ url_for('luong.vi_tri') }}" class="{{ 'active' if request.endpoint in ('luong.vi_tri', 'luong.sua_vi_tri') }}">
+    {{ bi('wallet') }} Mẫu lương
+  </a>
+</div>

@@ -144,8 +144,8 @@ def bang_luong():
     nam, thg, thang = _thang()
     phieu, chua_gan = _bang_luong(nam, thg)
     hn = ngay_vn_hien_tai()
-    tong = {k: sum(p[k] for p in phieu) for k in ("luong_cb", "trach_nhiem", "tong_nang_luc", "thu",
-                                                  "tam_ung", "phat", "khau_tru_khac", "thuc_linh")}
+    tong = {k: sum(p[k] for p in phieu) for k in ("luong_cb", "trach_nhiem", "tong_nang_luc", "thuong", "thu",
+                                                  "tam_ung", "phat", "khau_tru_khac", "tong_khau_tru", "thuc_linh")}
     return render_template(
         "luong_bang.html", phieu=phieu, chua_gan=chua_gan, tong=tong, thang=thang, nam=nam, thg=thg,
         cong_chuan=services.cong_chuan_thang(nam, thg),

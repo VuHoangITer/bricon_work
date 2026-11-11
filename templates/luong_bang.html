@@ -1,18 +1,21 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}Bảng lương {{ thg }}/{{ nam }} · BRICON{% endblock %}
 
 {% block content %}
 <div class="page-head">
   <div class="page-head-copy">
     <h1>Bảng lương</h1>
-    <p>Tự tính từ chấm công, tạm ứng đã duyệt và biên bản phạt. Công chuẩn tháng {{ thg }}: <b>{{ cong_chuan }}</b> ngày (T2 → T7).</p>
+    <p>Tự tính từ chấm công, khen thưởng, tạm ứng đã duyệt và biên bản phạt. Công chuẩn tháng {{ thg }}: <b>{{ cong_chuan }}</b> ngày (T2 → T7).</p>
   </div>
+  {% if phieu %}
   <div class="page-actions">
-    <a class="nut nut--vang" href="{{ url_for('luong.khen_thuong', thang=thang) }}">{{ bi('sparkles') }} Khen thưởng</a>
-    <a class="nut nut--phu" href="{{ url_for('luong.ds_nhan_vien') }}">{{ bi('users') }} Vị trí nhân viên</a>
-    <a class="nut nut--phu" href="{{ url_for('luong.vi_tri') }}">{{ bi('wallet') }} Mẫu lương</a>
+    <a class="nut nut--vang" href="{{ url_for('luong.xuat_excel', thang=thang) }}">{{ bi('download') }} Xuất Excel</a>
   </div>
+  {% endif %}
 </div>
+
+{% include "_tab_luong.html" %}
 
 <div class="the luong-thang">
   <a href="{{ url_for('luong.bang_luong', thang=thang_truoc) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
@@ -28,34 +31,62 @@
 
 {% if phieu %}
 <div class="the luong-tong">
-  <div><span>Tổng thu nhập</span><strong>{{ tong.thu|tien }}</strong></div>
-  <div><span>Tạm ứng</span><strong class="{{ 'do' if tong.tam_ung }}">{{ '−' if tong.tam_ung }}{{ tong.tam_ung|tien }}</strong></div>
-  <div><span>Phạt</span><strong class="{{ 'do' if tong.phat }}">{{ '−' if tong.phat }}{{ tong.phat|tien }}</strong></div>
-  <div class="luong-tong-chinh"><span>Tổng thực lĩnh ({{ phieu|length }} người)</span><strong>{{ tong.thuc_linh|tien }} ₫</strong></div>
-  <a class="nut nut--vang nut--rong" href="{{ url_for('luong.xuat_excel', thang=thang) }}">{{ bi('download') }} Xuất Excel bảng lương</a>
+  <div class="luong-tong-chinh">
+    <div>
+      <span>Tổng thực lĩnh · {{ phieu|length }} nhân viên</span>
+      <strong>{{ tong.thuc_linh|tien }} ₫</strong>
+    </div>
+    <a class="nut nut--vang nut--nho" href="{{ url_for('luong.xuat_excel', thang=thang) }}">{{ bi('download') }} Xuất Excel</a>
+  </div>
+  <div class="luong-tong-luoi">
+    <div class="luong-tong-o">
+      <span>Tổng thu nhập</span>
+      <strong>{{ tong.thu|tien }}</strong>
+    </div>
+    <div class="luong-tong-o">
+      <span>Khen thưởng</span>
+      <strong class="{{ 'xanh' if tong.thuong }}">{{ '+' if tong.thuong }}{{ tong.thuong|tien }}</strong>
+    </div>
+    <div class="luong-tong-o">
+      <span>Tạm ứng</span>
+      <strong class="{{ 'do' if tong.tam_ung }}">{{ '−' if tong.tam_ung }}{{ tong.tam_ung|tien }}</strong>
+    </div>
+    <div class="luong-tong-o">
+      <span>Phạt &amp; khấu trừ</span>
+      {% set tru_khac = tong.phat + tong.khau_tru_khac %}
+      <strong class="{{ 'do' if tru_khac }}">{{ '−' if tru_khac }}{{ tru_khac|tien }}</strong>
+    </div>
+  </div>
 </div>
 
-<input type="search" class="ql-tim" data-luong-tim placeholder="Tìm nhân viên…" style="margin-bottom:10px">
+<input type="search" class="ql-tim" data-luong-tim placeholder="Tìm nhân viên theo tên…" style="margin-bottom:10px">
 <div data-luong-ds>
 {% for p in phieu %}
+{% set ti_le_cong = (p.cong / p.cong_chuan * 100) if p.cong_chuan else 0 %}
 <a class="the luong-the" href="{{ url_for('luong.phieu', id=p.nd.id, thang=thang) }}" data-ten="{{ p.nd.ho_ten|lower }}">
   <div class="luong-the-dau">
-    <div style="min-width:0">
-      <strong>{{ p.nd.ho_ten }}</strong>
-      <small>{{ p.ten_vi_tri }}{% if p.giai_doan|length > 1 %} <span class="luong-tag">đổi vị trí</span>{% endif %}</small>
+    <div class="luong-the-nguoi">
+      {{ avatar(p.nd, cls="don-avatar") }}
+      <div style="min-width:0">
+        <strong>{{ p.nd.ho_ten }}</strong>
+        <small>{{ p.ten_vi_tri }}{% if p.giai_doan|length > 1 %} <span class="luong-tag">đổi vị trí</span>{% endif %}</small>
+      </div>
     </div>
     <div class="luong-the-tien">
-      <strong>{{ p.thuc_linh|tien }}</strong>
+      <strong>{{ p.thuc_linh|tien }} ₫</strong>
       <small>thực lĩnh</small>
     </div>
+  </div>
+  <div class="luong-thanh-cong" title="Ngày công: {{ p.cong|cong }}/{{ p.cong_chuan }}">
+    <span style="width:{{ [ti_le_cong, 100]|min|round(1) }}%"></span>
   </div>
   <div class="luong-the-so">
     <span>Công <b>{{ p.cong|cong }}/{{ p.cong_chuan }}</b></span>
     <span>Thu nhập <b>{{ p.thu|tien }}</b></span>
-    {% if p.thuong %}<span class="xanh">Thưởng <b>+{{ p.thuong|tien }}</b></span>{% endif %}
-    {% if p.tam_ung %}<span class="do">Tạm ứng <b>−{{ p.tam_ung|tien }}</b></span>{% endif %}
-    {% if p.phat %}<span class="do">Phạt <b>−{{ p.phat|tien }}</b></span>{% endif %}
-    {% if p.khau_tru_khac %}<span class="do">Khấu trừ <b>−{{ p.khau_tru_khac|tien }}</b></span>{% endif %}
+    {% if p.thuong %}<span class="luong-chip luong-chip--xanh">{{ bi('sparkles', 'ic--xs') }} Thưởng <b>+{{ p.thuong|tien }}</b></span>{% endif %}
+    {% if p.tam_ung %}<span class="luong-chip luong-chip--do">Tạm ứng <b>−{{ p.tam_ung|tien }}</b></span>{% endif %}
+    {% if p.phat %}<span class="luong-chip luong-chip--do">Phạt <b>−{{ p.phat|tien }}</b></span>{% endif %}
+    {% if p.khau_tru_khac %}<span class="luong-chip luong-chip--do">Khấu trừ <b>−{{ p.khau_tru_khac|tien }}</b></span>{% endif %}
   </div>
 </a>
 {% endfor %}
@@ -66,7 +97,7 @@
 <div class="tieu-khu"><h2>Chưa gán vị trí lương <span class="dem-loc">{{ chua_gan|length }}</span></h2></div>
 <div class="the hub-danh-sach the--khong-dem">
   {% for nd in chua_gan %}
-  <a href="{{ url_for('luong.nhan_vien', id=nd.id) }}"><span>{{ bi('user') }}</span>{{ nd.ho_ten }}<i>Gán vị trí {{ bi('chevron-right') }}</i></a>
+  <a href="{{ url_for('luong.nhan_vien', id=nd.id) }}">{{ avatar(nd, cls="don-avatar") }}<span style="flex:1;min-width:0">{{ nd.ho_ten }}</span><i>Gán vị trí {{ bi('chevron-right') }}</i></a>
   {% endfor %}
 </div>
 {% endif %}

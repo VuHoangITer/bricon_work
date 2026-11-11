@@ -3,10 +3,11 @@
 
 {% block content %}
 <div class="khong-in" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-  <a class="quay-lai" href="{{ url_for('luong.bang_luong', thang=thang) }}">{{ bi('chevron-left') }} Bảng lương</a>
+  <a class="quay-lai" style="margin-bottom:0" href="{{ url_for('luong.bang_luong', thang=thang) }}">{{ bi('chevron-left') }} Bảng lương</a>
   <span style="flex:1"></span>
-  <a class="nut nut--phu" href="{{ url_for('luong.nhan_vien', id=p.nd.id) }}">{{ bi('wallet') }} Vị trí lương</a>
-  <button class="nut nut--vang" type="button" onclick="window.print()">{{ bi('download') }} In / lưu PDF</button>
+  <a class="nut nut--phu nut--nho" href="{{ url_for('luong.khen_thuong', nguoi=p.nd.id, thang=thang) }}">{{ bi('sparkles') }} Thưởng</a>
+  <a class="nut nut--phu nut--nho" href="{{ url_for('luong.nhan_vien', id=p.nd.id) }}">{{ bi('wallet') }} Vị trí lương</a>
+  <button class="nut nut--vang nut--nho" type="button" onclick="window.print()">{{ bi('download') }} In / lưu PDF</button>
 </div>
 
 <div class="phieu-luong">

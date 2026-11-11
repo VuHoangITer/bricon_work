@@ -18,30 +18,65 @@
 {% if not p %}
 <div class="the trong-rong">{{ bi('wallet') }} Chưa có thông tin lương tháng này. Liên hệ quản trị để được gán vị trí lương.</div>
 {% else %}
+{% set ti_le_cong = (p.cong / p.cong_chuan * 100) if p.cong_chuan else 0 %}
 <div class="the luong-toi">
-  <span class="luong-toi-nhan">{{ 'Thực lĩnh tạm tính' if p.dang_chay else 'Thực lĩnh' }}</span>
+  <span class="luong-toi-nhan">
+    {% if p.dang_chay %}{{ bi('clock', 'ic--xs') }} Thực lĩnh tạm tính đến {{ hom_nay.strftime('%d/%m') }}{% else %}{{ bi('check-circle', 'ic--xs') }} Thực lĩnh tháng {{ thg }}/{{ nam }}{% endif %}
+  </span>
   <strong class="luong-toi-so">{{ p.thuc_linh|tien }} ₫</strong>
-  <div class="luong-toi-phu">
-    <span>Công <b>{{ p.cong|cong }}/{{ p.cong_chuan }}</b></span>
-    <span>Thu nhập <b>{{ p.thu|tien }}</b></span>
-    {% if p.thuong %}<span class="xanh">Thưởng <b>+{{ p.thuong|tien }}</b></span>{% endif %}
-    {% if p.tong_khau_tru %}<span class="do">Khấu trừ <b>−{{ p.tong_khau_tru|tien }}</b></span>{% endif %}
+
+  <div class="luong-toi-cong">
+    <div class="luong-toi-cong-dau">
+      <span>Ngày công thực tế</span>
+      <b>{{ p.cong|cong }} / {{ p.cong_chuan }} ngày ({{ '%.0f'|format(ti_le_cong) }}%)</b>
+    </div>
+    <div class="luong-thanh-cong">
+      <span style="width:{{ [ti_le_cong, 100]|min|round(1) }}%"></span>
+    </div>
   </div>
+
+  <div class="luong-toi-luoi">
+    <div class="luong-toi-o">
+      <span>Thu nhập</span>
+      <b>{{ p.thu|tien }}</b>
+    </div>
+    <div class="luong-toi-o">
+      <span>Khen thưởng</span>
+      <b class="{{ 'xanh' if p.thuong }}">{{ '+' if p.thuong }}{{ p.thuong|tien }}</b>
+    </div>
+    <div class="luong-toi-o">
+      <span>Khấu trừ</span>
+      <b class="{{ 'do' if p.tong_khau_tru }}">{{ '−' if p.tong_khau_tru }}{{ p.tong_khau_tru|tien }}</b>
+    </div>
+  </div>
+
   {% if p.dang_chay and p.con_lai %}
   <div class="luong-toi-du-kien">
     {{ bi('target') }}
-    <span>Đi làm đủ {{ p.con_lai }} ngày còn lại → dự kiến cả tháng <b>{{ p.du_kien|tien }} ₫</b></span>
+    <span>Đi làm đủ <b>{{ p.con_lai }} ngày</b> còn lại → dự kiến cả tháng <b>{{ p.du_kien|tien }} ₫</b></span>
   </div>
   {% endif %}
 </div>
 
 <div class="phieu-luong">
   <img class="pl-banner" src="{{ url_for('static', filename='img/banner_phieu_luong.png') }}" alt="BRICON Việt Nam">
+  <div class="pl-dau">
+    <div class="pl-dau-cty">
+      <b>BRICON VIỆT NAM</b>
+      <small>Keo xây dựng và chống thấm</small>
+    </div>
+    <div class="pl-dau-so">
+      <span>Số: <b>PL{{ p.nam }}{{ '%02d'|format(p.thg) }}-{{ p.nd.ma_dinh_danh|upper }}</b></span>
+      <span>Kỳ: {{ p.dau.strftime('%d/%m') }} – {{ p.cuoi.strftime('%d/%m/%Y') }}</span>
+    </div>
+  </div>
   <div class="pl-tieu-de"><h1>PHIẾU THANH TOÁN LƯƠNG</h1>
     <div class="pl-ky">Kỳ lương tháng {{ '%02d'|format(p.thg) }}/{{ p.nam }}{% if p.dang_chay %} · tạm tính đến {{ hom_nay.strftime('%d/%m') }}{% endif %}</div></div>
   <div class="pl-tt">
+    <div><span>Họ và tên</span><b>{{ p.nd.ho_ten }}</b></div>
+    <div><span>Mã nhân viên</span><b>{{ p.nd.ma_dinh_danh }}</b></div>
     <div><span>Vị trí</span><b>{{ p.ten_vi_tri }}</b></div>
-    <div><span>Kỳ</span><b>{{ p.dau.strftime('%d/%m') }} – {{ p.cuoi.strftime('%d/%m/%Y') }}</b></div>
+    <div><span>Ngày công thực tế</span><b>{{ p.cong|cong }} / {{ p.cong_chuan }} ngày</b></div>
   </div>
   {% include "_luong_bang_phieu.html" %}
   <div class="pl-bang-chu">Bằng chữ: <i>{{ bang_chu }}</i></div>
@@ -50,14 +85,15 @@
 {% endif %}
 
 {% if thuong %}
-<div class="tieu-khu"><h2>Khen thưởng gần đây</h2></div>
+<div class="tieu-khu"><h2>Khen thưởng gần đây</h2><span class="dem">{{ thuong|length }}</span></div>
 {% for k in thuong %}
 <div class="the luong-moc">
   <span class="luong-kt-icon">{{ bi('sparkles') }}</span>
   <div style="flex:1;min-width:0">
-    <strong>+{{ k.so_tien|tien }} ₫</strong>
-    <small>{{ k.ngay.strftime('%d/%m/%Y') }} · {{ k.ly_do }}</small>
+    <strong>{{ k.ly_do }}</strong>
+    <small>{{ k.ngay.strftime('%d/%m/%Y') }} · Tháng {{ '%02d'|format(k.ngay.month) }}/{{ k.ngay.year }}</small>
   </div>
+  <span class="luong-kt-so">+{{ k.so_tien|tien }} ₫</span>
 </div>
 {% endfor %}
 {% endif %}

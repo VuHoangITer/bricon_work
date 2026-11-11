@@ -2,9 +2,6 @@
 {% block title %}Mẫu lương · BRICON{% endblock %}
 
 {% block content %}
-<div>
-  <a class="quay-lai" href="{{ url_for('luong.bang_luong') }}">{{ bi('chevron-left') }} Bảng lương</a>
-</div>
 <div class="page-head">
   <div class="page-head-copy">
     <h1>Mẫu lương theo vị trí</h1>
@@ -15,24 +12,30 @@
   </div>
 </div>
 
-<form class="the" method="post" enctype="multipart/form-data">
-  <div class="o-nhap" style="margin:0">
-    <label for="tep">{{ bi('upload') }} Nhập file preset .json từ app Phiếu Lương cũ (chọn nhiều file cùng lúc)</label>
-    <input id="tep" type="file" name="tep" accept=".json,application/json" multiple required>
-  </div>
-  <div class="goi-y">Trùng tên vị trí thì cập nhật lại mức lương. File nhanvien.json không cần nhập — gán vị trí cho nhân viên ở trang "Vị trí nhân viên".</div>
-  <button class="nut nut--phu nut--rong" type="submit">{{ bi('upload') }} Nhập</button>
-</form>
+{% include "_tab_luong.html" %}
+
+<details class="the" {{ 'open' if not ds }}>
+  <summary style="cursor:pointer;font-weight:700;display:flex;align-items:center;gap:8px;color:var(--chinh-dam)">
+    {{ bi('upload', 'ic--sm') }} Nhập file preset .json từ app Phiếu Lương cũ
+  </summary>
+  <form method="post" enctype="multipart/form-data" style="margin-top:12px">
+    <div class="o-nhap" style="margin:0">
+      <input id="tep" type="file" name="tep" accept=".json,application/json" multiple required>
+    </div>
+    <div class="goi-y">Chọn nhiều file .json cùng lúc. Trùng tên vị trí sẽ tự cập nhật lại mức lương.</div>
+    <button class="nut nut--phu nut--rong" type="submit" style="margin-top:8px">{{ bi('upload') }} Tải lên &amp; nhập mẫu lương</button>
+  </form>
+</details>
 
 {% for vt in ds %}
 <a class="the luong-the" href="{{ url_for('luong.sua_vi_tri', id=vt.id) }}">
   <div class="luong-the-dau">
     <div style="min-width:0">
       <strong>{{ vt.ten }}</strong>
-      <small>{{ vt.phong_ban or '—' }} · {{ dem.get(vt.id, 0) }} nhân viên</small>
+      <small>{{ vt.phong_ban or 'Chưa phân phòng ban' }} · <b>{{ dem.get(vt.id, 0) }}</b> nhân viên</small>
     </div>
     <div class="luong-the-tien">
-      <strong>{{ vt.tong_thang|tien }}</strong>
+      <strong>{{ vt.tong_thang|tien }} ₫</strong>
       <small>đủ công / tháng</small>
     </div>
   </div>
@@ -40,7 +43,7 @@
     <span>Cơ bản <b>{{ vt.luong_co_ban|tien }}</b></span>
     {% if vt.tong_trach_nhiem %}<span>Trách nhiệm <b>{{ vt.tong_trach_nhiem|tien }}</b></span>{% endif %}
     {% if vt.tong_nang_luc %}<span>Năng lực <b>{{ vt.tong_nang_luc|tien }}</b></span>{% endif %}
-    {% if vt.tong_khau_tru %}<span class="do">Khấu trừ <b>−{{ vt.tong_khau_tru|tien }}</b></span>{% endif %}
+    {% if vt.tong_khau_tru %}<span class="luong-chip luong-chip--do">Khấu trừ <b>−{{ vt.tong_khau_tru|tien }}</b></span>{% endif %}
   </div>
 </a>
 {% else %}
