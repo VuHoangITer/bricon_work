@@ -57,6 +57,10 @@
       <button class="menu-button" type="button" data-sidebar-open aria-label="Mở menu">{{ bi('menu') }}</button>
       <div class="topbar-brand-mobile"><span class="brand-mark brand-mark--small">B</span><strong>BRICON WORK</strong></div>
       <div class="topbar-right">
+        {# Điện thoại: bong bóng AI nổi bị ẩn (che nội dung) -> mở từ nút này #}
+        <button type="button" class="topbar-ai" onclick="document.getElementById('tl-chat-nut').click()" aria-label="Mở Trợ lý AI">
+          {% set _anh_ai = anh_tro_ly() %}{% if _anh_ai %}<img src="{{ _anh_ai }}" alt="">{% else %}{{ bi('bot') }}{% endif %}<span>Trợ lý AI</span>
+        </button>
         <a class="topbar-chuong" href="{{ url_for('thong_bao.danh_sach') }}" aria-label="Thông báo">{{ bi('bell') }}</a>
         <div class="tai-khoan-menu" id="tai-khoan-menu">
           <button type="button" class="tai-khoan-nut" id="nut-tai-khoan" aria-haspopup="true" aria-expanded="false">

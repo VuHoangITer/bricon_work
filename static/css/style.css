@@ -664,6 +664,10 @@ input[readonly] { background:#f6f5f2; color:var(--muc-mo); }
 
 .topbar-chuong { width:38px; height:38px; display:grid; place-items:center; border-radius:50%; border:1px solid var(--vien); background:#fff; color:var(--muc-mo); font-size:1rem; transition:.15s ease; }
 .topbar-chuong .ic { width:18px; height:18px; vertical-align:0; }
+.topbar-ai { display:none; align-items:center; gap:6px; height:38px; padding:0 12px 0 4px; border-radius:19px; border:1px solid var(--vien); background:#fff; color:var(--muc); font:inherit; font-size:.78rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+.topbar-ai img { width:30px; height:30px; border-radius:50%; object-fit:cover; background:#111; }
+.topbar-ai .ic { width:18px; height:18px; margin-left:6px; color:var(--chinh); }
+@media (max-width: 430px) { .topbar-ai { padding:3px; border-color:var(--chinh); } .topbar-ai span { display:none; } .topbar-ai .ic { margin:0 6px; } }
 .topbar-chuong:hover { border-color:var(--vien-dam); color:var(--muc); background:#fdfcfb; }
 
 .nut--lon { min-height:50px; font-size:.95rem; border-radius:12px; }
@@ -909,8 +913,10 @@ a.ql-dong:hover .ql-dong-ten strong, a.ql-dong:active .ql-dong-ten strong { colo
   .bn-muc--giua .bn-icon { color:#fff !important; }
   .bn-muc--giua.active { background:var(--den); color:#fff; box-shadow:0 4px 12px rgba(26,26,24,.28); }
   .bn-dem { position:absolute; top:0; right:calc(50% - 22px); min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#d64538; color:#fff; font-size:.64rem; font-weight:700; display:grid; place-items:center; border:2px solid #fff; }
-  body.da-dang-nhap .tl-chat-nut { bottom:calc(84px + env(safe-area-inset-bottom)); }
-  body.da-dang-nhap .tl-loi-chao { bottom:calc(150px + env(safe-area-inset-bottom)); }
+  /* Bong bóng AI nổi che nội dung trên điện thoại -> ẩn, mở bằng nút "Trợ lý AI" trên thanh đầu trang */
+  body.da-dang-nhap .tl-chat-nut, body.da-dang-nhap .tl-loi-chao { display:none !important; }
+  body.da-dang-nhap .topbar-ai { display:inline-flex; }
+  .topbar-brand-mobile strong { white-space:nowrap; }
 }
 @media (max-width: 680px) {
   .hub-luoi { grid-template-columns:1fr; gap:10px; }
