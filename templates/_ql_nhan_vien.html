@@ -1,0 +1,78 @@
+{# Khối "Quản lý nhân viên" trên Trang chủ — chỉ quản lý/sếp thấy. #}
+{% from "_avatar.html" import avatar %}
+{% from "_don_tu_the.html" import the_don %}
+<div class="the ql-the">
+  <div class="ql-so-lieu">
+    <a href="{{ url_for('attendance.bang_cong') }}"><strong>{{ ql.tong }}</strong><span>Nhân viên</span></a>
+    <a href="{{ url_for('attendance.bang_cong') }}"><strong class="xanh">{{ ql.dang_lam }}</strong><span>Đang làm</span></a>
+    <a href="{{ url_for('attendance.bang_cong') }}"><strong>{{ ql.nghi }}</strong><span>Nghỉ</span></a>
+    <a href="{{ url_for('attendance.bang_cong') }}"><strong class="mo">{{ ql.chua_cham }}</strong><span>Chưa chấm</span></a>
+  </div>
+</div>
+
+<div class="the ql-the">
+  <div class="card-title-row">
+    <h2 style="margin:0">Chấm công hôm nay</h2>
+    <select class="ql-loc" data-ql-loc aria-label="Lọc trạng thái">
+      <option value="">Tất cả</option>
+      <option value="tre">Đi trễ</option>
+      <option value="chua">Chưa chấm</option>
+      <option value="nghi">Nghỉ</option>
+      <option value="dung">Đúng giờ</option>
+    </select>
+  </div>
+  <input type="search" class="ql-tim" data-ql-tim placeholder="Tìm nhân viên theo tên…">
+  <div class="ql-ds" data-ql-ds>
+    {% for d in ql.dong %}
+    <div class="ql-dong" data-ten="{{ d.nv.ho_ten|lower }}" data-tt="{{ d.ma_tt }}" {% if loop.index > 6 %}data-an hidden{% endif %}>
+      {{ avatar(d.nv, cls="don-avatar") }}
+      <div class="ql-dong-ten">
+        <strong>{{ d.nv.ho_ten }}</strong>
+        <small>{{ d.nv.chuc_vu.ten if d.nv.chuc_vu else (d.nv.bo_phan.ten if d.nv.bo_phan else d.nv.ten_vai_tro) }}</small>
+      </div>
+      <span class="tt-chip tt-chip--{{ d.ma_tt }}">{{ d.nhan_tt }}</span>
+      {% if d.gio %}<span class="ql-gio">{{ d.gio }}</span>{% endif %}
+    </div>
+    {% else %}
+    <div class="trong-rong">Chưa có nhân viên trong phạm vi quản lý.</div>
+    {% endfor %}
+  </div>
+  {% if ql.dong|length > 6 %}
+  <button type="button" class="ql-xem-them" data-ql-them>Xem tất cả {{ ql.tong }} nhân viên {{ bi('chevron-right') }}</button>
+  {% endif %}
+</div>
+
+<div class="tieu-khu">
+  <h2>Đơn chờ duyệt {% if ql.don_cho_duyet %}<span class="dem-loc">{{ ql.don_cho_duyet|length }}</span>{% endif %}</h2>
+  <a href="{{ url_for('don_tu.danh_sach', tab='duyet') }}" class="lien-ket-nho">Xem tất cả {{ bi('chevron-right') }}</a>
+</div>
+{% for d in ql.don_cho_duyet[:3] %}{{ the_don(d, nut_duyet=True) }}{% else %}
+<div class="the trong-rong">{{ bi('check-circle') }} Không có đơn nào chờ duyệt.</div>
+{% endfor %}
+
+<script>
+(function () {
+  var ds = document.querySelector('[data-ql-ds]'); if (!ds) return;
+  var tim = document.querySelector('[data-ql-tim]'), loc = document.querySelector('[data-ql-loc]'),
+      them = document.querySelector('[data-ql-them]'), moHet = false;
+  function loc_lai() {
+    var t = (tim.value || '').trim().toLowerCase(), l = loc.value, dangLoc = t || l, i = 0;
+    ds.querySelectorAll('.ql-dong').forEach(function (d) {
+      var tt = d.dataset.tt, khop = (!t || d.dataset.ten.indexOf(t) >= 0) &&
+        (!l || tt === l || (l === 'tre' && tt === 'tre_duyet') || (l === 'nghi' && tt === 'khong_phep'));
+      i += khop ? 1 : 0;
+      d.hidden = !khop || (!dangLoc && !moHet && i > 6);
+    });
+    if (them) them.hidden = dangLoc || moHet;
+  }
+  tim.addEventListener('input', loc_lai); loc.addEventListener('change', loc_lai);
+  if (them) them.addEventListener('click', function () { moHet = true; loc_lai(); });
+  document.querySelectorAll('[data-hoi-ly-do]').forEach(function (nut) {
+    nut.addEventListener('click', function (e) {
+      var ly_do = prompt('Lý do từ chối (không bắt buộc):', '');
+      if (ly_do === null) { e.preventDefault(); return; }
+      nut.form.querySelector('[name=y_kien]').value = ly_do;
+    });
+  });
+})();
+</script>

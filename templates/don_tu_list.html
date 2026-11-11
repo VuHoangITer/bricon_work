@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_don_tu_the.html" import the_don %}
+{% block title %}Đơn từ · BRICON{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Đơn từ</h1>
+    <p>Nhập thông tin → Gửi đơn → Chờ duyệt. Đơn được duyệt sẽ tự cập nhật vào bảng công.</p>
+  </div>
+</div>
+
+<div class="tab-chip">
+  {% if not current_user.la_admin_sep %}
+  <a href="{{ url_for('don_tu.danh_sach', tab='tao') }}" class="{{ 'active' if tab == 'tao' }}">Tạo đơn</a>
+  {% endif %}
+  {% if current_user.la_quan_ly %}
+  <a href="{{ url_for('don_tu.danh_sach', tab='duyet') }}" class="{{ 'active' if tab == 'duyet' }}">Chờ duyệt{% if cho_duyet %} <span class="dem-loc">{{ cho_duyet|length }}</span>{% endif %}</a>
+  <a href="{{ url_for('don_tu.danh_sach', tab='da_xu_ly') }}" class="{{ 'active' if tab == 'da_xu_ly' }}">Đã xử lý</a>
+  {% endif %}
+  {% if not current_user.la_admin_sep %}
+  <a href="{{ url_for('don_tu.danh_sach', tab='cua_toi') }}" class="{{ 'active' if tab == 'cua_toi' }}">Đơn của tôi</a>
+  {% endif %}
+</div>
+
+{% if tab == 'tao' %}
+<div class="loai-don-luoi">
+  {% for ma in LoaiDonTu.TAT_CA %}
+  <a class="loai-don-o" href="{{ url_for('don_tu.tao', loai=ma) }}">
+    <span class="loai-don-icon">{{ LoaiDonTu.ICON[ma] }}</span>
+    <strong>{{ LoaiDonTu.NHAN[ma] }}</strong>
+    <small>{{ LoaiDonTu.MO_TA[ma] }}</small>
+  </a>
+  {% endfor %}
+</div>
+
+{% set gan_day = cua_toi[:5] %}
+<div class="tieu-khu"><h2>Đơn gần đây</h2>{% if cua_toi|length > 5 %}<a href="{{ url_for('don_tu.danh_sach', tab='cua_toi') }}" class="lien-ket-nho">Xem tất cả {{ bi('chevron-right') }}</a>{% endif %}</div>
+{% for d in gan_day %}{{ the_don(d, hien_nguoi=False) }}{% else %}
+<div class="the trong-rong">Bạn chưa gửi đơn nào.</div>
+{% endfor %}
+
+{% elif tab == 'cua_toi' %}
+{% for d in cua_toi %}{{ the_don(d, hien_nguoi=False) }}{% else %}
+<div class="the trong-rong">Bạn chưa gửi đơn nào.</div>
+{% endfor %}
+
+{% elif tab == 'duyet' %}
+{% for d in cho_duyet %}{{ the_don(d, nut_duyet=True) }}{% else %}
+<div class="the trong-rong">{{ bi('check-circle') }} Không còn đơn nào chờ duyệt.</div>
+{% endfor %}
+{% if cho_duyet %}<div class="ghi-chu-xanh">{{ bi('check-circle') }} Đơn được duyệt tự cập nhật bảng công — giờ chấm thực tế vẫn được giữ lại.</div>{% endif %}
+
+{% elif tab == 'da_xu_ly' %}
+<form class="hang-loc" method="get">
+  <input type="hidden" name="tab" value="da_xu_ly">
+  <select name="loai" onchange="this.form.submit()">
+    <option value="">Tất cả loại đơn</option>
+    {% for ma in LoaiDonTu.TAT_CA %}<option value="{{ ma }}" {{ 'selected' if f_loai == ma }}>{{ LoaiDonTu.NHAN[ma] }}</option>{% endfor %}
+  </select>
+</form>
+{% for d in da_xu_ly %}{{ the_don(d) }}{% else %}
+<div class="the trong-rong">Chưa có đơn nào.</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-hoi-ly-do]').forEach(function (nut) {
+  nut.addEventListener('click', function (e) {
+    var ly_do = prompt('Lý do từ chối (không bắt buộc):', '');
+    if (ly_do === null) { e.preventDefault(); return; }
+    nut.form.querySelector('[name=y_kien]').value = ly_do;
+  });
+});
+</script>
+{% endblock %}

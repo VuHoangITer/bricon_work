@@ -32,7 +32,7 @@
 {% block content %}
 <div class="page-head">
   <div class="page-head-copy"><h1>Công việc</h1><p>Theo dõi, lọc và xử lý toàn bộ công việc được giao.</p></div>
-  {% if current_user.la_quan_ly %}<div class="page-actions"><a class="nut nut--vang" href="{{ url_for('tasks.giao_viec') }}">+ Giao việc</a></div>{% endif %}
+  {% if current_user.la_quan_ly %}<div class="page-actions"><a class="nut nut--vang" href="{{ url_for('tasks.giao_viec') }}">{{ bi('plus') }} Giao việc</a></div>{% endif %}
 </div>
 
 {% set so_loc = [f_trang_thai, f_nguoi, (f_sao is not none) or '', f_tu_ngay, f_den_ngay]|select|list|length %}
@@ -107,15 +107,15 @@
 {% if phan_trang.pages > 1 %}
 <div class="phan-trang">
   {% if phan_trang.has_prev %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">‹ Trước</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">{{ bi('chevron-left') }} Trước</a>
   {% else %}
-    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">‹ Trước</span>
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">{{ bi('chevron-left') }} Trước</span>
   {% endif %}
   <span class="phan-trang-so">Trang {{ phan_trang.page }}/{{ phan_trang.pages }}</span>
   {% if phan_trang.has_next %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau ›</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.danh_sach', trang_thai=f_trang_thai, nguoi=f_nguoi, q=f_q, sao=f_sao, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau {{ bi('chevron-right') }}</a>
   {% else %}
-    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau ›</span>
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau {{ bi('chevron-right') }}</span>
   {% endif %}
 </div>
 {% endif %}

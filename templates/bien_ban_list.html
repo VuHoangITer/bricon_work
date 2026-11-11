@@ -7,9 +7,9 @@
   <div class="page-head-copy"><h1>Biên bản phạt</h1>
     <p>{% if duoc_lap %}Lập biên bản vi phạm, nhân viên ký xác nhận trên web; tổng hợp tiền phạt theo tháng.{% else %}Các biên bản vi phạm của bạn — biên bản chờ ký cần bạn vào xem và ký xác nhận.{% endif %}</p></div>
   <div class="page-actions">
-    {% if current_user.la_admin_sep %}<a class="nut nut--phu" href="{{ url_for('bien_ban.danh_muc_loi') }}">📋 Danh mục lỗi</a>{% endif %}
-    {% if duoc_lap %}<a class="nut nut--phu" href="{{ url_for('bien_ban.xuat_excel', **tham_so) }}">⬇ Excel</a>
-    <a class="nut nut--vang" href="{{ url_for('bien_ban.moi') }}">＋ Lập biên bản</a>{% endif %}
+    {% if current_user.la_admin_sep %}<a class="nut nut--phu" href="{{ url_for('bien_ban.danh_muc_loi') }}">{{ bi('clipboard-list') }} Danh mục lỗi</a>{% endif %}
+    {% if duoc_lap %}<a class="nut nut--phu" href="{{ url_for('bien_ban.xuat_excel', **tham_so) }}">{{ bi('download') }} Excel</a>
+    <a class="nut nut--vang" href="{{ url_for('bien_ban.moi') }}">{{ bi('plus') }} Lập biên bản</a>{% endif %}
   </div>
 </div>
 
@@ -25,7 +25,7 @@
       {% for n in nhan_vien %}<option value="{{ n.id }}" {{ 'selected' if f.nguoi == n.id }}>{{ n.ho_ten }}</option>{% endfor %}
     </select>
     {% endif %}
-    {% if tham_so %}<a class="nut nut--phu nut--nho" href="{{ url_for('bien_ban.danh_sach') }}">✕ Bỏ lọc</a>{% endif %}
+    {% if tham_so %}<a class="nut nut--phu nut--nho" href="{{ url_for('bien_ban.danh_sach') }}">{{ bi('x') }} Bỏ lọc</a>{% endif %}
   </div>
   <div class="bo-loc-tim">
     <input type="month" name="thang" value="{{ f.thang }}" onchange="this.form.submit()" aria-label="Tháng vi phạm" style="flex:1;min-width:0">

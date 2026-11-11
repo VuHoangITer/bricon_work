@@ -153,7 +153,7 @@ def moi(loai):
         abort(404)
     if current_user.la_admin_sep:
         flash("Sếp/Quản trị không cần gửi đề xuất.", "info")
-        return redirect(url_for("de_xuat.danh_sach"))
+        return redirect(url_for("de_xuat.danh_sach", loai=loai))
 
     if request.method == "POST":
         noi_dung = (request.form.get("noi_dung") or "").strip()
@@ -283,4 +283,4 @@ def xoa(id):
     db.session.commit()
 
     flash("Đã xoá vĩnh viễn đề xuất.", "success")
-    return redirect(url_for("de_xuat.danh_sach"))
+    return redirect(url_for("de_xuat.danh_sach", loai=dx.loai))

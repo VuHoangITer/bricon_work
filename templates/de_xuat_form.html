@@ -2,8 +2,8 @@
 {% block title %}Đề xuất {{ ten_loai }} · BRICON{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:4px">
-  <a href="{{ url_for('de_xuat.danh_sach') }}" style="font-size:.85rem">‹ Đề xuất</a>
+<div>
+  <a class="quay-lai" href="{{ url_for('de_xuat.danh_sach', loai=loai) }}">{{ bi('chevron-left') }} {{ 'Tạm ứng' if loai == 'tam_ung' else 'Đề xuất công việc' }}</a>
 </div>
 <h1>Đề xuất {{ ten_loai|lower }}</h1>
 

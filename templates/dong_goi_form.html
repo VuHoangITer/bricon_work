@@ -2,8 +2,8 @@
 {% block title %}Quét đóng gói · BRICON{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:4px">
-  <a href="{{ url_for('dong_goi.danh_sach') }}" style="font-size:.85rem">‹ Lịch sử đóng gói</a>
+<div>
+  <a class="quay-lai" href="{{ url_for('dong_goi.danh_sach') }}">{{ bi('chevron-left') }} Lịch sử đóng gói</a>
 </div>
 <h1>Quét đóng gói</h1>
 <p class="goi-y" style="margin:-4px 0 14px">Quét mã vận đơn trên đơn hàng, chụp ảnh kiện đã gói, rồi lưu — mỗi lần lưu đều ghi lại đúng người đang đăng nhập (<strong>{{ current_user.ho_ten }}</strong>) để tra cứu sau này.</p>
@@ -12,7 +12,7 @@
   <div id="trang-thai-quet" style="font-weight:600;margin-bottom:8px">Đang mở camera…</div>
   <video id="video-quet" style="width:100%;max-width:420px;border-radius:var(--bk-n);background:#000;aspect-ratio:4/3;object-fit:cover" muted playsinline autoplay></video>
   <div class="hang-nut" style="margin-top:10px">
-    <button type="button" class="nut nut--phu nut--nho" id="nut-quet-lai">↻ Quét lại</button>
+    <button type="button" class="nut nut--phu nut--nho" id="nut-quet-lai">{{ bi('rotate-ccw') }} Quét lại</button>
   </div>
 </div>
 
@@ -80,7 +80,7 @@
           const ma = result.getText().trim();
           if (!ma) return;
           oMa.value = ma;
-          dat('✅ Đã quét được mã: ' + ma);
+          dat('Đã quét được mã: ' + ma);
           bao('ok');
           if (controls) controls.stop();
           oAnh.focus();

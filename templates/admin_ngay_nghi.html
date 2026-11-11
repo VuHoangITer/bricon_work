@@ -22,7 +22,7 @@
 </div>
 
 <details class="the the--them" open>
-  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm ngày nghỉ lễ</summary>
+  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam);display:flex;align-items:center;gap:6px">{{ bi('plus', 'ic--sm') }} Thêm ngày nghỉ lễ</summary>
   <form method="post" action="{{ url_for('admin.luu_ngay_nghi') }}" style="margin-top:14px">
     <div class="hang">
       <div class="o-nhap"><label>Ngày</label><input name="ngay" type="date" required></div>

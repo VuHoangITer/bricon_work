@@ -2,12 +2,22 @@
 {% block title %}Xin nghỉ phép · BRICON{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:4px">
-  <a href="{{ url_for('attendance.trang_cham_cong') }}" style="font-size:.85rem">‹ Chấm công</a>
+<div>
+  <a class="quay-lai" href="{{ url_for('don_tu.danh_sach') }}">{{ bi('chevron-left') }} Đơn từ</a>
 </div>
-<h1>Xin nghỉ phép</h1>
 
-<form class="the" method="post" id="form-xin-nghi">
+<form class="the don-form" method="post" id="form-xin-nghi">
+  <div class="don-form-dau">
+    <span class="loai-don-icon">{{ bi('calendar') }}</span>
+    <div>
+      <h1 style="margin:0">Xin nghỉ</h1>
+      <div class="goi-y" style="margin:0">Tên và thông tin được điền tự động vào đơn</div>
+    </div>
+  </div>
+  <div class="o-nhap"><label for="phan_loai">Loại nghỉ</label>
+    <select id="phan_loai" name="phan_loai">
+      {% for ma, nhan in PhanLoaiNghi.NHAN.items() %}<option value="{{ ma }}">{{ nhan }}</option>{% endfor %}
+    </select></div>
   <div class="hang">
     <div class="o-nhap"><label for="ngay_dau">Từ ngày</label>
       <input id="ngay_dau" type="date" name="ngay_dau" required></div>
@@ -48,8 +58,8 @@
   </div>
 
   <input type="hidden" name="chu_ky" id="chu_ky">
-  <div class="goi-y" style="margin-bottom:10px">Bấm "Gửi xin nghỉ" để ký tên điện tử — hệ thống sẽ tự tạo đơn xin nghỉ (PDF) đã điền sẵn thông tin của bạn và tự động duyệt luôn, có báo cho sếp.</div>
-  <button class="nut nut--rong" type="submit">Gửi xin nghỉ</button>
+  <div class="goi-y" style="margin-bottom:10px">Bấm "Gửi xin nghỉ" để ký tên điện tử — hệ thống sẽ tự tạo đơn xin nghỉ (PDF) đã điền sẵn thông tin của bạn rồi gửi cho quản lý duyệt.</div>
+  <button class="nut nut--vang nut--rong nut--lon" type="submit">{{ bi('send') }} Gửi xin nghỉ</button>
 </form>
 
 <div class="tieu-khu"><h2>Lịch sử xin nghỉ của bạn</h2><span class="dem">{{ lich_su|length }}</span></div>

@@ -34,7 +34,7 @@
 
 {% if muc == "bot" %}
 <div class="the">
-  <h3 style="margin-top:0">📦 Thông báo đóng gói</h3>
+  <h3 style="margin-top:0;display:flex;align-items:center;gap:8px"><span style="color:var(--chinh);display:inline-flex">{{ bi('package') }}</span> Thông báo đóng gói</h3>
   <p class="tl-mo-ta">Mỗi lần nhân viên lưu đóng gói, hệ thống gửi mã vận đơn + người gói + ảnh kiện hàng vào
     nhóm dưới đây. Để trống thì gửi vào nhóm quản lý như mặc định.</p>
   <form method="post" action="{{ url_for('admin.luu_kenh_dong_goi') }}">
@@ -60,7 +60,7 @@
 </div>
 
 <div class="the" id="cong-no">
-  <h3 style="margin-top:0">💳 Thông báo thanh toán công nợ</h3>
+  <h3 style="margin-top:0;display:flex;align-items:center;gap:8px"><span style="color:var(--chinh);display:inline-flex">{{ bi('credit-card') }}</span> Thông báo thanh toán công nợ</h3>
   <p class="tl-mo-ta">Mỗi lần có phiếu thanh toán công nợ mới, hệ thống gửi tên khách + mã đơn + ghi chú + người
     khai báo + ảnh lệnh chuyển tiền vào nhóm dưới đây. <strong>Để trống nhóm = không gửi.</strong></p>
   <form method="post" action="{{ url_for('admin.luu_kenh_cong_no') }}">
@@ -85,7 +85,7 @@
 </div>
 
 <details class="tl-them">
-  <summary><span class="tl-them-nhan">+ Thêm bot Zalo</span></summary>
+  <summary>{{ bi('plus', 'ic--sm') }} <span class="tl-them-nhan">Thêm bot Zalo</span></summary>
   <div class="the">
   <form method="post">
     <div class="o-nhap"><label>Tên bot</label>
@@ -113,12 +113,12 @@
 
 {% for b in ds %}
 <details class="the">
-  <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:10px">
-    <span>
+  <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center">
+    <span style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px">
       <strong>{{ b.ten }}</strong>
       {% set ds_nv = nv_theo_bot.get(b.id, []) %}
-      <span style="font-size:.78rem;color:var(--muc-mo);margin-left:8px">
-        🔗 {{ ds_nv|length }}/3 —
+      <span style="font-size:.78rem;color:var(--muc-mo);display:inline-flex;align-items:center;gap:4px">
+        {{ bi('link', 'ic--xs') }} {{ ds_nv|length }}/3 —
         {% if ds_nv %}{{ ds_nv|map(attribute='ho_ten')|join(', ') }}
         {% else %}chưa ai dùng{% endif %}</span>
     </span>
@@ -135,7 +135,7 @@
           <input type="text" name="link_moi" class="o-link-moi" value="{{ b.link_moi or '' }}"
                  placeholder="https://zalo.me/s/..." style="flex:1">
           <button type="button" class="nut nut--phu nut--nho nut-sao-chep-link"
-                  style="flex:none">📋</button>
+                  style="flex:none" title="Sao chép link">{{ bi('copy', 'ic--sm') }}</button>
         </div></div>
       <div class="o-nhap"><label>Owner</label>
         <input type="text" name="owner" value="{{ b.owner or '' }}" placeholder="Tên người đang là owner nhóm"></div>
@@ -146,9 +146,9 @@
     <button class="nut nut--nho" type="submit">Lưu</button>
   </form>
   <div class="hang-nut" style="margin-top:10px">
-    <a class="nut nut--phu nut--nho" href="{{ url_for('admin.lay_group_id', bot_id=b.id) }}">🔍 Tìm Group ID (polling)</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('admin.lay_group_id', bot_id=b.id) }}">{{ bi('search', 'ic--sm') }} Tìm Group ID (polling)</a>
     <form method="post" action="{{ url_for('admin.dat_webhook', bot_id=b.id) }}">
-      <button class="nut nut--phu nut--nho" type="submit">📡 Đặt webhook</button>
+      <button class="nut nut--phu nut--nho" type="submit">{{ bi('radio', 'ic--sm') }} Đặt webhook</button>
     </form>
     <form method="post" action="{{ url_for('admin.xoa_webhook', bot_id=b.id) }}">
       <button class="nut nut--phu nut--nho" type="submit">Xoá webhook</button>
@@ -182,8 +182,8 @@
       <label>OpenAI API key</label>
       <div class="o-mat-khau-bao">
         <input type="password" id="o-openai-key" name="openai_api_key" value="{{ openai_api_key or '' }}" placeholder="sk-..." autocomplete="off">
-        <button type="button" class="o-mat-khau-nut" id="nut-hien-key" title="Hiện/ẩn key">👁</button>
-        <button type="button" class="o-mat-khau-nut" id="nut-sao-chep-key" title="Sao chép key">📋</button>
+        <button type="button" class="o-mat-khau-nut" id="nut-hien-key" title="Hiện/ẩn key">{{ bi('eye', 'ic--sm') }}</button>
+        <button type="button" class="o-mat-khau-nut" id="nut-sao-chep-key" title="Sao chép key">{{ bi('copy', 'ic--sm') }}</button>
       </div>
       <div class="goi-y">Để trống rồi Lưu để xoá key (tắt tính năng AI).</div>
     </div>
@@ -215,14 +215,14 @@
 
 {% elif muc == "tin_tu_dong" %}
 <div class="the">
-  <h3 style="margin-top:0">🎂 Chúc mừng sinh nhật tự động</h3>
+  <h3 style="margin-top:0;display:flex;align-items:center;gap:8px"><span style="color:var(--chinh);display:inline-flex">{{ bi('cake') }}</span> Chúc mừng sinh nhật tự động</h3>
   <p style="color:var(--muc-mo);font-size:.85rem;margin-top:0">
     Mỗi sáng 08:00 (kể cả Chủ nhật/ngày lễ), hệ thống gửi lời chúc riêng qua Zalo cho người có sinh nhật hôm đó
     và báo cho toàn bộ nhân viên. Sinh nhật lấy từ hồ sơ nhân viên (Nhân sự → Nhân viên).</p>
   {% if sinh_nhat_sap_toi %}
   <div style="font-size:.84rem;margin-bottom:12px;padding:10px 12px;background:var(--chinh-nhat);border-radius:10px">
     <b>Sắp tới (30 ngày):</b>
-    {% for d, n in sinh_nhat_sap_toi %}{{ n.ho_ten }} – {{ d.strftime('%d/%m') }}{{ ' (hôm nay 🎉)' if d == hom_nay }}{{ ', ' if not loop.last }}{% endfor %}
+    {% for d, n in sinh_nhat_sap_toi %}{{ n.ho_ten }} – {{ d.strftime('%d/%m') }}{{ ' (hôm nay)' if d == hom_nay }}{{ ', ' if not loop.last }}{% endfor %}
   </div>
   {% endif %}
   <form method="post" action="{{ url_for('admin.luu_cai_dat_sinh_nhat') }}">
@@ -252,55 +252,55 @@
   <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='sap-qua-han') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>⏳ Nhắc việc sắp tới hạn (30 phút)</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('hourglass', 'ic--sm') }} Nhắc việc sắp tới hạn (30 phút)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật mỗi 5 phút</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='cham-cong-sang') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>⏰ Nhắc chấm công sáng</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('clock', 'ic--sm') }} Nhắc chấm công sáng</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 07:45</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='cham-cong-chieu') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>⏰ Nhắc chấm công ra buổi chiều</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('clock', 'ic--sm') }} Nhắc chấm công ra buổi chiều</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 17:32</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='ban-tin-sang') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>🗞️ Bản tin sáng (từng nhân viên)</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('newspaper', 'ic--sm') }} Bản tin sáng (từng nhân viên)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 08:00</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='ban-tin-chieu') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>🗞️ Bản tin chiều (từng nhân viên)</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('newspaper', 'ic--sm') }} Bản tin chiều (từng nhân viên)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 17:30</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='sinh-nhat') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>🎂 Chúc mừng sinh nhật (người sinh nhật hôm nay)</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('cake', 'ic--sm') }} Chúc mừng sinh nhật (người sinh nhật hôm nay)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 08:00 mỗi ngày</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='bao-cao-sang') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>📋 Báo cáo sáng (nhóm QL)</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('clipboard-list', 'ic--sm') }} Báo cáo sáng (nhóm QL)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 08:10</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='bao-cao-chieu') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>📊 Báo cáo chiều (nhóm QL)</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('bar-chart', 'ic--sm') }} Báo cáo chiều (nhóm QL)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 17:30</span>
       </button>
     </form>
     <form method="post" action="{{ url_for('admin.chay_thu_bao_cao', ten_lenh='thieu-sot') }}">
       <button class="nut nut--phu" type="submit" style="width:100%;display:flex;justify-content:space-between;align-items:center">
-        <span>📝 Báo cáo việc còn thiếu (nhóm QL)</span>
+        <span style="display:inline-flex;align-items:center;gap:8px">{{ bi('edit', 'ic--sm') }} Báo cáo việc còn thiếu (nhóm QL)</span>
         <span style="color:var(--muc-nhat);font-weight:400;font-size:.76rem">chạy thật lúc 18:00</span>
       </button>
     </form>
@@ -312,15 +312,18 @@
 {% block scripts %}
 <script>
 (function () {
+  const IC_CHECK = {{ bi('check', 'ic--sm')|tojson }};
+  const IC_EYE = {{ bi('eye', 'ic--sm')|tojson }};
+  const IC_EYE_OFF = {{ bi('eye-off', 'ic--sm')|tojson }};
   document.querySelectorAll('.nut-sao-chep-link').forEach((nut) => {
     nut.addEventListener('click', async () => {
       const o = nut.previousElementSibling;
       if (!o || !o.value) return;
       try {
         await navigator.clipboard.writeText(o.value);
-        const cu = nut.textContent;
-        nut.textContent = '✅';
-        setTimeout(() => { nut.textContent = cu; }, 1200);
+        const cu = nut.innerHTML;
+        nut.innerHTML = IC_CHECK;
+        setTimeout(() => { nut.innerHTML = cu; }, 1200);
       } catch (e) { /* trình duyệt không hỗ trợ clipboard — bỏ qua */ }
     });
   });
@@ -333,16 +336,16 @@
   nutHien.addEventListener('click', () => {
     const dangAn = input.type === 'password';
     input.type = dangAn ? 'text' : 'password';
-    nutHien.textContent = dangAn ? '🙈' : '👁';
+    nutHien.innerHTML = dangAn ? IC_EYE_OFF : IC_EYE;
   });
 
   nutSaoChep.addEventListener('click', async () => {
     if (!input.value) return;
     try {
       await navigator.clipboard.writeText(input.value);
-      const cu = nutSaoChep.textContent;
-      nutSaoChep.textContent = '✅';
-      setTimeout(() => { nutSaoChep.textContent = cu; }, 1200);
+      const cu = nutSaoChep.innerHTML;
+      nutSaoChep.innerHTML = IC_CHECK;
+      setTimeout(() => { nutSaoChep.innerHTML = cu; }, 1200);
     } catch (e) {
       alert('Không sao chép được — hãy tự bôi đen và Ctrl+C.');
     }

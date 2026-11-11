@@ -2,7 +2,7 @@
 {% block title %}Lập biên bản phạt · BRICON{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:4px"><a href="{{ url_for('bien_ban.danh_sach') }}" style="font-size:.85rem">‹ Biên bản phạt</a></div>
+<div><a class="quay-lai" href="{{ url_for('bien_ban.danh_sach') }}">{{ bi('chevron-left') }} Biên bản phạt</a></div>
 <h1>Lập biên bản vi phạm</h1>
 {% if not nhan_vien %}
 <div class="the"><p style="margin:0">Không có nhân viên nào trong phạm vi bạn được lập biên bản.</p></div>

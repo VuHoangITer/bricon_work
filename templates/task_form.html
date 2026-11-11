@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Giao việc mới · BRICON WORK{% endblock %}
 {% block content %}
+<div><a class="quay-lai" href="{{ url_for('tasks.danh_sach') }}">{{ bi('chevron-left') }} Danh sách công việc</a></div>
 <div class="page-head"><div class="page-head-copy"><h1>Giao việc mới</h1></div></div>
 <form class="the" method="post" enctype="multipart/form-data" id="form-giao-viec">
   <div class="o-nhap"><label for="tieu_de">Tên công việc</label><input id="tieu_de" name="tieu_de" type="text" required maxlength="255" value="{{ tieu_de or '' }}" placeholder="VD: Kiểm kê kho keo dán gạch chi nhánh Bình Tân"></div>
   <div class="o-nhap"><label for="mo_ta">Yêu cầu chi tiết</label><textarea id="mo_ta" name="mo_ta" placeholder="Làm gì, ở đâu, cần nộp lại đối chứng gì…">{{ mo_ta or '' }}</textarea>
     <div class="hang-nut" style="margin-top:8px">
-      <button type="button" class="nut nut--phu nut--nho" id="nut-ai-goi-y">✨ Gợi ý bằng AI</button>
-      <button type="button" class="nut nut--phu nut--nho" id="nut-ai-tom-tat">✨ Tóm tắt bằng AI</button>
+      <button type="button" class="nut nut--phu nut--nho" id="nut-ai-goi-y">{{ bi('sparkles') }} Gợi ý bằng AI</button>
+      <button type="button" class="nut nut--phu nut--nho" id="nut-ai-tom-tat">{{ bi('sparkles') }} Tóm tắt bằng AI</button>
       <span id="ai-trang-thai" style="font-size:.78rem;color:var(--muc-mo);align-self:center"></span>
     </div>
     <div class="canh-bao-nho" id="canh-bao-zalo-yeu-cau" style="display:none;margin-top:10px">
-      ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
+      {{ bi('alert-triangle', 'ic--sm') }} Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
       khi bấm link ngay trong khung chat Zalo/Messenger). Quay lại đoạn
       chat, <strong>nhấn giữ (long-press) vào link này</strong> → chọn
       <strong>"Mở bằng trình duyệt"</strong> rồi thử lại.
@@ -44,7 +45,7 @@
     <input id="han" name="han" type="datetime-local"
            value="{{ han if han else (hom_nay.isoformat() ~ 'T17:25' if (uu_tien or 'thuong') != 'cao' else '') }}">
     <div id="canh-bao-ngay-nghi" style="display:none;font-size:.78rem;color:var(--lam-lai);margin-top:6px">
-      ⚠️ Ngày này là ngày nghỉ (Chủ nhật/lễ) — không giao được việc vào ngày này, chọn ngày khác.
+      {{ bi('alert-triangle', 'ic--sm') }} Ngày này là ngày nghỉ (Chủ nhật/lễ) — không giao được việc vào ngày này, chọn ngày khác.
     </div>
     <label for="ngay_bat_dau" style="margin-top:10px">Ngày bắt đầu (không bắt buộc)</label>
     <input id="ngay_bat_dau" name="ngay_bat_dau" type="date" value="{{ ngay_bat_dau or '' }}">
@@ -64,21 +65,21 @@
 </form>
 
 <div id="khoi-viec-them-container"></div>
-<button type="button" class="nut nut--phu" id="nut-them-khoi" style="margin-top:6px" form="form-giao-viec" formnovalidate>+ Thêm việc khác</button>
+<button type="button" class="nut nut--phu" id="nut-them-khoi" style="margin-top:6px" form="form-giao-viec" formnovalidate>{{ bi('plus') }} Thêm việc khác</button>
 
 <template id="mau-khoi-viec">
   <div class="khoi-viec-them the" style="margin-top:16px">
     <div class="hang-nut" style="justify-content:space-between;margin-bottom:10px">
       <strong style="color:var(--chinh-dam)" class="nhan-so-thu-tu">Việc thêm</strong>
-      <button type="button" class="nut nut--phu nut--nho nut-bo-khoi" style="color:var(--lam-lai)">🗑 Bỏ việc này</button>
+      <button type="button" class="nut nut--phu nut--nho nut-bo-khoi" style="color:var(--lam-lai)">{{ bi('trash') }} Bỏ việc này</button>
     </div>
     <div class="o-nhap"><label>Tên công việc</label>
       <input class="o-tieu-de" type="text" maxlength="255" placeholder="VD: Kiểm tra kho" form="form-giao-viec"></div>
     <div class="o-nhap"><label>Yêu cầu chi tiết</label>
       <textarea class="o-mo-ta" placeholder="Làm gì, ở đâu, cần nộp lại đối chứng gì…" form="form-giao-viec"></textarea>
       <div class="hang-nut" style="margin-top:8px">
-        <button type="button" class="nut nut--phu nut--nho nut-ai-goi-y">✨ Gợi ý bằng AI</button>
-        <button type="button" class="nut nut--phu nut--nho nut-ai-tom-tat">✨ Tóm tắt bằng AI</button>
+        <button type="button" class="nut nut--phu nut--nho nut-ai-goi-y">{{ bi('sparkles') }} Gợi ý bằng AI</button>
+        <button type="button" class="nut nut--phu nut--nho nut-ai-tom-tat">{{ bi('sparkles') }} Tóm tắt bằng AI</button>
         <span class="ai-trang-thai" style="font-size:.78rem;color:var(--muc-mo);align-self:center"></span>
       </div>
     </div>

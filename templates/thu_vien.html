@@ -24,7 +24,7 @@
       <option value="xin_nghi" {{ 'selected' if f_nguon == 'xin_nghi' }}>Đơn xin nghỉ</option>
       <option value="chuc_vu" {{ 'selected' if f_nguon == 'chuc_vu' }}>Ảnh chức vụ</option>
       <option value="san_pham" {{ 'selected' if f_nguon == 'san_pham' }}>Ảnh sản phẩm</option>
-      <option value="mo_coi" {{ 'selected' if f_nguon == 'mo_coi' }}>⚠️ Không rõ nguồn gốc</option>
+      <option value="mo_coi" {{ 'selected' if f_nguon == 'mo_coi' }}>Không rõ nguồn gốc</option>
       <option value="tat_ca" {{ 'selected' if f_nguon == 'tat_ca' }}>Tất cả (trừ không rõ nguồn gốc)</option>
     </select>
     {% endif %}
@@ -53,7 +53,7 @@
 
 {% if f_nguon == 'mo_coi' and ds %}
 <div class="canh-bao-nho" style="margin-bottom:12px">
-  ⚠️ Các file dưới đây còn nằm trên ổ đĩa nhưng không có bản ghi nào trong hệ thống tham chiếu tới nữa
+  {{ bi('alert-triangle', 'ic--sm') }} Các file dưới đây còn nằm trên ổ đĩa nhưng không có bản ghi nào trong hệ thống tham chiếu tới nữa
   (thường do lỗi cũ hoặc do dữ liệu liên quan đã bị xoá trước khi tính năng dọn file được thêm vào) —
   có thể xoá an toàn để giải phóng dung lượng.
 </div>
@@ -70,7 +70,7 @@
   {% elif d.loai == LoaiDinhKem.GHI_AM %}
     <div class="the-thu-vien-am"><audio controls preload="none" src="{{ src }}"></audio></div>
   {% else %}
-    <a href="{{ src }}" target="_blank" rel="noopener" class="the-thu-vien-file">📄<span>{{ d.ten_file|truncate(28) }}</span></a>
+    <a href="{{ src }}" target="_blank" rel="noopener" class="the-thu-vien-file">{{ bi('file') }}<span>{{ d.ten_file|truncate(28) }}</span></a>
   {% endif %}
   <div class="the-thu-vien-info">
     {% if current_user.la_admin_sep and f_nguon == 'tat_ca' %}
@@ -103,15 +103,15 @@
 {% if phan_trang.pages > 1 %}
 <div class="phan-trang">
   {% if phan_trang.has_prev %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.thu_vien', nguon=f_nguon, nguoi=f_nguoi, q=f_q, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">‹ Trước</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.thu_vien', nguon=f_nguon, nguoi=f_nguoi, q=f_q, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.prev_num) }}">{{ bi('chevron-left') }} Trước</a>
   {% else %}
-    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">‹ Trước</span>
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">{{ bi('chevron-left') }} Trước</span>
   {% endif %}
   <span class="phan-trang-so">Trang {{ phan_trang.page }}/{{ phan_trang.pages }}</span>
   {% if phan_trang.has_next %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.thu_vien', nguon=f_nguon, nguoi=f_nguoi, q=f_q, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau ›</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('tasks.thu_vien', nguon=f_nguon, nguoi=f_nguoi, q=f_q, tu_ngay=f_tu_ngay, den_ngay=f_den_ngay, trang=phan_trang.next_num) }}">Sau {{ bi('chevron-right') }}</a>
   {% else %}
-    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau ›</span>
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau {{ bi('chevron-right') }}</span>
   {% endif %}
 </div>
 {% endif %}

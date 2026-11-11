@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-head">
   <div class="page-head-copy"><h1>Đóng gói</h1><p>Tra cứu nhanh ai gói 1 đơn hàng theo mã vận đơn, không cần lướt lại Zalo.</p></div>
-  <div class="page-actions"><a class="nut nut--vang" href="{{ url_for('dong_goi.moi') }}">📦 Quét đóng gói</a></div>
+  <div class="page-actions"><a class="nut nut--vang" href="{{ url_for('dong_goi.moi') }}">{{ bi('package') }} Quét đóng gói</a></div>
 </div>
 
 
@@ -62,15 +62,15 @@
 {% if phan_trang.pages > 1 %}
 <div class="phan-trang">
   {% if phan_trang.has_prev %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('dong_goi.danh_sach', ma=f_ma, nguoi=f_nguoi, trang=phan_trang.prev_num) }}">‹ Trước</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('dong_goi.danh_sach', ma=f_ma, nguoi=f_nguoi, trang=phan_trang.prev_num) }}">{{ bi('chevron-left') }} Trước</a>
   {% else %}
-    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">‹ Trước</span>
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">{{ bi('chevron-left') }} Trước</span>
   {% endif %}
   <span class="phan-trang-so">Trang {{ phan_trang.page }}/{{ phan_trang.pages }}</span>
   {% if phan_trang.has_next %}
-    <a class="nut nut--phu nut--nho" href="{{ url_for('dong_goi.danh_sach', ma=f_ma, nguoi=f_nguoi, trang=phan_trang.next_num) }}">Sau ›</a>
+    <a class="nut nut--phu nut--nho" href="{{ url_for('dong_goi.danh_sach', ma=f_ma, nguoi=f_nguoi, trang=phan_trang.next_num) }}">Sau {{ bi('chevron-right') }}</a>
   {% else %}
-    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau ›</span>
+    <span class="nut nut--phu nut--nho" style="opacity:.4;pointer-events:none">Sau {{ bi('chevron-right') }}</span>
   {% endif %}
 </div>
 {% endif %}

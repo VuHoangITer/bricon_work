@@ -2,8 +2,8 @@
 {% block title %}{{ 'Sửa phiếu' if cn else 'Khai báo thanh toán' }} · BRICON{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:4px">
-  <a href="{{ url_for('cong_no.chi_tiet', id=cn.id) if cn else url_for('cong_no.danh_sach') }}" style="font-size:.85rem">‹ {{ 'Quay lại phiếu' if cn else 'Danh sách thanh toán công nợ' }}</a>
+<div>
+  <a class="quay-lai" href="{{ url_for('cong_no.chi_tiet', id=cn.id) if cn else url_for('cong_no.danh_sach') }}">{{ bi('chevron-left') }} {{ 'Quay lại phiếu' if cn else 'Danh sách thanh toán công nợ' }}</a>
 </div>
 <h1>{{ 'Sửa phiếu thanh toán' if cn else 'Khai báo thanh toán công nợ' }}</h1>
 <p class="goi-y" style="margin:-4px 0 14px">Cả 4 ô đều bắt buộc.</p>

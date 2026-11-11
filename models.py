@@ -5,6 +5,7 @@ from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db, login_manager
+from icons import bi
 
 _MUI_GIO_VN = pytz.timezone("Asia/Ho_Chi_Minh")
 
@@ -470,7 +471,13 @@ class LoaiHoSo:
         VI_PHAM: "Biên bản vi phạm",
         KHAC: "Giấy tờ khác",
     }
-    ICON = {HOP_DONG: "📄", BAN_GIAO: "📦", CAM_KET: "✍️", VI_PHAM: "⚠️", KHAC: "🗂"}
+    ICON = {
+        HOP_DONG: bi("file-text"),
+        BAN_GIAO: bi("package"),
+        CAM_KET: bi("pen-tool"),
+        VI_PHAM: bi("alert-triangle"),
+        KHAC: bi("folder"),
+    }
 
 
 class HoSoNhanVien(db.Model):
@@ -808,6 +815,11 @@ class ChamCong(db.Model):
     ve_som = db.Column(db.Boolean, default=False)
     so_phut_som = db.Column(db.Integer, default=0)
     nghi_khong_phep = db.Column(db.Boolean, default=False)
+    # Có đơn "Đi trễ / Về sớm" ĐÃ DUYỆT cho ngày này — giờ chấm thực tế
+    # vẫn giữ nguyên (di_tre/so_phut_tre), chỉ đánh dấu là có phép để
+    # hiện "Đi trễ 20 phút · Đã duyệt" và không tính vào số lần trễ.
+    tre_co_phep = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    som_co_phep = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
 
     ip = db.Column(db.String(60))
     user_agent = db.Column(db.String(300))
@@ -868,6 +880,9 @@ class XinNghi(db.Model):
                                           # cột vẫn để nullable để không vỡ
                                           # dữ liệu cũ (trước đây tuỳ chọn)
     ban_giao_cho_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))  # không bắt buộc
+    # Đơn từ đã duyệt sinh ra dòng nghỉ phép này (None = dữ liệu cũ, trước
+    # khi có luồng Đơn từ chờ duyệt).
+    don_tu_id = db.Column(db.Integer, db.ForeignKey("don_tu.id"), index=True)
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
 
     nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
@@ -879,6 +894,160 @@ class XinNghi(db.Model):
 
     def __repr__(self):
         return f"<XinNghi {self.nguoi_dung_id} {self.ngay} {self.buoi}>"
+
+
+class LoaiDonTu:
+    """6 loại đơn từ liên quan chấm công (mục Hành chính nhân sự)."""
+    XIN_NGHI = "xin_nghi"
+    TRE_SOM = "tre_som"
+    BO_SUNG_CONG = "bo_sung_cong"
+    CONG_TAC = "cong_tac"
+    TANG_CA = "tang_ca"
+    DOI_CA = "doi_ca"
+
+    TAT_CA = (XIN_NGHI, TRE_SOM, BO_SUNG_CONG, CONG_TAC, TANG_CA, DOI_CA)
+    NHAN = {
+        XIN_NGHI: "Xin nghỉ",
+        TRE_SOM: "Đi trễ / Về sớm",
+        BO_SUNG_CONG: "Bổ sung chấm công",
+        CONG_TAC: "Công tác / Bên ngoài",
+        TANG_CA: "Đăng ký tăng ca",
+        DOI_CA: "Xin đổi ca",
+    }
+    MO_TA = {
+        XIN_NGHI: "Nghỉ cả ngày hoặc nửa ngày",
+        TRE_SOM: "Vào ca muộn hoặc về sớm",
+        BO_SUNG_CONG: "Quên bấm vào/ra, giờ bị sai",
+        CONG_TAC: "Gặp khách, công trình, giao hàng",
+        TANG_CA: "Làm ngoài giờ, ngày nghỉ",
+        DOI_CA: "Đổi giờ làm trong 1 ngày",
+    }
+    ICON = {
+        XIN_NGHI: bi("calendar"), TRE_SOM: bi("alarm-clock"), BO_SUNG_CONG: bi("rotate-ccw"),
+        CONG_TAC: bi("briefcase"), TANG_CA: bi("plus-circle"), DOI_CA: bi("repeat"),
+    }
+
+
+class PhanLoaiNghi:
+    PHEP = "phep"
+    KHONG_LUONG = "khong_luong"
+    OM = "om"
+    VIEC_RIENG = "viec_rieng"
+    NHAN = {PHEP: "Nghỉ phép", KHONG_LUONG: "Nghỉ không lương", OM: "Nghỉ ốm", VIEC_RIENG: "Việc riêng"}
+
+
+class PhanLoaiTreSom:
+    DI_TRE = "di_tre"
+    VE_SOM = "ve_som"
+    NHAN = {DI_TRE: "Xin đi trễ", VE_SOM: "Xin về sớm"}
+
+
+class TrangThaiDonTu:
+    CHO_DUYET = "cho_duyet"
+    DA_DUYET = "da_duyet"
+    TU_CHOI = "tu_choi"
+    DA_HUY = "da_huy"
+
+    NHAN = {CHO_DUYET: "Chờ duyệt", DA_DUYET: "Đã duyệt", TU_CHOI: "Từ chối", DA_HUY: "Đã huỷ"}
+    # Màu chấm, dùng lại thang của .nhan[data-tt]
+    MAU = {CHO_DUYET: "cho_duyet", DA_DUYET: "hoan_thanh", TU_CHOI: "lam_lai", DA_HUY: "huy"}
+
+
+class DonTu(db.Model):
+    """Đơn từ chấm công: nhân viên gửi -> quản lý duyệt/từ chối. Khi được
+    duyệt, services.ap_dung_don_tu cập nhật bảng công (tạo nghỉ phép, đánh
+    dấu trễ có phép, sửa giờ chấm…) — giờ chấm THỰC TẾ luôn được giữ lại;
+    riêng đơn bổ sung công lưu cả dữ liệu cũ vào du_lieu_cu để đối chiếu."""
+    __tablename__ = "don_tu"
+
+    id = db.Column(db.Integer, primary_key=True)
+    loai = db.Column(db.String(20), nullable=False, index=True)
+    nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"), nullable=False, index=True)
+    trang_thai = db.Column(db.String(20), nullable=False, default=TrangThaiDonTu.CHO_DUYET, index=True)
+
+    ngay = db.Column(db.Date, nullable=False, index=True)    # ngày áp dụng / ngày bắt đầu
+    ngay_den = db.Column(db.Date)                            # xin nghỉ nhiều ngày
+    buoi = db.Column(db.String(10))                          # xin nghỉ: sang/chieu/ca_ngay
+    phan_loai = db.Column(db.String(20))                     # loại nghỉ / đi trễ-về sớm
+    gio_tu = db.Column(db.Time)
+    gio_den = db.Column(db.Time)
+    dia_diem = db.Column(db.String(255))
+    noi_dung = db.Column(db.Text)
+    ly_do = db.Column(db.Text, nullable=False)
+    ban_giao_cho_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))
+    duong_dan_pdf = db.Column(db.String(300))                # đơn xin nghỉ ký điện tử
+    dinh_kem = db.Column(db.String(300))                     # ảnh/tệp đính kèm (nếu có)
+    ten_dinh_kem = db.Column(db.String(255))
+    du_lieu_cu = db.Column(db.String(255))                   # bổ sung công: giờ chấm trước khi sửa
+
+    nguoi_duyet_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))
+    y_kien_duyet = db.Column(db.Text)
+    duyet_luc = db.Column(db.DateTime)
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai, index=True)
+
+    nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
+    nguoi_duyet = db.relationship("NguoiDung", foreign_keys=[nguoi_duyet_id])
+    ban_giao_cho = db.relationship("NguoiDung", foreign_keys=[ban_giao_cho_id])
+
+    @property
+    def ten_loai(self):
+        return LoaiDonTu.NHAN.get(self.loai, self.loai)
+
+    @property
+    def icon(self):
+        return LoaiDonTu.ICON.get(self.loai, bi("file-text"))
+
+    @property
+    def ten_trang_thai(self):
+        return TrangThaiDonTu.NHAN.get(self.trang_thai, self.trang_thai)
+
+    @property
+    def mau_trang_thai(self):
+        return TrangThaiDonTu.MAU.get(self.trang_thai, "moi")
+
+    @property
+    def ten_phan_loai(self):
+        if self.loai == LoaiDonTu.XIN_NGHI:
+            return PhanLoaiNghi.NHAN.get(self.phan_loai, self.phan_loai)
+        if self.loai == LoaiDonTu.TRE_SOM:
+            return PhanLoaiTreSom.NHAN.get(self.phan_loai, self.phan_loai)
+        return None
+
+    @property
+    def so_gio(self) -> float:
+        """Số giờ giữa gio_tu và gio_den (tăng ca/công tác), làm tròn 0.5."""
+        if not (self.gio_tu and self.gio_den):
+            return 0.0
+        phut = (self.gio_den.hour * 60 + self.gio_den.minute) - (self.gio_tu.hour * 60 + self.gio_tu.minute)
+        if phut <= 0:
+            phut += 24 * 60  # tăng ca qua nửa đêm
+        return round(phut / 30) / 2
+
+    @property
+    def tom_tat(self) -> str:
+        """1 dòng ngắn mô tả thời gian của đơn, dùng cho thẻ danh sách."""
+        def g(t):
+            return t.strftime("%H:%M") if t else "—"
+        ngay = self.ngay.strftime("%d/%m/%Y")
+        if self.loai == LoaiDonTu.XIN_NGHI:
+            if self.ngay_den and self.ngay_den != self.ngay:
+                return f"{self.ngay:%d/%m} → {self.ngay_den:%d/%m/%Y} · Cả ngày"
+            return f"{ngay} · {BuoiNghi.NHAN.get(self.buoi, 'Cả ngày')}"
+        if self.loai == LoaiDonTu.TRE_SOM:
+            nhan = "vào" if self.phan_loai == PhanLoaiTreSom.DI_TRE else "về"
+            return f"{ngay} · Dự kiến {nhan} {g(self.gio_tu)}"
+        if self.loai == LoaiDonTu.BO_SUNG_CONG:
+            return f"{ngay} · Vào {g(self.gio_tu)} · Ra {g(self.gio_den)}"
+        if self.loai == LoaiDonTu.CONG_TAC:
+            return f"{ngay} · {g(self.gio_tu)}–{g(self.gio_den)}" + (f" · {self.dia_diem}" if self.dia_diem else "")
+        if self.loai == LoaiDonTu.TANG_CA:
+            return f"{ngay} · {g(self.gio_tu)}–{g(self.gio_den)} ({self.so_gio:g} giờ)"
+        if self.loai == LoaiDonTu.DOI_CA:
+            return f"{ngay} · Ca mới {g(self.gio_tu)}–{g(self.gio_den)}"
+        return ngay
+
+    def __repr__(self):
+        return f"<DonTu {self.id} {self.loai} {self.trang_thai}>"
 
 
 class DeXuat(db.Model):

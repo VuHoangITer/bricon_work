@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Cá nhân · BRICON{% endblock %}
+
+{% block content %}
+{% from "_avatar.html" import avatar %}
+<div class="the ca-nhan-the">
+  {{ avatar(current_user, cls="ca-nhan-avatar") }}
+  <div>
+    <h1 style="margin:0">{{ current_user.ho_ten }}</h1>
+    <div class="subtle">{{ current_user.ten_vai_tro }}{% if current_user.chuc_vu %} · {{ current_user.chuc_vu.ten }}{% endif %}</div>
+    <div class="subtle" style="font-size:.78rem">Mã NV: {{ current_user.ma_dinh_danh }}</div>
+  </div>
+</div>
+
+<div class="hub-danh-sach the the--khong-dem">
+  <a href="{{ url_for('auth.ho_so_cua_toi') }}"><span>{{ bi('user') }}</span>Hồ sơ của tôi<i>{{ bi('chevron-right') }}</i></a>
+  <a href="{{ url_for('thong_bao.danh_sach') }}"><span>{{ bi('megaphone') }}</span>Thông báo<i>{{ bi('chevron-right') }}</i></a>
+  <a href="{{ url_for('auth.doi_mat_khau') }}"><span>{{ bi('lock') }}</span>Đổi mật khẩu<i>{{ bi('chevron-right') }}</i></a>
+</div>
+
+{% if current_user.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) %}
+<div class="tieu-khu"><h2>Quản trị</h2></div>
+<div class="hub-danh-sach the the--khong-dem">
+  {% for nhom in NHOM_QUAN_TRI if not nhom.chi_admin or current_user.vai_tro == VaiTro.ADMIN %}
+  <a href="{{ url_for(nhom.tab[0][0]) }}"><span>{{ nhom.icon }}</span>{{ nhom.nhan }}<i>{{ bi('chevron-right') }}</i></a>
+  {% endfor %}
+</div>
+{% elif current_user.duoc_nap_ai %}
+<div class="tieu-khu"><h2>Quản trị</h2></div>
+<div class="hub-danh-sach the the--khong-dem">
+  <a href="{{ url_for('admin.info_ai') }}"><span>{{ bi('bot') }}</span>Trợ lý AI<i>{{ bi('chevron-right') }}</i></a>
+</div>
+{% endif %}
+
+<a class="nut nut--phu nut--rong" style="margin-top:8px" href="{{ url_for('auth.logout') }}">{{ bi('log-out') }} Đăng xuất</a>
+{% endblock %}

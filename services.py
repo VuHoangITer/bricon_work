@@ -1977,14 +1977,16 @@ def tinh_lai_tre_som(cc: "ChamCong"):
                 cc.gio_vao, current_app.config["GIO_VAO"],
                 current_app.config["PHUT_TRE_CHO_PHEP_NUA_NGAY"])
         else:
-            cc.di_tre, cc.so_phut_tre = tinh_di_tre(cc.gio_vao)
+            cc.di_tre, cc.so_phut_tre = tinh_di_tre(cc.gio_vao, ca_lam_viec(cc.nguoi_dung_id, cc.ngay)[0])
 
     if cc.gio_ra:
         if co_nghi_phep_buoi(cc.nguoi_dung_id, cc.ngay, BuoiNghi.CHIEU):
             cc.ve_som, cc.so_phut_som = tinh_ve_som(
                 cc.gio_ra, current_app.config["GIO_KET_THUC_SANG"])
         else:
-            cc.ve_som, cc.so_phut_som = tinh_ve_som(cc.gio_ra)
+            cc.ve_som, cc.so_phut_som = tinh_ve_som(cc.gio_ra, ca_lam_viec(cc.nguoi_dung_id, cc.ngay)[1])
+
+    danh_dau_tre_som_co_phep(cc)
 
 
 def gio_cong_trong_ngay(cc: "ChamCong") -> float:
@@ -2450,10 +2452,11 @@ def xuat_excel_bang_cong(thang: str, ban_ghi: list, don_nghi: list, tong: list) 
 
     ws1 = wb.active
     ws1.title = "Tổng hợp"
-    ws1.append(["Mã NV", "Họ tên", "Ngày công", "Trễ", "Về sớm", "Nghỉ phép", "Không phép"])
+    ws1.append(["Mã NV", "Họ tên", "Ngày công", "Trễ (không phép)", "Về sớm (không phép)", "Nghỉ phép", "Không phép", "Công tác", "Tăng ca (giờ)"])
     for o in tong:
-        ws1.append([o["ma"], o["ho_ten"], o["so_ngay"], o["tre"], o["som"], o["nghi_phep"], o["khong_phep"]])
-    _ke_tieu_de(ws1, [10, 26, 11, 8, 10, 11, 11])
+        ws1.append([o["ma"], o["ho_ten"], o["so_ngay"], o["tre"], o["som"], o["nghi_phep"], o["khong_phep"],
+                    o.get("cong_tac", 0), o.get("tang_ca", 0)])
+    _ke_tieu_de(ws1, [10, 26, 11, 16, 18, 11, 11, 10, 13])
 
     ws2 = wb.create_sheet("Chi tiết chấm công")
     ws2.append(["Ngày", "Mã NV", "Họ tên", "Giờ vào", "Giờ ra", "Điểm chấm công",
@@ -3017,3 +3020,146 @@ def nap_mau_viec_kho(chuc_vu_id: int) -> int:
         so += 1
     db.session.commit()
     return so
+
+# ---------------------------------------------------------------------------
+# ĐƠN TỪ (xin nghỉ, đi trễ/về sớm, bổ sung công, công tác, tăng ca, đổi ca)
+# ---------------------------------------------------------------------------
+
+def don_da_duyet(nguoi_dung_id: int, ngay: date, loai: str) -> list:
+    """Các đơn ĐÃ DUYỆT của 1 người, đúng 1 loại, áp dụng cho đúng ngày."""
+    from models import DonTu, TrangThaiDonTu
+    return (DonTu.query.filter_by(nguoi_dung_id=nguoi_dung_id, ngay=ngay, loai=loai,
+                                  trang_thai=TrangThaiDonTu.DA_DUYET)
+            .order_by(DonTu.duyet_luc.desc()).all())
+
+
+def ca_lam_viec(nguoi_dung_id: int, ngay: date) -> tuple[tuple[int, int], tuple[int, int]]:
+    """(giờ vào, giờ ra) chuẩn của 1 người trong 1 ngày: mặc định theo cấu
+    hình chung, có đơn Đổi ca đã duyệt thì theo ca mới trong đơn."""
+    from models import LoaiDonTu
+    for d in don_da_duyet(nguoi_dung_id, ngay, LoaiDonTu.DOI_CA):
+        if d.gio_tu and d.gio_den:
+            return (d.gio_tu.hour, d.gio_tu.minute), (d.gio_den.hour, d.gio_den.minute)
+    return current_app.config["GIO_VAO"], current_app.config["GIO_RA"]
+
+
+def danh_dau_tre_som_co_phep(cc: "ChamCong"):
+    """Bật cờ trễ/sớm CÓ PHÉP nếu có đơn Đi trễ / Về sớm đã duyệt cho ngày
+    đó. Giờ chấm thực tế + số phút trễ giữ nguyên. Không tự commit."""
+    from models import LoaiDonTu, PhanLoaiTreSom
+    ds = don_da_duyet(cc.nguoi_dung_id, cc.ngay, LoaiDonTu.TRE_SOM)
+    cc.tre_co_phep = any(d.phan_loai == PhanLoaiTreSom.DI_TRE for d in ds)
+    cc.som_co_phep = any(d.phan_loai == PhanLoaiTreSom.VE_SOM for d in ds)
+
+
+def _gio_ngay(ngay: date, gio) -> datetime | None:
+    return datetime.combine(ngay, gio) if gio else None
+
+
+def _cham_cong_cua(nguoi_dung_id: int, ngay: date, tao_moi: bool = False) -> "ChamCong | None":
+    cc = ChamCong.query.filter_by(nguoi_dung_id=nguoi_dung_id, ngay=ngay).first()
+    if cc is None and tao_moi:
+        cc = ChamCong(nguoi_dung_id=nguoi_dung_id, ngay=ngay)
+        db.session.add(cc)
+    return cc
+
+
+def mo_ta_cham_cong(cc: "ChamCong | None") -> str:
+    if cc is None:
+        return "Chưa có chấm công"
+    if cc.nghi_khong_phep and not cc.gio_vao:
+        return "Bị ghi nghỉ không phép"
+    vao = cc.gio_vao.strftime("%H:%M") if cc.gio_vao else "—"
+    ra = cc.gio_ra.strftime("%H:%M") if cc.gio_ra else "—"
+    return f"Vào {vao} · Ra {ra}"
+
+
+def ap_dung_don_tu(don: "DonTu"):
+    """Cập nhật bảng công khi 1 đơn vừa được DUYỆT (gọi sau khi đã đặt
+    trang_thai = DA_DUYET). Không tự commit."""
+    from models import LoaiDonTu, XinNghi
+    db.session.flush()
+    nguoi_duyet = don.nguoi_duyet.ho_ten if don.nguoi_duyet else "quản lý"
+    dau_vet = f"[Đơn #{don.id} {don.ten_loai} duyệt {gio_vn_hien_tai():%H:%M %d/%m/%Y} bởi {nguoi_duyet}]"
+
+    if don.loai == LoaiDonTu.XIN_NGHI:
+        buoi = don.buoi or BuoiNghi.CA_NGAY
+        ngay, ngay_cuoi = don.ngay, don.ngay_den or don.ngay
+        while ngay <= ngay_cuoi:
+            if not XinNghi.query.filter_by(nguoi_dung_id=don.nguoi_dung_id, ngay=ngay, buoi=buoi).first():
+                db.session.add(XinNghi(
+                    nguoi_dung_id=don.nguoi_dung_id, ngay=ngay, buoi=buoi,
+                    anh_minh_chung=don.duong_dan_pdf or "", ghi_chu=don.ly_do,
+                    ban_giao_cho_id=don.ban_giao_cho_id, don_tu_id=don.id,
+                ))
+            db.session.flush()
+            cc = _cham_cong_cua(don.nguoi_dung_id, ngay)
+            if cc is not None:
+                if not cc.gio_vao and cc.nghi_khong_phep and buoi == BuoiNghi.CA_NGAY:
+                    db.session.delete(cc)  # dấu "nghỉ không phép" do cron đã ghi trước khi duyệt
+                elif cc.gio_vao:
+                    tinh_lai_tre_som(cc)
+            ngay += timedelta(days=1)
+
+    elif don.loai == LoaiDonTu.TRE_SOM:
+        cc = _cham_cong_cua(don.nguoi_dung_id, don.ngay)
+        if cc is not None:
+            danh_dau_tre_som_co_phep(cc)
+
+    elif don.loai == LoaiDonTu.BO_SUNG_CONG:
+        cc = _cham_cong_cua(don.nguoi_dung_id, don.ngay, tao_moi=True)
+        don.du_lieu_cu = mo_ta_cham_cong(cc if cc.id else None)
+        if don.gio_tu:
+            cc.gio_vao = _gio_ngay(don.ngay, don.gio_tu)
+        if don.gio_den:
+            cc.gio_ra = _gio_ngay(don.ngay, don.gio_den)
+        cc.nghi_khong_phep = False
+        cc.di_tre, cc.so_phut_tre, cc.ve_som, cc.so_phut_som = False, 0, False, 0
+        tinh_lai_tre_som(cc)
+        cc.ghi_chu = ((cc.ghi_chu or "") + "\n" + f"{dau_vet} trước đó: {don.du_lieu_cu}").strip()
+
+    elif don.loai == LoaiDonTu.CONG_TAC:
+        # Công tác cả ngày không về chấm công -> điền giờ theo đơn; đã chấm
+        # vào ở công ty rồi đi công tác -> chỉ điền phần còn thiếu.
+        cc = _cham_cong_cua(don.nguoi_dung_id, don.ngay, tao_moi=True)
+        if not cc.gio_vao and don.gio_tu:
+            cc.gio_vao = _gio_ngay(don.ngay, don.gio_tu)
+        if not cc.gio_ra and don.gio_den:
+            cc.gio_ra = _gio_ngay(don.ngay, don.gio_den)
+        if cc.gio_vao:
+            cc.nghi_khong_phep = False
+            tinh_lai_tre_som(cc)
+        cc.ghi_chu = ((cc.ghi_chu or "") + "\n" + f"{dau_vet} {don.dia_diem or ''}").strip()
+
+    elif don.loai == LoaiDonTu.DOI_CA:
+        cc = _cham_cong_cua(don.nguoi_dung_id, don.ngay)
+        if cc is not None and cc.gio_vao:
+            tinh_lai_tre_som(cc)
+    # TANG_CA: không sửa chấm công, bảng công cộng giờ từ các đơn đã duyệt.
+
+
+def bao_don_tu_moi(don: "DonTu"):
+    nv = don.nguoi_dung
+    nd = (
+        f"📝 Đơn mới chờ duyệt: {don.ten_loai}\n\n"
+        f"{nv.ho_ten} ({nv.ma_dinh_danh})\n"
+        f"{don.tom_tat}\n"
+        f"Lý do: {don.ly_do}\n\n"
+        f"Duyệt tại:\n{current_app.config['BASE_URL']}/don-tu/{don.id}"
+    )
+    gui_nhom_ql(nd)
+
+
+def bao_ket_qua_don_tu(don: "DonTu"):
+    from models import TrangThaiDonTu
+    duyet = don.trang_thai == TrangThaiDonTu.DA_DUYET
+    nd = (
+        f"{'✅' if duyet else '🚫'} Đơn {don.ten_loai.lower()} của bạn "
+        f"{'ĐÃ ĐƯỢC DUYỆT' if duyet else 'KHÔNG ĐƯỢC DUYỆT'}\n\n"
+        f"{don.tom_tat}\n"
+        f"Người duyệt: {don.nguoi_duyet.ho_ten if don.nguoi_duyet else '—'}"
+    )
+    if don.y_kien_duyet:
+        nd += f"\nÝ kiến: {don.y_kien_duyet}"
+    nd += f"\n\nXem đơn:\n{current_app.config['BASE_URL']}/don-tu/{don.id}"
+    gui_cho_nhan_vien(don.nguoi_dung, nd)

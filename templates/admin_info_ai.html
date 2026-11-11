@@ -216,13 +216,13 @@
     <input type="text" name="nhan_{{ i }}" placeholder="Nhãn ảnh — VD: Kế hoạch làm việc cố định của kho" style="flex:2 1 260px">
   </div>
   {% endfor %}
-  <button type="button" class="nut nut--phu nut--nho qt-them-dong">+ Thêm dòng ảnh</button>
+  <button type="button" class="nut nut--phu nut--nho qt-them-dong">{{ bi('plus', 'ic--sm') }} Thêm dòng ảnh</button>
   <p class="ai-goi-y">Đặt nhãn rõ ràng — bot dựa vào nhãn để gửi đúng ảnh khi được hỏi (VD hỏi "lịch làm việc kho" → gửi ảnh có nhãn "Kế hoạch làm việc…").</p>
 </div>
 {% endmacro %}
 
 <details class="ai-them" {{ 'open' if not ds_quy_trinh }}>
-  <summary><span class="ai-them-nhan">+ Thêm quy trình</span></summary>
+  <summary>{{ bi('plus', 'ic--sm') }} <span class="ai-them-nhan">Thêm quy trình</span></summary>
   <div class="the">
     <form method="post" action="{{ url_for('admin.luu_quy_trinh') }}" enctype="multipart/form-data">
       <div class="o-nhap"><label>Tên quy trình</label>
@@ -248,7 +248,7 @@
     <strong>{{ qt.ten }}</strong>
     {% if qt.anh %}<span class="dem">{{ qt.anh|length }} ảnh</span>{% endif %}
     {% if qt.tep %}<span class="dem">{{ qt.tep|length }} tệp</span>{% endif %}
-    {% if qt.pham_vi == 'quan_ly' %}<span class="dem" title="Chỉ Quản lý bộ phận, Ban giám đốc, Quản trị">🔒 Quản lý</span>{% endif %}
+    {% if qt.pham_vi == 'quan_ly' %}<span class="dem" title="Chỉ Quản lý bộ phận, Ban giám đốc, Quản trị" style="display:inline-flex;align-items:center;gap:4px">{{ bi('lock', 'ic--xs') }} Quản lý</span>{% endif %}
     <span class="ai-tom-tat">{{ (qt.noi_dung or 'Chưa có nội dung chữ')|replace('#','')|truncate(90) }}</span>
   </summary>
   <div class="ai-muc-than">
@@ -261,10 +261,10 @@
       <div class="o-nhap"><label>Tệp hiện tại</label>
         {% for t in qt.tep %}
         <div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--vien);border-radius:8px;margin-bottom:6px;background:#fff">
-          <span>📄</span>
+          <span style="display:inline-flex;color:var(--chinh)">{{ bi('file-text', 'ic--sm') }}</span>
           <a href="{{ url_for('media', duong_dan=t.duong_dan) }}" style="flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600;font-size:.85rem">{{ t.ten_goc }}</a>
           <small style="color:var(--muc-mo)">{{ t.kich_thuoc_dep }}</small>
-          <button type="submit" form="xoa-tep-qt-{{ t.id }}" class="nut nut--phu nut--nho" style="color:var(--lam-lai)">✕</button>
+          <button type="submit" form="xoa-tep-qt-{{ t.id }}" class="nut nut--phu nut--nho" style="color:var(--lam-lai)">{{ bi('x', 'ic--xs') }}</button>
         </div>
         {% endfor %}
       </div>
@@ -277,7 +277,7 @@
             <a href="{{ url_for('media', duong_dan=a.duong_dan) }}" target="_blank" rel="noopener">
               <img src="{{ url_for('media', duong_dan=a.duong_dan) }}" alt="{{ a.nhan or qt.ten }}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--bk-n);border:1px solid var(--vien)"></a>
             <input type="text" name="nhan_cu_{{ a.id }}" value="{{ a.nhan or '' }}" placeholder="Nhãn ảnh" style="margin-top:4px;font-size:.8rem">
-            <button type="submit" form="xoa-anh-qt-{{ a.id }}" class="nut nut--phu nut--nho" style="margin-top:4px;color:var(--lam-lai)">✕ Xoá ảnh</button>
+            <button type="submit" form="xoa-anh-qt-{{ a.id }}" class="nut nut--phu nut--nho" style="margin-top:4px;color:var(--lam-lai)">{{ bi('x', 'ic--xs') }} Xoá ảnh</button>
           </div>
           {% endfor %}
         </div>
@@ -326,7 +326,7 @@ document.querySelectorAll('.qt-them-dong').forEach(function (nut) {
 <p class="ai-mo-ta">{{ mo_ta_muc }}</p>
 
 <details class="ai-them">
-  <summary><span class="ai-them-nhan">+ Thêm sản phẩm</span></summary>
+  <summary>{{ bi('plus', 'ic--sm') }} <span class="ai-them-nhan">Thêm sản phẩm</span></summary>
   <div class="the">
     <form method="post" action="{{ url_for('admin.luu_san_pham_ai') }}" enctype="multipart/form-data">
       <div class="o-nhap"><label>Tên sản phẩm</label>
@@ -354,7 +354,7 @@ document.querySelectorAll('.qt-them-dong').forEach(function (nut) {
   </summary>
   <div class="ai-muc-than">
     {% if sp.anh %}
-    <div class="o-nhap"><label>Ảnh hiện tại — bấm ✕ để xoá ảnh</label>
+    <div class="o-nhap"><label>Ảnh hiện tại — bấm × để xoá ảnh</label>
       <div class="luoi-tep">
         {% for a in sp.anh %}
         <div class="tep ai-anh">
@@ -363,7 +363,7 @@ document.querySelectorAll('.qt-them-dong').forEach(function (nut) {
           {% if a.nhan %}<span title="{{ a.nhan }}">{{ a.nhan }}</span>{% endif %}
           <form method="post" action="{{ url_for('admin.xoa_anh_san_pham_ai', anh_id=a.id) }}"
                 onsubmit="return confirm('Xoá ảnh {{ (a.nhan or '')|e }} này?')">
-            <button type="submit" title="Xoá ảnh">✕</button>
+            <button type="submit" title="Xoá ảnh" style="display:grid;place-items:center">{{ bi('x', 'ic--xs') }}</button>
           </form>
         </div>
         {% endfor %}
@@ -423,7 +423,7 @@ document.querySelectorAll('.qt-them-dong').forEach(function (nut) {
 <p class="ai-mo-ta">{{ mo_ta_muc }}</p>
 
 <details class="ai-them">
-  <summary><span class="ai-them-nhan">+ Thêm chức vụ</span></summary>
+  <summary>{{ bi('plus', 'ic--sm') }} <span class="ai-them-nhan">Thêm chức vụ</span></summary>
   <div class="the">
     <form method="post" action="{{ url_for('admin.luu_chuc_vu') }}" enctype="multipart/form-data">
       <div class="o-nhap"><label>Tên chức vụ</label>

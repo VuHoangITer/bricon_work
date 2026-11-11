@@ -9,7 +9,8 @@ from flask_login import current_user, login_required
 
 import services
 from extensions import db
-from models import BuoiNghi, ChamCong, DiemChamCong, NguoiDung, VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai
+from models import (BuoiNghi, ChamCong, DiemChamCong, DonTu, LoaiDonTu, NguoiDung, PhanLoaiNghi,
+                    TrangThaiDonTu, VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
 bp = Blueprint("attendance", __name__, url_prefix="/cham-cong")
 
@@ -37,31 +38,59 @@ def trang_cham_cong():
         # Sếp/Quản trị không tự chấm công — bấm vào đây thấy luôn bảng công.
         return redirect(url_for("attendance.bang_cong"))
 
-    hom_nay = ChamCong.query.filter_by(
-        nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai()
-    ).first()
-    lich_su = (
-        ChamCong.query.filter(
-            ChamCong.nguoi_dung_id == current_user.id,
-            ChamCong.ngay >= ngay_vn_hien_tai() - timedelta(days=30),
-        )
-        .order_by(ChamCong.ngay.desc())
-        .all()
-    )
-    nghi_gan_day = (
-        XinNghi.query.filter(
-            XinNghi.nguoi_dung_id == current_user.id,
-            XinNghi.ngay >= ngay_vn_hien_tai() - timedelta(days=30),
-        )
-        .order_by(XinNghi.ngay.desc())
-        .all()
-    )
-    nghi_theo_ngay = {x.ngay: x for x in nghi_gan_day}
+    ngay_hn = ngay_vn_hien_tai()
+    hom_nay = ChamCong.query.filter_by(nguoi_dung_id=current_user.id, ngay=ngay_hn).first()
+
+    # Lịch tháng: ?thang=YYYY-MM, mặc định tháng hiện tại
+    try:
+        nam, thg = (int(x) for x in (request.args.get("thang") or ngay_hn.strftime("%Y-%m")).split("-"))
+        dau = date(nam, thg, 1)
+    except ValueError:
+        dau = ngay_hn.replace(day=1)
+    cuoi = (dau + timedelta(days=32)).replace(day=1)
+
+    cc_thang = {c.ngay: c for c in ChamCong.query.filter(
+        ChamCong.nguoi_dung_id == current_user.id, ChamCong.ngay >= dau, ChamCong.ngay < cuoi)}
+    nghi_thang = {}
+    for x in XinNghi.query.filter(XinNghi.nguoi_dung_id == current_user.id,
+                                  XinNghi.ngay >= dau, XinNghi.ngay < cuoi):
+        nghi_thang.setdefault(x.ngay, []).append(x)
+    don_thang = {}
+    for d in DonTu.query.filter(DonTu.nguoi_dung_id == current_user.id,
+                                DonTu.trang_thai.in_((TrangThaiDonTu.CHO_DUYET, TrangThaiDonTu.DA_DUYET)),
+                                DonTu.ngay >= dau, DonTu.ngay < cuoi):
+        don_thang.setdefault(d.ngay, []).append(d)
+
+    o_ngay, dem = [], {"dung": 0, "tre": 0, "nghi": 0}
+    d = dau
+    while d < cuoi:
+        c, nghi = cc_thang.get(d), nghi_thang.get(d, [])
+        if d > ngay_hn:
+            tt = "tuong_lai"
+        elif c and c.gio_vao:
+            tre = (c.di_tre and not c.tre_co_phep) or (c.ve_som and not c.som_co_phep)
+            tt = "tre" if tre else "dung"
+        elif nghi or (c and c.nghi_khong_phep) or services.la_ngay_nghi(d):
+            tt = "nghi"
+        elif d == ngay_hn:
+            tt = "chua"
+        else:
+            tt = "trong"
+        if tt in dem:
+            dem[tt] += 1
+        o_ngay.append({"ngay": d, "tt": tt, "cc": c, "nghi": nghi, "don": don_thang.get(d, []),
+                       "ngay_nghi_cty": services.la_ngay_nghi(d)})
+        d += timedelta(days=1)
+
+    thang_truoc = (dau - timedelta(days=1)).strftime("%Y-%m")
+    thang_sau = cuoi.strftime("%Y-%m")
+    ca_vao, ca_ra = services.ca_lam_viec(current_user.id, ngay_hn)
     return render_template(
         "attendance.html",
-        hom_nay=hom_nay,
-        lich_su=lich_su,
-        nghi_theo_ngay=nghi_theo_ngay,
+        hom_nay=hom_nay, ngay_hn=ngay_hn,
+        dau_thang=dau, o_ngay=o_ngay, o_trong_dau=dau.weekday(), dem=dem,
+        thang_truoc=thang_truoc, thang_sau=thang_sau if cuoi <= ngay_hn.replace(day=1) else None,
+        ca_vao=ca_vao, ca_ra=ca_ra,
         diems=DiemChamCong.query.filter_by(dang_hoat_dong=True).all(),
         la_hom_nay_nghi=services.la_hom_nay_nghi(),
     )
@@ -107,7 +136,8 @@ def cham_cong_vao():
             current_app.config["PHUT_TRE_CHO_PHEP_NUA_NGAY"],
         )
     else:
-        tre, phut_tre = services.tinh_di_tre(bay_gio)
+        tre, phut_tre = services.tinh_di_tre(
+            bay_gio, services.ca_lam_viec(current_user.id, ngay_vn_hien_tai())[0])
 
     cc = ChamCong(
         nguoi_dung_id=current_user.id, ngay=ngay_vn_hien_tai(), gio_vao=bay_gio,
@@ -120,12 +150,13 @@ def cham_cong_vao():
         nghi_ngo=services.trung_toa_do_dang_ngo(current_user.id, lat, lng),
         ghi_chu=(request.form.get("ghi_chu") or "").strip() or None,
     )
+    services.danh_dau_tre_som_co_phep(cc)
     db.session.add(cc)
     db.session.commit()
 
     msg = f"Đã chấm công vào lúc {bay_gio:%H:%M}."
     if tre:
-        msg += f" Ghi nhận đi trễ {phut_tre} phút."
+        msg += f" Ghi nhận đi trễ {phut_tre} phút" + (" (đã có đơn được duyệt)." if cc.tre_co_phep else ".")
     flash(msg, "warning" if tre else "success")
 
     if cc.nghi_ngo:
@@ -170,13 +201,15 @@ def cham_cong_ra():
     if services.co_nghi_phep_buoi(current_user.id, ngay_vn_hien_tai(), BuoiNghi.CHIEU):
         som, phut_som = services.tinh_ve_som(bay_gio, current_app.config["GIO_KET_THUC_SANG"])
     else:
-        som, phut_som = services.tinh_ve_som(bay_gio)
+        som, phut_som = services.tinh_ve_som(
+            bay_gio, services.ca_lam_viec(current_user.id, ngay_vn_hien_tai())[1])
 
     cc.gio_ra = bay_gio
     cc.lat_ra, cc.lng_ra, cc.do_chinh_xac_ra = lat, lng, do_chinh_xac
     cc.diem_ra_id = diem.id if diem else None
     cc.khoang_cach_ra = int(kc) if kc is not None else None
     cc.ve_som, cc.so_phut_som = som, phut_som
+    services.danh_dau_tre_som_co_phep(cc)
     db.session.commit()
 
     msg = f"Đã chấm công ra lúc {bay_gio:%H:%M}."
@@ -248,37 +281,38 @@ def xin_nghi():
             flash("Cần ký tên trước khi gửi đơn xin nghỉ.", "error")
             return redirect(url_for("attendance.xin_nghi"))
 
+        phan_loai = request.form.get("phan_loai") or PhanLoaiNghi.PHEP
+        if phan_loai not in PhanLoaiNghi.NHAN:
+            phan_loai = PhanLoaiNghi.PHEP
+
+        trung = DonTu.query.filter(
+            DonTu.nguoi_dung_id == current_user.id, DonTu.loai == LoaiDonTu.XIN_NGHI,
+            DonTu.trang_thai == TrangThaiDonTu.CHO_DUYET, DonTu.ngay == ngay_dau,
+            DonTu.buoi == buoi,
+        ).first()
+        if trung:
+            flash("Bạn đã có đơn xin nghỉ đúng ngày + buổi này đang chờ duyệt.", "info")
+            return redirect(url_for("don_tu.chi_tiet", id=trung.id))
+
+        ly_do_pdf = f"{PhanLoaiNghi.NHAN[phan_loai]}: {ly_do}" if phan_loai != PhanLoaiNghi.PHEP else ly_do
         pdf_bytes = services.tao_pdf_don_xin_nghi(
-            current_user, ngay_dau, ngay_cuoi, buoi, ly_do, ban_giao_cho, chu_ky_png,
+            current_user, ngay_dau, ngay_cuoi, buoi, ly_do_pdf, ban_giao_cho, chu_ky_png,
         )
         duong_dan = services.luu_pdf_don_xin_nghi(pdf_bytes)
 
-        so_ngay_tao = (ngay_cuoi - ngay_dau).days + 1
-        da_tao = 0
-        for i in range(so_ngay_tao):
-            ngay = ngay_dau + timedelta(days=i)
-            if XinNghi.query.filter_by(
-                nguoi_dung_id=current_user.id, ngay=ngay, buoi=buoi
-            ).first():
-                continue  # đã xin đúng ngày + buổi này rồi, khỏi tạo trùng
-            db.session.add(XinNghi(
-                nguoi_dung_id=current_user.id, ngay=ngay, buoi=buoi,
-                anh_minh_chung=duong_dan, ghi_chu=ly_do,
-                ban_giao_cho_id=ban_giao_cho.id if ban_giao_cho else None,
-            ))
-            da_tao += 1
+        don = DonTu(
+            loai=LoaiDonTu.XIN_NGHI, nguoi_dung_id=current_user.id,
+            ngay=ngay_dau, ngay_den=ngay_cuoi if ngay_cuoi != ngay_dau else None,
+            buoi=buoi, phan_loai=phan_loai, ly_do=ly_do,
+            ban_giao_cho_id=ban_giao_cho.id if ban_giao_cho else None,
+            duong_dan_pdf=duong_dan,
+        )
+        db.session.add(don)
         db.session.commit()
-
-        if da_tao:
-            services.bao_xin_nghi(
-                current_user, ngay_dau, ngay_cuoi, buoi, ly_do,
-                da_tao * BuoiNghi.SO_NGAY[buoi], ban_giao_cho, duong_dan,
-            )
-            db.session.commit()
-            flash(f"Đã ghi nhận nghỉ phép ({da_tao} ngày) — tự động duyệt qua đơn ký điện tử.", "success")
-        else:
-            flash("Những ngày này đã xin nghỉ đúng buổi này trước đó rồi.", "info")
-        return redirect(url_for("attendance.xin_nghi"))
+        services.bao_don_tu_moi(don)
+        db.session.commit()
+        flash("Đã gửi đơn xin nghỉ — chờ quản lý duyệt.", "success")
+        return redirect(url_for("don_tu.chi_tiet", id=don.id))
 
     dong_nghiep = (
         NguoiDung.query.filter(
@@ -295,7 +329,8 @@ def xin_nghi():
         .limit(30)
         .all()
     )
-    return render_template("xin_nghi.html", lich_su=lich_su, dong_nghiep=dong_nghiep)
+    return render_template("xin_nghi.html", lich_su=lich_su, dong_nghiep=dong_nghiep,
+                           PhanLoaiNghi=PhanLoaiNghi)
 
 
 @bp.route("/xin-nghi/xem-truoc-don", methods=["POST"])
@@ -415,18 +450,36 @@ def _du_lieu_bang_cong(thang: str, nguoi_id: int | None = None):
         return tong.setdefault(nguoi_dung.id, {
             "ho_ten": nguoi_dung.ho_ten, "ma": nguoi_dung.ma_dinh_danh,
             "so_ngay": 0.0, "tre": 0, "som": 0, "khong_phep": 0, "nghi_phep": 0,
+            "tang_ca": 0.0, "cong_tac": 0,
         })
 
     for c in ban_ghi:
         o = _o(c.nguoi_dung)
         o["so_ngay"] += services.gio_cong_trong_ngay(c)
-        o["tre"] += int(bool(c.di_tre))
-        o["som"] += int(bool(c.ve_som))
+        o["tre"] += int(bool(c.di_tre and not c.tre_co_phep))
+        o["som"] += int(bool(c.ve_som and not c.som_co_phep))
         o["khong_phep"] += int(bool(c.nghi_khong_phep))
 
     for x in don_nghi:
         o = _o(x.nguoi_dung)
         o["nghi_phep"] += 1
+
+    q_don = DonTu.query.filter(
+        DonTu.trang_thai == TrangThaiDonTu.DA_DUYET,
+        DonTu.loai.in_((LoaiDonTu.TANG_CA, LoaiDonTu.CONG_TAC)),
+        DonTu.ngay >= dau, DonTu.ngay < cuoi,
+    )
+    if current_user.vai_tro == VaiTro.QUAN_LY and current_user.ds_bo_phan_id:
+        q_don = q_don.join(NguoiDung, DonTu.nguoi_dung_id == NguoiDung.id).filter(
+            NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id))
+    if nguoi_id:
+        q_don = q_don.filter(DonTu.nguoi_dung_id == nguoi_id)
+    for d in q_don.all():
+        o = _o(d.nguoi_dung)
+        if d.loai == LoaiDonTu.TANG_CA:
+            o["tang_ca"] += d.so_gio
+        else:
+            o["cong_tac"] += 1
 
     return ban_ghi, don_nghi, sorted(tong.values(), key=lambda x: x["ho_ten"])
 

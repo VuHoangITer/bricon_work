@@ -1,36 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Đề xuất · BRICON{% endblock %}
+
+{% block title %}{{ {'tam_ung': 'Tạm ứng', 'cong_viec': 'Đề xuất công việc'}.get(f_loai, 'Đề xuất') }} · BRICON{% endblock %}
 
 {% block content %}
-<h1>Đề xuất</h1>
+{% set _tieu_de = {'tam_ung': 'Tạm ứng', 'cong_viec': 'Đề xuất công việc'}.get(f_loai, 'Đề xuất') %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>{{ _tieu_de }}</h1>
+    <p>{{ {'tam_ung': 'Mục Hành chính nhân sự — xin tạm ứng lương, chi phí phát sinh.', 'cong_viec': 'Mục Công việc — đề xuất ý tưởng, thay đổi, mua sắm.'}.get(f_loai, '') }}</p>
+  </div>
+</div>
 
 {% if not current_user.la_admin_sep %}
 <div class="luoi-chon-loai">
+  {% if f_loai != 'cong_viec' %}
   <a href="{{ url_for('de_xuat.moi', loai='tam_ung') }}" class="the-chon-loai">
-    <span class="the-chon-loai-icon">💰</span>
+    <span class="the-chon-loai-icon">{{ bi('wallet') }}</span>
     <span class="the-chon-loai-nd">
       <h3>Đề xuất tạm ứng</h3>
       <p>Xin tạm ứng lương hoặc chi phí phát sinh</p>
     </span>
   </a>
+  {% endif %}
+  {% if f_loai != 'tam_ung' %}
   <a href="{{ url_for('de_xuat.moi', loai='cong_viec') }}" class="the-chon-loai">
-    <span class="the-chon-loai-icon">🛠</span>
+    <span class="the-chon-loai-icon">{{ bi('lightbulb') }}</span>
     <span class="the-chon-loai-nd">
       <h3>Đề xuất công việc</h3>
       <p>Đề xuất ý tưởng, thay đổi, mua sắm...</p>
     </span>
   </a>
+  {% endif %}
 </div>
 {% endif %}
 
 <form class="the" method="get" style="margin-bottom:18px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    {% if f_loai %}<input type="hidden" name="loai" value="{{ f_loai }}">{% else %}
     <select name="loai" onchange="this.form.submit()" style="flex:1;min-width:150px">
       <option value="">Mọi loại đề xuất</option>
       {% for ma, nhan in LoaiDeXuat.NHAN.items() %}
       <option value="{{ ma }}" {{ 'selected' if f_loai == ma }}>{{ nhan }}</option>
       {% endfor %}
-    </select>
+    </select>{% endif %}
     {% if nhan_vien %}
     <select name="nguoi" onchange="this.form.submit()" style="flex:1;min-width:170px">
       <option value="">Mọi nhân viên</option>
@@ -44,11 +56,11 @@
       {% endfor %}
     </select>
     <input type="month" name="thang" value="{{ f_thang }}" onchange="this.form.submit()" style="flex:1;min-width:150px" title="Lọc theo tháng gửi đề xuất">
-    {% if dang_loc %}<a href="{{ url_for('de_xuat.danh_sach') }}" class="nut nut--phu nut--nho">✕ Bỏ lọc</a>{% endif %}
+    {% if dang_loc and (f_nguoi or f_trang_thai or f_thang) %}<a href="{{ url_for('de_xuat.danh_sach', loai=f_loai or None) }}" class="nut nut--phu nut--nho">{{ bi('x') }} Bỏ lọc</a>{% endif %}
   </div>
   {% if current_user.la_quan_ly and so_tam_ung_da_duyet %}
   <p style="margin:10px 0 0;font-size:.84rem;color:var(--muc-mo)">
-    💰 Tạm ứng đã duyệt{{ ' (theo bộ lọc)' if dang_loc }}: <b style="color:var(--muc)">{{ so_tam_ung_da_duyet }} đề xuất ·
+    {{ bi('wallet') }} Tạm ứng đã duyệt{{ ' (theo bộ lọc)' if dang_loc }}: <b style="color:var(--muc)">{{ so_tam_ung_da_duyet }} đề xuất ·
     {{ "{:,}".format(tong_tam_ung_da_duyet).replace(",", ".") }} đ</b>
   </p>
   {% endif %}

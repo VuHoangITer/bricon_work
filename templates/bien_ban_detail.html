@@ -11,12 +11,12 @@
   {% elif d.loai == LoaiDinhKem.GHI_AM %}
     <div class="tep tep-am" style="grid-column:1/-1"><audio controls preload="none" src="{{ src }}"></audio></div>
   {% else %}
-    <a class="tep" href="{{ src }}" target="_blank" rel="noopener"><span class="tep-khac">📄<span>{{ d.ten_goc|truncate(24) }}</span><span>{{ d.kich_thuoc_dep }}</span></span></a>
+    <a class="tep" href="{{ src }}" target="_blank" rel="noopener"><span class="tep-khac">{{ bi('file') }}<span>{{ d.ten_goc|truncate(24) }}</span><span>{{ d.kich_thuoc_dep }}</span></span></a>
   {% endif %}
 {% endmacro %}
 
 {% block content %}
-<div style="margin-bottom:4px"><a href="{{ url_for('bien_ban.danh_sach') }}" style="font-size:.85rem">‹ Biên bản phạt</a></div>
+<div><a class="quay-lai" href="{{ url_for('bien_ban.danh_sach') }}">{{ bi('chevron-left') }} Biên bản phạt</a></div>
 <h1>Biên bản {{ bb.so_bien_ban }} <span class="nhan" data-tt="{{ mau_tt[bb.trang_thai] }}">{{ bb.ten_trang_thai }}</span></h1>
 
 {% if duoc_ky %}
@@ -54,7 +54,7 @@
     <textarea id="y_kien_nv" name="y_kien_nv" rows="3" placeholder="VD: Em đi muộn do xe hỏng giữa đường, xin rút kinh nghiệm…"></textarea>
   </div>
   <input type="hidden" name="chu_ky" id="chu_ky">
-  <button class="nut nut--rong" type="submit">✍ Ký xác nhận</button>
+  <button class="nut nut--rong" type="submit">{{ bi('pen-tool') }} Ký xác nhận</button>
 </form>
 {% endif %}
 
@@ -63,7 +63,7 @@
 <div class="the">
   {% if duoc_ghi_khong_ky %}
   <details style="margin-bottom:10px">
-    <summary style="cursor:pointer;font-weight:600">📌 Ghi nhận nhân viên không ký</summary>
+    <summary style="cursor:pointer;font-weight:600">{{ bi('pin') }} Ghi nhận nhân viên không ký</summary>
     <form method="post" action="{{ url_for('bien_ban.khong_ky', id=bb.id) }}" style="margin-top:8px"
           onsubmit="return confirm('Ghi nhận nhân viên KHÔNG KÝ? Biên bản vẫn có hiệu lực.');">
       <div class="o-nhap"><label for="ghi_chu">Ghi chú (không bắt buộc)</label>
@@ -74,7 +74,7 @@
   {% endif %}
   {% if duoc_huy %}
   <details style="margin-bottom:10px">
-    <summary style="cursor:pointer;font-weight:600">🗑 Huỷ biên bản</summary>
+    <summary style="cursor:pointer;font-weight:600">{{ bi('trash') }} Huỷ biên bản</summary>
     <form method="post" action="{{ url_for('bien_ban.huy', id=bb.id) }}" style="margin-top:8px"
           onsubmit="return confirm('Huỷ biên bản {{ bb.so_bien_ban }}?');">
       <div class="o-nhap"><label for="ly_do">Lý do huỷ</label>

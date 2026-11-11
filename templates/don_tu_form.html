@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ LoaiDonTu.NHAN[loai] }} · BRICON{% endblock %}
+
+{% block content %}
+<div>
+  <a class="quay-lai" href="{{ url_for('don_tu.danh_sach') }}">{{ bi('chevron-left') }} Đơn từ</a>
+</div>
+
+<form class="the don-form" method="post" enctype="multipart/form-data">
+  <div class="don-form-dau">
+    <span class="loai-don-icon">{{ LoaiDonTu.ICON[loai] }}</span>
+    <div>
+      <h1 style="margin:0">{{ LoaiDonTu.NHAN[loai] }}</h1>
+      <div class="goi-y" style="margin:0">Tên và ca làm được điền tự động</div>
+    </div>
+  </div>
+
+  <div class="don-dong"><label>{{ bi('user') }} Nhân viên</label>
+    <input type="text" value="{{ current_user.ho_ten }}" readonly></div>
+
+  {% if loai == LoaiDonTu.TRE_SOM %}
+  <div class="don-dong"><label for="phan_loai">{{ bi('clipboard-list') }} Hình thức</label>
+    <select id="phan_loai" name="phan_loai">
+      {% for ma, nhan in PhanLoaiTreSom.NHAN.items() %}<option value="{{ ma }}">{{ nhan }}</option>{% endfor %}
+    </select></div>
+  {% endif %}
+
+  <div class="don-dong"><label for="ngay">{{ bi('calendar') }} {{ 'Ngày cần bổ sung' if loai == LoaiDonTu.BO_SUNG_CONG else ('Ngày tăng ca' if loai == LoaiDonTu.TANG_CA else 'Ngày áp dụng') }}</label>
+    <input id="ngay" type="date" name="ngay" required value="{{ hom_nay.isoformat() }}"
+           {% if loai == LoaiDonTu.BO_SUNG_CONG %}max="{{ hom_nay.isoformat() }}"{% endif %}></div>
+
+  {% if loai == LoaiDonTu.TRE_SOM %}
+  <div class="don-dong"><label for="gio_tu">{{ bi('clock') }} <span id="nhan-gio-tre">Giờ dự kiến vào</span></label>
+    <input id="gio_tu" type="time" name="gio_tu" required value="08:30"></div>
+
+  {% elif loai == LoaiDonTu.BO_SUNG_CONG %}
+  <div class="don-dong don-dong--doi">
+    <div><label for="gio_tu">{{ bi('clock') }} Giờ vào</label><input id="gio_tu" type="time" name="gio_tu" value="{{ ca_vao }}"></div>
+    <div><label for="gio_den">{{ bi('clock') }} Giờ ra</label><input id="gio_den" type="time" name="gio_den" value="{{ ca_ra }}"></div>
+  </div>
+  <div class="goi-y">Để trống ô nào thì giữ nguyên giờ đã chấm ô đó. Lịch sử điều chỉnh luôn được giữ lại.</div>
+
+  {% elif loai == LoaiDonTu.CONG_TAC %}
+  <div class="don-dong don-dong--doi">
+    <div><label for="gio_tu">{{ bi('clock') }} Từ giờ</label><input id="gio_tu" type="time" name="gio_tu" required value="{{ ca_vao }}"></div>
+    <div><label for="gio_den">{{ bi('clock') }} Đến giờ</label><input id="gio_den" type="time" name="gio_den" required value="{{ ca_ra }}"></div>
+  </div>
+  <div class="don-dong"><label for="dia_diem">{{ bi('map-pin') }} Địa điểm</label>
+    <input id="dia_diem" type="text" name="dia_diem" required placeholder="VD: Nhà máy Đồng Nai"></div>
+
+  {% elif loai == LoaiDonTu.TANG_CA %}
+  <div class="don-dong don-dong--doi">
+    <div><label for="gio_tu">{{ bi('clock') }} Từ giờ</label><input id="gio_tu" type="time" name="gio_tu" required value="{{ ca_ra }}"></div>
+    <div><label for="gio_den">{{ bi('clock') }} Đến giờ</label><input id="gio_den" type="time" name="gio_den" required value="19:30"></div>
+  </div>
+  <div class="don-dong"><label>{{ bi('hourglass') }} Dự kiến</label><input type="text" id="du-kien" readonly value="2 giờ"></div>
+
+  {% elif loai == LoaiDonTu.DOI_CA %}
+  <div class="don-dong"><label>{{ bi('calendar') }} Ca hiện tại</label><input type="text" readonly value="{{ ca_vao }} – {{ ca_ra }}"></div>
+  <div class="don-dong don-dong--doi">
+    <div><label for="gio_tu">Ca đề nghị: vào</label><input id="gio_tu" type="time" name="gio_tu" required value="07:00"></div>
+    <div><label for="gio_den">Ca đề nghị: ra</label><input id="gio_den" type="time" name="gio_den" required value="16:30"></div>
+  </div>
+  {% endif %}
+
+  <div class="don-dong"><label for="ly_do">{{ bi('message-circle') }} {{ 'Nội dung công việc' if loai == LoaiDonTu.CONG_TAC else 'Lý do' }}</label>
+    <textarea id="ly_do" name="ly_do" required rows="3"
+      placeholder="{{ {'tre_som': 'VD: Có lịch hẹn cá nhân', 'bo_sung_cong': 'VD: Quên bấm ra ca', 'cong_tac': 'VD: Kiểm tra sản xuất', 'tang_ca': 'VD: Hoàn tất đơn hàng', 'doi_ca': 'VD: Điều chỉnh lịch cá nhân'}[loai] }}"></textarea></div>
+
+  <div class="don-dong"><label for="dinh_kem">{{ bi('paperclip') }} Đính kèm (nếu có)</label>
+    <input id="dinh_kem" type="file" name="dinh_kem"></div>
+
+  <button class="nut nut--vang nut--rong nut--lon" type="submit">{{ bi('send') }} Gửi đơn</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var pl = document.getElementById('phan_loai'), nhan = document.getElementById('nhan-gio-tre'), gio = document.getElementById('gio_tu');
+  if (pl && nhan) pl.addEventListener('change', function () {
+    var tre = pl.value === 'di_tre';
+    nhan.textContent = tre ? 'Giờ dự kiến vào' : 'Giờ dự kiến về';
+    gio.value = tre ? '08:30' : '16:30';
+  });
+  var dk = document.getElementById('du-kien');
+  if (dk) {
+    var tu = document.getElementById('gio_tu'), den = document.getElementById('gio_den');
+    var tinh = function () {
+      var a = tu.value.split(':'), b = den.value.split(':');
+      if (a.length < 2 || b.length < 2) { dk.value = ''; return; }
+      var phut = (+b[0] * 60 + +b[1]) - (+a[0] * 60 + +a[1]);
+      if (phut <= 0) phut += 1440;
+      dk.value = (Math.round(phut / 30) / 2) + ' giờ';
+    };
+    tu.addEventListener('input', tinh); den.addEventListener('input', tinh); tinh();
+  }
+})();
+</script>
+{% endblock %}

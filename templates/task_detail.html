@@ -14,14 +14,14 @@
       <audio controls preload="none" src="{{ src }}"></audio></div>
   {% else %}
     <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
-      <span class="tep-khac">📄<span>{{ d.ten_goc|truncate(24) }}</span>
+      <span class="tep-khac">{{ bi('file') }}<span>{{ d.ten_goc|truncate(24) }}</span>
         <span>{{ d.kich_thuoc_dep }}</span></span></a>
   {% endif %}
 {% endmacro %}
 
 {% block content %}
-<div style="margin-bottom:4px">
-  <a href="{{ url_for('tasks.danh_sach') }}" style="font-size:.85rem">‹ Danh sách công việc</a>
+<div>
+  <a class="quay-lai" href="{{ url_for('tasks.danh_sach') }}">{{ bi('chevron-left') }} Danh sách công việc</a>
 </div>
 
 <div class="the" style="border-left:5px solid var(--{{ viec.trang_thai|replace('_','-') }})">
@@ -35,7 +35,7 @@
               border-radius:var(--bk-n);padding:10px 12px;margin:8px 0 4px">
     <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
                 letter-spacing:.04em;color:var(--chinh-dam);margin-bottom:4px">
-      📋 Yêu cầu công việc
+      {{ bi('clipboard-list') }} Yêu cầu công việc
     </div>
     {% if viec.mo_ta %}
     <p style="white-space:pre-wrap;color:var(--muc);font-size:.9rem;margin:0">{{ viec.mo_ta }}</p>
@@ -78,7 +78,7 @@
       <input type="date" name="ngay_bat_dau" value="{{ viec.ngay_bat_dau.isoformat() if viec.ngay_bat_dau else '' }}" style="flex:0 1 150px">
       <button class="nut nut--phu nut--nho" type="submit" style="flex:0 0 auto">Đặt lại</button>
       <div id="canh-bao-han-qua-khu" style="display:none;width:100%;font-size:.78rem;color:var(--lam-lai)">
-        ⚠️ Giờ này đã ở quá khứ — kiểm tra lại AM/PM (bấm mũi tên tăng giờ từ 11 lên 12 sẽ ra 12 giờ ĐÊM chứ không phải giờ trưa).
+        {{ bi('alert-triangle', 'ic--sm') }} Giờ này đã ở quá khứ — kiểm tra lại AM/PM (bấm mũi tên tăng giờ từ 11 lên 12 sẽ ra 12 giờ ĐÊM chứ không phải giờ trưa).
       </div>
     </form>
   </div>
@@ -177,7 +177,7 @@
   {% endif %}
 
   <div class="canh-bao-nho" id="canh-bao-zalo" style="display:none;margin-bottom:12px">
-    ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh/video (thường
+    {{ bi('alert-triangle', 'ic--sm') }} Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh/video (thường
     gặp khi bấm link ngay trong khung chat Zalo/Messenger). Cách khắc
     phục nhanh nhất: quay lại đoạn chat, <strong>nhấn giữ (long-press)
     vào link này</strong> → chọn <strong>"Mở bằng trình duyệt"</strong>
@@ -211,7 +211,7 @@
   <div class="o-nhap">
     <label>Ghi âm tại chỗ</label>
     <div class="hang-nut">
-      <button type="button" class="nut nut--phu nut--nho" id="nut-ghi-am">● Bắt đầu ghi âm</button>
+      <button type="button" class="nut nut--phu nut--nho" id="nut-ghi-am">{{ bi('mic') }} Bắt đầu ghi âm</button>
       <span id="dong-ho-ghi" style="align-self:center;font-size:.85rem;color:var(--muc-mo)"></span>
     </div>
     <div id="ds-ghi-am" style="margin-top:8px"></div>
@@ -250,7 +250,7 @@
   <div class="o-nhap">
     <label>Ảnh minh hoạ (không bắt buộc)</label>
     <div class="canh-bao-nho" id="canh-bao-zalo-danh-gia" style="display:none;margin-bottom:12px">
-      ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
+      {{ bi('alert-triangle', 'ic--sm') }} Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
       khi bấm link ngay trong khung chat Zalo/Messenger). Quay lại đoạn
       chat, <strong>nhấn giữ (long-press) vào link này</strong> → chọn
       <strong>"Mở bằng trình duyệt"</strong> rồi thử lại — hoặc bỏ qua
@@ -297,7 +297,7 @@
 
 {% if duoc_duyet and viec.trang_thai == TrangThai.HOAN_THANH %}
 <details class="the" style="margin-top:8px">
-  <summary style="cursor:pointer;font-weight:600;padding:2px 0">✏️ Đánh giá lại (sửa số sao)</summary>
+  <summary style="cursor:pointer;font-weight:600;padding:2px 0;display:flex;align-items:center;gap:6px">{{ bi('edit', 'ic--sm') }} Đánh giá lại (sửa số sao)</summary>
   <form method="post" action="{{ url_for('tasks.danh_gia_lai', viec_id=viec.id) }}"
         enctype="multipart/form-data" id="form-danh-gia-lai" style="margin-top:14px">
     <div class="o-nhap">
@@ -318,7 +318,7 @@
     <div class="o-nhap">
       <label>Ảnh minh chứng (không bắt buộc)</label>
       <div class="canh-bao-nho" id="canh-bao-zalo-danh-gia-lai" style="display:none;margin-bottom:12px">
-        ⚠️ Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
+        {{ bi('alert-triangle', 'ic--sm') }} Trình duyệt đang dùng có vẻ đang chặn việc chọn ảnh (thường gặp
         khi bấm link ngay trong khung chat Zalo/Messenger). Quay lại đoạn
         chat, <strong>nhấn giữ (long-press) vào link này</strong> → chọn
         <strong>"Mở bằng trình duyệt"</strong> rồi thử lại — hoặc bỏ qua

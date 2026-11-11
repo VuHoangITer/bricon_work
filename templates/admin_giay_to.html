@@ -10,7 +10,7 @@
 
 {% if hd_can_chu_y %}
 <div class="the" style="border-color:var(--cho-duyet);background:var(--chinh-nhat)">
-  <strong>⏰ Hợp đồng sắp hết hạn / đã hết hạn</strong>
+  <strong>{{ bi('alarm-clock') }} Hợp đồng sắp hết hạn / đã hết hạn</strong>
   <ul style="margin:6px 0 0;padding-left:18px;font-size:.88rem">
     {% for n, h in hd_can_chu_y %}
     <li><a href="{{ url_for('admin.giay_to_nhan_vien', uid=n.id) }}">{{ n.ho_ten }}</a> —

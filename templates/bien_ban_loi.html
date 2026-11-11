@@ -2,12 +2,12 @@
 {% block title %}Danh mục lỗi vi phạm · BRICON{% endblock %}
 
 {% block content %}
-<div style="margin-bottom:4px"><a href="{{ url_for('bien_ban.danh_sach') }}" style="font-size:.85rem">‹ Biên bản phạt</a></div>
+<div><a class="quay-lai" href="{{ url_for('bien_ban.danh_sach') }}">{{ bi('chevron-left') }} Biên bản phạt</a></div>
 <h1>Danh mục lỗi vi phạm</h1>
 <p class="goi-y" style="margin:-4px 0 14px">Khai báo sẵn các lỗi và mức phạt mặc định. Khi lập biên bản chỉ cần chọn lỗi là tự điền số tiền (vẫn sửa được).</p>
 
 <details class="the" {{ 'open' if not ds }}>
-  <summary style="cursor:pointer;font-weight:600">＋ Thêm lỗi mới</summary>
+  <summary style="cursor:pointer;font-weight:600">{{ bi('plus') }} Thêm lỗi mới</summary>
   <form method="post" style="margin-top:10px">
     <div class="hang">
       <div class="o-nhap"><label>Tên lỗi</label><input type="text" name="ten" required maxlength="200" placeholder="VD: Đi làm muộn quá 15 phút"></div>

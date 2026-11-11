@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Chấm bù / sửa công · BRICON{% endblock %}
 {% block content %}
-<p style="margin:0 0 8px"><a href="{{ url_for('attendance.bang_cong', thang=ngay.strftime('%Y-%m'), nguoi=nv.id if nv else None) }}">‹ Bảng công</a></p>
+<div><a class="quay-lai" href="{{ url_for('attendance.bang_cong', thang=ngay.strftime('%Y-%m'), nguoi=nv.id if nv else None) }}">{{ bi('chevron-left') }} Bảng công</a></div>
 <h1>Chấm bù / sửa công</h1>
 <p class="goi-y" style="margin:-4px 0 14px">Chỉ Quản trị viên dùng được. Dùng khi nhân viên quên chấm, máy lỗi định vị, hoặc bị ghi "Nghỉ không phép" nhầm. Hệ thống tự tính lại trễ / về sớm theo giờ nhập, và lưu lại người sửa kèm lý do.</p>
 
@@ -48,7 +48,7 @@
   <input type="hidden" name="ngay" value="{{ ngay.isoformat() }}">
   <input type="hidden" name="xoa" value="1">
   <input type="hidden" name="ly_do" value="">
-  <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">🗑 Xoá chấm công ngày này</button>
+  <button class="nut nut--phu nut--nho" type="submit" style="color:var(--lam-lai)">{{ bi('trash') }} Xoá chấm công ngày này</button>
 </form>
 {% endif %}
 {% if cc and cc.ghi_chu %}

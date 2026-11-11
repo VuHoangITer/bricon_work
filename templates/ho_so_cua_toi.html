@@ -20,7 +20,7 @@
   .hs-tep { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--vien); border-radius:10px;
     margin-bottom:6px; background:#fff; color:inherit; }
   .hs-tep:hover { border-color:var(--chinh); }
-  .hs-tep-icon { font-size:1.2rem; flex:0 0 auto; }
+  .hs-tep-icon { font-size:1.1rem; color:var(--chinh-dam); flex:0 0 auto; display:inline-grid; place-items:center; }
   .hs-tep-nd { flex:1; min-width:0; }
   .hs-tep-nd b { font-size:.84rem; overflow-wrap:anywhere; }
   .hs-tep-nd small { display:block; color:var(--muc-mo); font-size:.72rem; }
@@ -58,7 +58,7 @@
 <div class="hs-luoi">
   <div>
     <div class="the">
-      <h3>🏢 Công việc</h3>
+      <h3>{{ bi('building') }} Công việc</h3>
       <div class="hs-tt">
         <div><small>Vai trò</small><span>{{ n.ten_vai_tro }}</span></div>
         <div><small>Bộ phận</small><span>{{ n.ten_cac_bo_phan or '—' }}</span></div>
@@ -69,20 +69,20 @@
     </div>
 
     <form class="the" method="post">
-      <h3>👤 Thông tin cá nhân</h3>
+      <h3>{{ bi('user') }} Thông tin cá nhân</h3>
       <div class="o-nhap"><label>Số điện thoại</label>
         <input type="tel" name="so_dien_thoai" value="{{ n.so_dien_thoai or '' }}" placeholder="VD: 0901234567" inputmode="tel" maxlength="20"></div>
       <div class="o-nhap"><label>Sinh nhật</label>
         <input type="date" name="ngay_sinh" value="{{ n.ngay_sinh.isoformat() if n.ngay_sinh else '' }}"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="nut" type="submit">Lưu thông tin</button>
-        <a class="nut nut--phu" href="{{ url_for('auth.doi_mat_khau') }}">🔒 Đổi mật khẩu</a>
+        <a class="nut nut--phu" href="{{ url_for('auth.doi_mat_khau') }}">{{ bi('lock') }} Đổi mật khẩu</a>
       </div>
     </form>
   </div>
 
   <div class="the">
-    <h3>📁 Giấy tờ nhân sự</h3>
+    <h3>{{ bi('folder') }} Giấy tờ nhân sự</h3>
     <p class="goi-y" style="margin:-6px 0 12px">Bản ký của bạn do Quản trị tải lên. Bấm vào để xem, chỉ bạn và Ban giám đốc thấy được.</p>
     {% for loai, ten_loai in LoaiHoSo.NHAN.items() %}
     {% set ds = n.ho_so_theo_loai(loai) %}
@@ -90,7 +90,7 @@
       <strong>{{ LoaiHoSo.ICON[loai] }} {{ ten_loai }} <span class="dem">{{ ds|length }}</span></strong>
       {% for h in ds %}
       <a class="hs-tep" href="{{ url_for('media', duong_dan=h.duong_dan) }}" target="_blank" rel="noopener">
-        <span class="hs-tep-icon">{{ '🖼' if (h.mime or '').startswith('image') else '📄' }}</span>
+        <span class="hs-tep-icon">{{ bi('image') if (h.mime or '').startswith('image') else bi('file-text') }}</span>
         <span class="hs-tep-nd">
           <b>{{ h.ghi_chu or h.ten_goc or 'Tệp' }}</b>
           <small>

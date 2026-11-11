@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ don.ten_loai }} · BRICON{% endblock %}
+
+{% block content %}
+{% from "_avatar.html" import avatar %}
+<div>
+  <a class="quay-lai" href="{{ url_for('don_tu.danh_sach', tab='duyet' if co_the_duyet else None) }}">{{ bi('chevron-left') }} Đơn từ</a>
+</div>
+
+<div class="the">
+  <div class="don-form-dau">
+    <span class="loai-don-icon">{{ don.icon }}</span>
+    <div style="flex:1;min-width:0">
+      <h1 style="margin:0">{{ don.ten_loai }}</h1>
+      <span class="nhan" data-tt="{{ don.mau_trang_thai }}">{{ don.ten_trang_thai }}</span>
+    </div>
+  </div>
+
+  <div class="dong-tt"><span>Nhân viên</span><span>{{ don.nguoi_dung.ho_ten }}</span></div>
+  {% if don.ten_phan_loai %}<div class="dong-tt"><span>{{ 'Loại nghỉ' if don.loai == LoaiDonTu.XIN_NGHI else 'Hình thức' }}</span><span>{{ don.ten_phan_loai }}</span></div>{% endif %}
+  <div class="dong-tt"><span>Thời gian</span><span>{{ don.tom_tat }}</span></div>
+  {% if don.dia_diem %}<div class="dong-tt"><span>Địa điểm</span><span>{{ don.dia_diem }}</span></div>{% endif %}
+  {% if don.noi_dung %}<div class="dong-tt"><span>Ghi chú</span><span>{{ don.noi_dung }}</span></div>{% endif %}
+  <div class="dong-tt"><span>{{ 'Nội dung' if don.loai == LoaiDonTu.CONG_TAC else 'Lý do' }}</span><span style="white-space:pre-wrap">{{ don.ly_do }}</span></div>
+  {% if don.ban_giao_cho %}<div class="dong-tt"><span>Bàn giao cho</span><span>{{ don.ban_giao_cho.ho_ten }}</span></div>{% endif %}
+  {% if don.loai == LoaiDonTu.BO_SUNG_CONG %}
+  <div class="dong-tt"><span>Dữ liệu cũ</span><span>{{ don.du_lieu_cu or '—' }}</span></div>
+  {% endif %}
+  {% if cc and cc.gio_vao and don.loai in (LoaiDonTu.TRE_SOM, LoaiDonTu.DOI_CA, LoaiDonTu.CONG_TAC, LoaiDonTu.BO_SUNG_CONG) %}
+  <div class="dong-tt"><span>Chấm công ngày này</span><span>
+    Vào {{ cc.gio_vao.strftime('%H:%M') }}{% if cc.di_tre %} · trễ {{ cc.so_phut_tre }}′{% if cc.tre_co_phep %} (đã duyệt){% endif %}{% endif %}
+    · Ra {{ cc.gio_ra.strftime('%H:%M') if cc.gio_ra else '—' }}{% if cc.ve_som %} · sớm {{ cc.so_phut_som }}′{% if cc.som_co_phep %} (đã duyệt){% endif %}{% endif %}
+  </span></div>
+  {% endif %}
+  {% if don.duong_dan_pdf %}<div class="dong-tt"><span>Đơn ký điện tử</span><span><a href="{{ url_for('media', duong_dan=don.duong_dan_pdf) }}" target="_blank" rel="noopener">Xem đơn (PDF)</a></span></div>{% endif %}
+  {% if don.dinh_kem %}<div class="dong-tt"><span>Đính kèm</span><span><a href="{{ url_for('media', duong_dan=don.dinh_kem) }}" target="_blank" rel="noopener">{{ don.ten_dinh_kem or 'Mở tệp' }}</a></span></div>{% endif %}
+  <div class="dong-tt"><span>Gửi lúc</span><span>{{ don.tao_luc.strftime('%H:%M %d/%m/%Y') }}</span></div>
+  {% if don.nguoi_duyet %}
+  <div class="dong-tt"><span>Người duyệt</span><span>{{ don.nguoi_duyet.ho_ten }} · {{ don.duyet_luc.strftime('%H:%M %d/%m') }}</span></div>
+  {% if don.y_kien_duyet %}<div class="dong-tt"><span>Ý kiến</span><span>{{ don.y_kien_duyet }}</span></div>{% endif %}
+  {% endif %}
+</div>
+
+{% if co_the_duyet and don.trang_thai == TrangThaiDonTu.CHO_DUYET %}
+<form class="the" method="post" action="{{ url_for('don_tu.duyet', id=don.id) }}">
+  <div class="o-nhap"><label for="y_kien">Ý kiến người duyệt (không bắt buộc)</label>
+    <input id="y_kien" type="text" name="y_kien" placeholder="VD: Đồng ý, nhớ bàn giao việc"></div>
+  <div class="don-the-nut">
+    <button class="nut nut--vien-do" type="submit" name="hanh_dong" value="tu_choi">{{ bi('x') }} Từ chối</button>
+    <button class="nut nut--xanh" type="submit" name="hanh_dong" value="duyet">{{ bi('check') }} Duyệt đơn</button>
+  </div>
+</form>
+{% endif %}
+
+{% if don.nguoi_dung_id == current_user.id and don.trang_thai == TrangThaiDonTu.CHO_DUYET %}
+<form method="post" action="{{ url_for('don_tu.huy', id=don.id) }}" onsubmit="return confirm('Huỷ đơn này?')">
+  <button class="nut nut--phu nut--rong" type="submit">Huỷ đơn</button>
+</form>
+{% endif %}
+{% endblock %}

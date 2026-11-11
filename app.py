@@ -8,6 +8,7 @@ from flask_login import current_user, login_required
 
 from config import Config
 from extensions import db, login_manager, migrate
+from icons import bi
 from models import (AnhDanhGia, AnhGoiHang, AnhSanPhamAI, AnhYeuCau, BotZalo, BuoiNghi, ChamCong,
                     ChucVu, CongViec, DeXuat, DinhKem, DinhKemDeXuat, DoUuTien, LoaiDinhKem,
                     MucSao, NguoiDung, TrangThai, VaiTro, XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
@@ -30,6 +31,8 @@ def create_app(config_class=Config):
     from views.bien_ban import bp as bien_ban_bp
     from views.de_xuat import bp as de_xuat_bp
     from views.dong_goi import bp as dong_goi_bp
+    from views.don_tu import bp as don_tu_bp
+    from views.menu import bp as menu_bp
     from views.tasks import bp as tasks_bp
     from views.thong_bao import bp as thong_bao_bp
     from views.tro_ly import bp as tro_ly_bp
@@ -39,6 +42,8 @@ def create_app(config_class=Config):
     app.register_blueprint(thong_bao_bp)
     app.register_blueprint(de_xuat_bp)
     app.register_blueprint(dong_goi_bp)
+    app.register_blueprint(don_tu_bp)
+    app.register_blueprint(menu_bp)
     app.register_blueprint(cong_no_bp)
     app.register_blueprint(bien_ban_bp)
     app.register_blueprint(attendance_bp)
@@ -73,6 +78,14 @@ def create_app(config_class=Config):
         if xn:
             if not (current_user.la_quan_ly and current_user.trong_pham_vi(xn.nguoi_dung)) \
                     and xn.nguoi_dung_id != current_user.id:
+                abort(403)
+            return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
+
+        from models import DonTu
+        don = DonTu.query.filter((DonTu.duong_dan_pdf == duong_dan) | (DonTu.dinh_kem == duong_dan)).first()
+        if don:
+            from views.don_tu import duoc_xem as _duoc_xem_don
+            if not _duoc_xem_don(current_user, don):
                 abort(403)
             return send_from_directory(app.config["UPLOAD_ROOT"], duong_dan)
 
@@ -258,26 +271,27 @@ def create_app(config_class=Config):
             return "0"
 
     app.jinja_env.globals["phien_ban_static"] = phien_ban_static
+    app.jinja_env.globals["bi"] = bi
 
     # Nhóm menu Quản trị — dùng chung cho sidebar (base.html) và thanh tab
     # trong từng trang (_tab_quan_tri.html). Mỗi nhóm: (mã, nhãn sidebar,
     # icon, chỉ Admin thấy?, [(endpoint, nhãn tab), ...]). Endpoint phụ (VD
     # trang Tìm Group ID) khai báo ở "phu" để sidebar vẫn sáng đúng nhóm.
     NHOM_QUAN_TRI = [
-        {"ma": "nhan_su", "nhan": "Nhân sự", "icon": "👥", "chi_admin": False,
+        {"ma": "nhan_su", "nhan": "Nhân sự", "icon": bi("users"), "chi_admin": False,
          "tab": [("admin.nhan_vien", "Nhân viên"), ("admin.bo_phan", "Bộ phận"),
                  ("admin.giay_to", "Giấy tờ"), ("admin.viec_dinh_ky", "Việc định kỳ")],
          "phu": ["admin.chi_tiet_nhan_vien", "admin.giay_to_nhan_vien"]},
-        {"ma": "cham_cong", "nhan": "Cấu hình chấm công", "icon": "📍", "chi_admin": False,
+        {"ma": "cham_cong", "nhan": "Cấu hình chấm công", "icon": bi("map-pin"), "chi_admin": False,
          "tab": [("admin.diem_cham_cong", "Điểm chấm công"), ("admin.ngay_nghi", "Ngày nghỉ")],
          "phu": []},
-        {"ma": "ai", "nhan": "Trợ lý AI", "icon": "💬", "chi_admin": False,
+        {"ma": "ai", "nhan": "Trợ lý AI", "icon": bi("bot"), "chi_admin": False,
          "tab": [("admin.info_ai", "Thông tin chung"), ("admin.info_ai_san_pham", "Sản phẩm"),
                  ("admin.info_ai_faq", "Câu hỏi thường gặp"), ("admin.info_ai_quy_trinh", "Quy trình"),
                  ("admin.info_ai_chuc_vu", "Chức vụ"),
                  ("admin.tro_ly_su_dung", "Thống kê sử dụng")],
          "phu": []},
-        {"ma": "he_thong", "nhan": "Hệ thống", "icon": "⚙", "chi_admin": True,
+        {"ma": "he_thong", "nhan": "Hệ thống", "icon": bi("settings"), "chi_admin": True,
          "tab": [("admin.thiet_lap", "Bot Zalo"), ("admin.thiet_lap_ai", "OpenAI & hạn mức"),
                  ("admin.thiet_lap_tin_tu_dong", "Tin tự động"), ("admin.log_zalo", "Log Zalo")],
          "phu": ["admin.lay_group_id"]},
@@ -342,6 +356,18 @@ def create_app(config_class=Config):
 
     app.jinja_env.globals["so_bien_ban_cho_ky"] = so_bien_ban_cho_ky
 
+    def so_don_cho_duyet():
+        from views.don_tu import so_don_cho_duyet as _dem
+        return _dem()
+
+    app.jinja_env.globals["so_don_cho_duyet"] = so_don_cho_duyet
+
+    def menu_chinh():
+        from views.menu import menu_chinh as _menu
+        return _menu()
+
+    app.jinja_env.globals["menu_chinh"] = menu_chinh
+
     @app.context_processor
     def bien_chung():
         return {
@@ -372,7 +398,7 @@ def create_app(config_class=Config):
                 ngan = ngan[:38] + "…"
             return (f'<a href="{escape(url)}" target="_blank" rel="noopener noreferrer" '
                     f'title="{escape(url)}" style="color:var(--chinh-dam);text-decoration:underline;'
-                    f'word-break:break-all">🔗 {escape(ngan)}</a>')
+                    f'word-break:break-all">{bi("link")} {escape(ngan)}</a>')
 
         phan, cuoi = [], 0
         for m in _re.finditer(r"https?://[^\s<>\"']+", van_ban or ""):

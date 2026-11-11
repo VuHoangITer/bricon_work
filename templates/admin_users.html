@@ -37,16 +37,16 @@
 <div class="nv-nhac">
   {% if sinh_nhat_thang %}
   <div class="the">
-    <h4>🎂 Sinh nhật tháng {{ hom_nay_vn.month }}</h4>
+    <h4>{{ bi('cake') }} Sinh nhật tháng {{ hom_nay_vn.month }}</h4>
     {% for n in sinh_nhat_thang %}
     <div style="font-size:.84rem"><a href="{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}">{{ n.ho_ten }}</a>
-      — {{ n.ngay_sinh.strftime('%d/%m') }}{% if n.ngay_sinh.day == hom_nay_vn.day %} <b style="color:var(--chinh-dam)">· hôm nay 🎉</b>{% endif %}</div>
+      — {{ n.ngay_sinh.strftime('%d/%m') }}{% if n.ngay_sinh.day == hom_nay_vn.day %} <b style="color:var(--chinh-dam)">· hôm nay {{ bi('sparkles') }}</b>{% endif %}</div>
     {% endfor %}
   </div>
   {% endif %}
   {% if hd_can_chu_y %}
   <div class="the">
-    <h4>📄 Hợp đồng cần chú ý</h4>
+    <h4>{{ bi('file-text') }} Hợp đồng cần chú ý</h4>
     {% for n, h in hd_can_chu_y %}
     <div style="font-size:.84rem"><a href="{{ url_for('admin.chi_tiet_nhan_vien', uid=n.id) }}#ho-so-hop_dong">{{ n.ho_ten }}</a> —
       {% if h.so_ngay_con_han < 0 %}<b style="color:var(--lam-lai)">đã hết hạn {{ h.ngay_het_han.strftime('%d/%m/%Y') }}</b>
@@ -74,7 +74,7 @@
 </form>
 
 <details class="ai-them" id="them-nhan-vien" style="margin-bottom:14px">
-  <summary class="nut nut--vang nut--nho" style="list-style:none;display:inline-flex;cursor:pointer">+ Thêm nhân viên</summary>
+  <summary class="nut nut--vang nut--nho" style="list-style:none;display:inline-flex;cursor:pointer">{{ bi('plus') }} Thêm nhân viên</summary>
   <div class="the" style="margin-top:10px">
   <form method="post" action="{{ url_for('admin.luu_nhan_vien') }}">
     <div class="hang">
@@ -119,13 +119,13 @@
         <td style="font-size:.82rem">{{ n.chuc_vu.ten if n.chuc_vu else '—' }}</td>
         <td><span class="nhan" data-tt="{{ n.vai_tro }}">{{ n.ten_vai_tro }}</span></td>
         <td style="font-size:.82rem;white-space:nowrap">{% if n.ngay_vao_lam %}{{ n.ngay_vao_lam.strftime('%d/%m/%Y') }}<br><small style="color:var(--muc-mo)">{{ n.tham_nien }}</small>{% else %}—{% endif %}</td>
-        <td style="font-size:.82rem;white-space:nowrap">{% if n.ngay_sinh %}{{ n.ngay_sinh.strftime('%d/%m') }}{% if n.sinh_nhat_thang_nay %} 🎂{% endif %}{% else %}—{% endif %}</td>
+        <td style="font-size:.82rem;white-space:nowrap">{% if n.ngay_sinh %}{{ n.ngay_sinh.strftime('%d/%m') }}{% if n.sinh_nhat_thang_nay %} <span style="color:var(--chinh-dam)" title="Sinh nhật tháng này">{{ bi('cake') }}</span>{% endif %}{% else %}—{% endif %}</td>
         <td><span class="nv-ho-so">
           {% for loai, ten in LoaiHoSo.NHAN.items() %}
           <span class="{{ 'co' if n.ho_so_theo_loai(loai) }}" title="{{ ten }}: {{ n.ho_so_theo_loai(loai)|length }} file">{{ LoaiHoSo.ICON[loai] }}</span>
           {% endfor %}
         </span></td>
-        <td>{% if n.zalo_group_id %}<span title="Đã có Zalo">✅</span>{% else %}<span class="nhan" data-tt="lam_lai">Chưa</span>{% endif %}</td>
+        <td>{% if n.zalo_group_id %}<span class="xanh" title="Đã có Zalo">{{ bi('check-circle') }}</span>{% else %}<span class="nhan" data-tt="lam_lai">Chưa</span>{% endif %}</td>
       </tr>
       {% endfor %}
     {% endfor %}

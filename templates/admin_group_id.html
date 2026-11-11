@@ -7,8 +7,8 @@
     <p>Vào nhóm Zalo đã thêm bot này, gửi thử 1 tin nhắn bất kỳ trong nhóm, rồi bấm "Tải lại" bên dưới.</p>
   </div>
   <div class="page-actions">
-    <a class="nut nut--phu" href="{{ url_for('admin.thiet_lap') }}">‹ Quay lại Thiết lập</a>
-    <a class="nut nut--vang" href="{{ url_for('admin.lay_group_id', bot_id=bot.id) }}">↻ Tải lại</a>
+    <a class="quay-lai" href="{{ url_for('admin.thiet_lap') }}">{{ bi('chevron-left', 'ic--sm') }} Thiết lập</a>
+    <a class="nut nut--vang" href="{{ url_for('admin.lay_group_id', bot_id=bot.id) }}">{{ bi('refresh-cw', 'ic--sm') }} Tải lại</a>
   </div>
 </div>
 

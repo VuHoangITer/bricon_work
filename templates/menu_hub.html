@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ tieu_de }} · BRICON{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy"><h1>{{ tieu_de }}</h1><p>{{ mo_ta }}</p></div>
+</div>
+
+<div class="hub-luoi">
+  {% for m in nhom.muc %}
+  <a class="hub-o" href="{{ m.url }}">
+    <span class="hub-icon">{{ m.icon }}</span>
+    <span class="hub-chu" style="flex:1">
+      <strong>{{ m.nhan }}</strong>
+      <small>{{ m.mo_ta }}</small>
+    </span>
+    {% if m.dem %}<span class="hub-dem">{{ m.dem }}</span>{% else %}<span style="color:var(--muc-nhat);display:inline-grid;place-items:center">{{ bi('chevron-right') }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

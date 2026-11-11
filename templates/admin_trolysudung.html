@@ -13,7 +13,7 @@
 <form class="the" method="get" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px">
   <input type="month" name="thang" value="{{ thang }}" style="width:100%;min-width:0">
   <button class="nut nut--phu" type="submit" style="flex:0 0 auto">Xem</button>
-  <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('admin.xuat_tro_ly_su_dung', thang=thang) }}">⬇ Xuất Excel</a>
+  <a class="nut nut--vang" style="flex:0 0 auto" href="{{ url_for('admin.xuat_tro_ly_su_dung', thang=thang) }}">{{ bi('download', 'ic--sm') }} Xuất Excel</a>
 </form>
 
 <div class="tieu-khu"><h2>Hôm nay</h2></div>

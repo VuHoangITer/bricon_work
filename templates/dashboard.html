@@ -31,7 +31,7 @@
   <div class="chao-mung-noi-dung">
     <h1>{{ loi_chao }}, {{ current_user.ho_ten.split()[-1] }}!</h1>
     <p class="chao-mung-phu">{{ loi_chao_phu }}</p>
-    <p class="chao-mung-meta">📅 {{ hom_nay_hien_thi }} &nbsp;·&nbsp; 📋 Tổng quan công việc và chấm công hôm nay.</p>
+    <p class="chao-mung-meta">{{ bi('calendar') }} {{ hom_nay_hien_thi }} &nbsp;·&nbsp; {{ bi('clipboard-list') }} Tổng quan công việc và chấm công hôm nay.</p>
   </div>
   <div class="chao-mung-trang-tri" aria-hidden="true">
     {% if chao_mung_icon == "mat_troi" %}
@@ -115,7 +115,7 @@
   <div class="card-title-row">
     <div>
       <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--lam-lai);font-weight:700">
-        ⚠️ Việc bị 0★ hôm nay</div>
+        {{ bi('alert-triangle') }} Việc bị 0★ hôm nay</div>
       <div style="font-size:1.05rem;font-weight:700;margin-top:4px;color:var(--lam-lai)">
         {{ viec_0_sao_hom_nay|length }} việc bị hệ thống tự động đóng vì quá hạn</div>
       <div class="subtle" style="font-size:.78rem;margin-top:4px">
@@ -131,7 +131,7 @@
       <div style="display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--muc-mo)">
         <span>Người giao: {{ v.nguoi_giao.ho_ten }}</span>
         {% if v.nguoi_giao.so_dien_thoai %}
-        <a class="nut nut--phu nut--nho" href="tel:{{ v.nguoi_giao.so_dien_thoai }}">📞 Gọi</a>
+        <a class="nut nut--phu nut--nho" href="tel:{{ v.nguoi_giao.so_dien_thoai }}">{{ bi('phone') }} Gọi</a>
         {% endif %}
       </div>
     </div>
@@ -140,42 +140,44 @@
 </div>
 {% endif %}
 
+{% if ql %}{% include "_ql_nhan_vien.html" %}{% endif %}
+
 <div class="dashboard-grid">
   {% if current_user.la_admin_sep %}
   <button type="button" class="stat-card stat-card--lienket" id="nut-mo-viec-hang-ngay">
-    <span class="stat-card-icon stat-card-icon--xanh">📅</span>
+    <span class="stat-card-icon stat-card-icon--xanh">{{ bi('calendar') }}</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Việc hằng ngày</div>
       <div class="stat-card-value">{{ viec_hom_nay_cong_ty }}</div>
       <div class="stat-card-note">hạn hôm nay · toàn công ty</div>
     </div>
-    <span class="stat-card-mui-ten">›</span>
+    <span class="stat-card-mui-ten">{{ bi('chevron-right') }}</span>
   </button>
   {% else %}
   <a href="{{ url_for('tasks.danh_sach') }}" class="stat-card stat-card--lienket">
-    <span class="stat-card-icon stat-card-icon--xanh">📅</span>
+    <span class="stat-card-icon stat-card-icon--xanh">{{ bi('calendar') }}</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Việc hằng ngày</div>
       <div class="stat-card-value">{{ cua_toi|length }}</div>
       <div class="stat-card-note">hạn hôm nay</div>
     </div>
-    <span class="stat-card-mui-ten">›</span>
+    <span class="stat-card-mui-ten">{{ bi('chevron-right') }}</span>
   </a>
   {% endif %}
   {% if current_user.la_quan_ly %}
   <a href="{{ url_for('tasks.danh_sach', trang_thai='cho_duyet') }}" class="stat-card stat-card--lienket">
-    <span class="stat-card-icon stat-card-icon--luc">✓</span>
+    <span class="stat-card-icon stat-card-icon--luc">{{ bi('check-circle') }}</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Chờ đánh giá</div>
       <div class="stat-card-value">{{ cho_toi_duyet|length }}</div>
       <div class="stat-card-note">đối chứng cần duyệt</div>
     </div>
-    <span class="stat-card-mui-ten">›</span>
+    <span class="stat-card-mui-ten">{{ bi('chevron-right') }}</span>
   </a>
   {% endif %}
   {% if not current_user.la_admin_sep %}
   <a href="{{ url_for('attendance.trang_cham_cong') }}" class="stat-card stat-card--lienket">
-    <span class="stat-card-icon stat-card-icon--cam">◷</span>
+    <span class="stat-card-icon stat-card-icon--cam">{{ bi('clock') }}</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Trạng thái công</div>
       <div class="stat-card-value" style="font-size:1.1rem">
@@ -183,17 +185,17 @@
       </div>
       <div class="stat-card-note">hôm nay</div>
     </div>
-    <span class="stat-card-mui-ten">›</span>
+    <span class="stat-card-mui-ten">{{ bi('chevron-right') }}</span>
   </a>
   {% endif %}
-  <a href="{{ url_for('auth.doi_mat_khau') }}" class="stat-card stat-card--lienket">
-    <span class="stat-card-icon stat-card-icon--tim">☺</span>
+  <a href="{{ url_for('auth.ho_so_cua_toi') }}" class="stat-card stat-card--lienket">
+    <span class="stat-card-icon stat-card-icon--tim">{{ bi('user') }}</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Tài khoản</div>
       <div class="stat-card-value" style="font-size:1.1rem">{{ current_user.ho_ten }}</div>
       <div class="stat-card-note">đang đăng nhập</div>
     </div>
-    <span class="stat-card-mui-ten">›</span>
+    <span class="stat-card-mui-ten">{{ bi('chevron-right') }}</span>
   </a>
 </div>
 

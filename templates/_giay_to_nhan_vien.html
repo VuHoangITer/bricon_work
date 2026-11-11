@@ -8,11 +8,11 @@
   .hs-nhom-dau strong { font-size:.9rem; }
   .hs-tep { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--vien); border-radius:10px;
     margin-bottom:6px; background:#fff; }
-  .hs-tep-icon { font-size:1.2rem; flex:0 0 auto; }
+  .hs-tep-icon { font-size:1.1rem; color:var(--chinh-dam); flex:0 0 auto; display:inline-grid; place-items:center; }
   .hs-tep-nd { flex:1; min-width:0; }
   .hs-tep-nd a { font-weight:600; font-size:.84rem; overflow-wrap:anywhere; }
   .hs-tep-nd small { display:block; color:var(--muc-mo); font-size:.72rem; }
-  .hs-tep button { border:0; background:transparent; color:var(--lam-lai); cursor:pointer; font-size:.9rem; padding:4px; }
+  .hs-tep button { border:0; background:transparent; color:var(--lam-lai); cursor:pointer; font-size:.9rem; padding:4px; display:inline-grid; place-items:center; }
   .hs-them > summary { list-style:none; cursor:pointer; font-size:.8rem; font-weight:600; color:var(--chinh-dam); }
   .hs-them > summary::-webkit-details-marker { display:none; }
   .hs-them[open] > summary { margin-bottom:8px; }
@@ -26,7 +26,7 @@
   .hs-da-chon button { border:0; background:transparent; color:var(--lam-lai); cursor:pointer; padding:2px 4px; }
 </style>
   <div class="the">
-    <h3>📁 Giấy tờ nhân sự</h3>
+    <h3>{{ bi('folder') }} Giấy tờ nhân sự</h3>
     <p class="goi-y" style="margin:-6px 0 12px">Ảnh chụp hoặc PDF bản ký. Chỉ Quản trị, Ban giám đốc, người được giao quản lý giấy tờ và chính nhân viên này xem được (nhân viên chỉ xem, không sửa/xoá).</p>
 
     {% for loai, ten_loai in LoaiHoSo.NHAN.items() %}
@@ -38,7 +38,7 @@
 
       {% for h in ds %}
       <div class="hs-tep">
-        <span class="hs-tep-icon">{{ '🖼' if (h.mime or '').startswith('image') else '📄' }}</span>
+        <span class="hs-tep-icon">{{ bi('image') if (h.mime or '').startswith('image') else bi('file-text') }}</span>
         <div class="hs-tep-nd">
           <a href="{{ url_for('media', duong_dan=h.duong_dan) }}" target="_blank" rel="noopener">{{ h.ten_goc or 'Tệp' }}</a>
           <small>
@@ -53,14 +53,14 @@
         </div>
         <form method="post" action="{{ url_for('admin.xoa_ho_so', hid=h.id) }}" onsubmit="return confirm('Xoá file {{ (h.ten_goc or '')|e }}?')">
           <input type="hidden" name="ve" value="{{ ve_trang }}">
-          <button type="submit" title="Xoá file">✕</button></form>
+          <button type="submit" title="Xoá file">{{ bi('x') }}</button></form>
       </div>
       {% else %}
       <div class="hs-trong">Chưa có file nào.</div>
       {% endfor %}
 
       <details class="hs-them">
-        <summary>+ Thêm {{ ten_loai|lower }}</summary>
+        <summary>{{ bi('plus') }} Thêm {{ ten_loai|lower }}</summary>
         <form method="post" action="{{ url_for('admin.tai_ho_so', uid=n.id) }}" enctype="multipart/form-data">
           <input type="hidden" name="loai" value="{{ loai }}">
           <input type="hidden" name="ve" value="{{ ve_trang }}">
@@ -70,8 +70,8 @@
             <input type="file" multiple hidden class="hs-chon-file"
                    accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
             <div class="hang-nut" style="flex-wrap:wrap">
-              <button type="button" class="nut nut--phu nut--nho hs-nut-anh">📷 Ảnh / chụp</button>
-              <button type="button" class="nut nut--phu nut--nho hs-nut-file">📎 File (PDF, Word…)</button>
+              <button type="button" class="nut nut--phu nut--nho hs-nut-anh">{{ bi('camera') }} Ảnh / chụp</button>
+              <button type="button" class="nut nut--phu nut--nho hs-nut-file">{{ bi('paperclip') }} File (PDF, Word…)</button>
             </div>
             <div class="hs-da-chon"></div>
             <div class="goi-y">Chọn được nhiều lần, ảnh và file lẫn nhau — tất cả được gộp lại rồi tải lên cùng lúc.</div>
@@ -115,7 +115,7 @@ document.querySelectorAll('.hs-chon').forEach((hop) => {
         img.src = URL.createObjectURL(f);
         d.appendChild(img);
       } else {
-        d.insertAdjacentHTML('beforeend', '<b>📄</b>');
+        d.insertAdjacentHTML('beforeend', '<b style="display:inline-flex;color:var(--chinh)">' + {{ bi('file-text', 'ic--sm')|tojson }} + '</b>');
       }
       const ten = document.createElement('span'); ten.textContent = f.name; d.appendChild(ten);
       const kt = document.createElement('small'); kt.textContent = kichThuoc(f.size); d.appendChild(kt);

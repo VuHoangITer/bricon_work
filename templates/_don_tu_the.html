@@ -1,0 +1,26 @@
+{# Thẻ 1 đơn từ. nut_duyet=True: hiện nút Từ chối / Duyệt ngay trên thẻ. #}
+{% macro the_don(d, nut_duyet=False, hien_nguoi=True) %}
+{% from "_avatar.html" import avatar %}
+<div class="don-the">
+  <a class="don-the-dau" href="{{ url_for('don_tu.chi_tiet', id=d.id) }}">
+    {% if hien_nguoi %}{{ avatar(d.nguoi_dung, cls="don-avatar") }}{% else %}<span class="don-icon">{{ d.icon }}</span>{% endif %}
+    <span class="don-the-noi-dung">
+      <span class="don-the-hang">
+        {% if hien_nguoi %}<strong>{{ d.nguoi_dung.ho_ten }}</strong>{% else %}<strong>{{ d.ten_loai }}</strong>{% endif %}
+        {% if hien_nguoi %}<span class="don-loai">{{ d.ten_loai }}</span>{% endif %}
+      </span>
+      <span class="don-the-phu">{{ d.tom_tat }}</span>
+      <span class="don-the-phu">Lý do: {{ d.ly_do|truncate(80) }}</span>
+    </span>
+    {% if not nut_duyet %}<span class="nhan" data-tt="{{ d.mau_trang_thai }}">{{ d.ten_trang_thai }}</span>{% endif %}
+  </a>
+  {% if nut_duyet %}
+  <form method="post" action="{{ url_for('don_tu.duyet', id=d.id) }}" class="don-the-nut" data-form-duyet>
+    <input type="hidden" name="tiep" value="{{ request.full_path }}">
+    <input type="hidden" name="y_kien">
+    <button class="nut nut--vien-do" type="submit" name="hanh_dong" value="tu_choi" data-hoi-ly-do>{{ bi('x') }} Từ chối</button>
+    <button class="nut nut--xanh" type="submit" name="hanh_dong" value="duyet">{{ bi('check') }} Duyệt đơn</button>
+  </form>
+  {% endif %}
+</div>
+{% endmacro %}

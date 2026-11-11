@@ -14,14 +14,14 @@
       <audio controls preload="none" src="{{ src }}"></audio></div>
   {% else %}
     <a class="tep" href="{{ src }}" target="_blank" rel="noopener">
-      <span class="tep-khac">📄<span>{{ d.ten_goc|truncate(24) }}</span>
+      <span class="tep-khac">{{ bi('file') }}<span>{{ d.ten_goc|truncate(24) }}</span>
         <span>{{ d.kich_thuoc_dep }}</span></span></a>
   {% endif %}
 {% endmacro %}
 
 {% block content %}
-<div style="margin-bottom:4px">
-  <a href="{{ url_for('de_xuat.danh_sach') }}" style="font-size:.85rem">‹ Đề xuất</a>
+<div>
+  <a class="quay-lai" href="{{ url_for('de_xuat.danh_sach', loai=dx.loai) }}">{{ bi('chevron-left') }} {{ 'Tạm ứng' if dx.loai == 'tam_ung' else 'Đề xuất công việc' }}</a>
 </div>
 <h1>Đề xuất {{ dx.ten_loai|lower }}
   <span class="nhan" data-tt="{{ {'cho_duyet':'cho_duyet','da_duyet':'hoan_thanh','tu_choi':'huy'}[dx.trang_thai] }}">{{ dx.ten_trang_thai }}</span>
@@ -72,8 +72,8 @@
   <input type="hidden" name="ket_qua" id="ket_qua">
   <input type="hidden" name="chu_ky" id="chu_ky">
   <div class="hang-nut">
-    <button type="button" class="nut nut--rong" id="nut-dong-y">✅ Đồng ý & Ký</button>
-    <button type="button" class="nut nut--phu" id="nut-tu-choi">🚫 Từ chối & Ký</button>
+    <button type="button" class="nut nut--rong" id="nut-dong-y">{{ bi('check') }} Đồng ý & Ký</button>
+    <button type="button" class="nut nut--phu" id="nut-tu-choi">{{ bi('x') }} Từ chối & Ký</button>
   </div>
 </form>
 
@@ -104,7 +104,7 @@
 <div class="hang-nut" style="margin-top:14px">
   <form method="post" action="{{ url_for('de_xuat.xoa', id=dx.id) }}"
         onsubmit="return confirm('Xoá VĨNH VIỄN đề xuất này? Không thể hoàn tác, kể cả file PDF/chữ ký đã ký.');">
-    <button type="submit" class="nut nut--do nut--nho">🗑 Xoá vĩnh viễn</button>
+    <button type="submit" class="nut nut--do nut--nho">{{ bi('trash') }} Xoá vĩnh viễn</button>
   </form>
 </div>
 {% endif %}

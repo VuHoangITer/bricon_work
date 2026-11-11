@@ -18,7 +18,7 @@
   <div class="page-actions">
     <form method="post" action="{{ url_for('admin.tao_viec_dinh_ky_hom_nay') }}"
           onsubmit="return confirm('Tạo ngay việc định kỳ của hôm nay? (chạy lại không bị trùng)');">
-      <button class="nut nut--phu" type="submit" {{ 'disabled' if hom_nay_nghi }}>▶ Tạo việc hôm nay</button>
+      <button class="nut nut--phu" type="submit" {{ 'disabled' if hom_nay_nghi }}>{{ bi('play', 'ic--sm') }} Tạo việc hôm nay</button>
     </form>
   </div>
 </div>
@@ -29,7 +29,7 @@
 
 <div class="hang" style="align-items:flex-start">
 <details class="the" style="flex:1 1 380px" {{ 'open' if not theo_cv }}>
-  <summary style="cursor:pointer;font-weight:600">＋ Thêm việc định kỳ</summary>
+  <summary style="cursor:pointer;font-weight:600;display:flex;align-items:center;gap:6px">{{ bi('plus', 'ic--sm') }} Thêm việc định kỳ</summary>
   <form method="post" style="margin-top:10px">
     <div class="o-nhap"><label>Chức vụ áp dụng</label>
       <select name="chuc_vu_id" required>
@@ -47,7 +47,7 @@
 </details>
 
 <details class="the" style="flex:1 1 300px">
-  <summary style="cursor:pointer;font-weight:600">📦 Nạp sẵn việc cố định của kho</summary>
+  <summary style="cursor:pointer;font-weight:600;display:flex;align-items:center;gap:6px">{{ bi('package', 'ic--sm') }} Nạp sẵn việc cố định của kho</summary>
   <form method="post" action="{{ url_for('admin.nap_mau_viec_kho') }}" style="margin-top:10px">
     <p class="goi-y" style="margin-top:0">Tạo sẵn 12 việc theo "Kế hoạch làm việc cố định của kho" (vệ sinh 8h30, sản xuất/đóng gói, kiểm kê nhóm theo từng thứ, họp kho T7, gửi hàng 17h, che phủ + trả sổ 17h30, bàn giao phiếu T7). Nạp xong sửa/tắt từng việc tuỳ ý.</p>
     <div class="o-nhap"><label>Cho chức vụ</label>

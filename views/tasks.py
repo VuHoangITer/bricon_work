@@ -11,7 +11,7 @@ from sqlalchemy import case
 import dich_vu_ai
 import services
 from extensions import db
-from models import (AnhDanhGia, AnhSanPhamAI, AnhYeuCau, ChucVu, CongViec, DanhGia, DinhKem,
+from models import (BuoiNghi, AnhDanhGia, AnhSanPhamAI, AnhYeuCau, ChucVu, CongViec, DanhGia, DinhKem,
                     DoUuTien, GhiChuNop, LoaiDinhKem, NgayNghiLe, NguoiDung, TrangThai, VaiTro,
                     XinNghi, gio_vn_hien_tai, ngay_vn_hien_tai)
 
@@ -91,6 +91,54 @@ def _viec_lien_quan():
 
 
 # ---------------------------------------------------------------------------
+def _tong_quan_nhan_vien(hom_nay):
+    """Khối "Quản lý nhân viên" trên Trang chủ của quản lý: số liệu chấm
+    công hôm nay trong phạm vi + đơn từ chờ duyệt."""
+    from models import ChamCong, NguoiDung, XinNghi, VaiTro
+    from views.don_tu import don_cho_duyet
+
+    q = NguoiDung.query.filter(NguoiDung.dang_hoat_dong.is_(True),
+                               NguoiDung.vai_tro.notin_((VaiTro.ADMIN, VaiTro.SEP)),
+                               NguoiDung.id != current_user.id)
+    if not current_user.la_admin_sep:
+        q = q.filter(NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id or {-1}))
+    nhan_vien = q.order_by(NguoiDung.ho_ten).all()
+    ids = [n.id for n in nhan_vien]
+
+    cc = {c.nguoi_dung_id: c for c in ChamCong.query.filter(
+        ChamCong.ngay == hom_nay, ChamCong.nguoi_dung_id.in_(ids or [-1]))}
+    nghi = {}
+    for x in XinNghi.query.filter(XinNghi.ngay == hom_nay, XinNghi.nguoi_dung_id.in_(ids or [-1])):
+        nghi.setdefault(x.nguoi_dung_id, x)
+
+    dong, dang_lam, so_nghi, chua_cham = [], 0, 0, 0
+    for n in nhan_vien:
+        c, x = cc.get(n.id), nghi.get(n.id)
+        if c and c.gio_vao:
+            dang_lam += 1
+            if c.di_tre:
+                tt = ("tre_duyet" if c.tre_co_phep else "tre",
+                      f"Đi trễ {c.so_phut_tre} phút" + (" · Đã duyệt" if c.tre_co_phep else ""))
+            else:
+                tt = ("dung", "Đúng giờ")
+            gio = c.gio_vao.strftime("%H:%M")
+        elif x and x.buoi == BuoiNghi.CA_NGAY:
+            so_nghi += 1
+            tt, gio = ("nghi", "Nghỉ có phép"), ""
+        elif c and c.nghi_khong_phep:
+            so_nghi += 1
+            tt, gio = ("khong_phep", "Nghỉ không phép"), ""
+        else:
+            chua_cham += 1
+            tt, gio = ("chua", "Chưa chấm"), ""
+        dong.append({"nv": n, "ma_tt": tt[0], "nhan_tt": tt[1], "gio": gio})
+
+    thu_tu = {"tre": 0, "khong_phep": 1, "chua": 2, "tre_duyet": 3, "nghi": 4, "dung": 5}
+    dong.sort(key=lambda d: (thu_tu[d["ma_tt"]], d["nv"].ho_ten))
+    return {"tong": len(nhan_vien), "dang_lam": dang_lam, "nghi": so_nghi,
+            "chua_cham": chua_cham, "dong": dong, "don_cho_duyet": don_cho_duyet()}
+
+
 @bp.route("/")
 @login_required
 def dashboard():
@@ -169,9 +217,12 @@ def dashboard():
             for ma in (DoUuTien.CAO, DoUuTien.THUONG, DoUuTien.THAP)
         ]
 
+    ql = _tong_quan_nhan_vien(hom_nay) if current_user.la_quan_ly else None
+
     loi_chao, loi_chao_phu, chao_mung_icon = _loi_chao_theo_gio()
     return render_template(
         "dashboard.html",
+        ql=ql,
         cua_toi=cua_toi,
         cua_toi_theo_cot=cua_toi_theo_cot,
         cho_toi_duyet=cho_toi_duyet,

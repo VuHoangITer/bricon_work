@@ -6,24 +6,24 @@
      trang (sessionStorage), bấm ⟳ để bắt đầu cuộc trò chuyện mới. #}
 {% if current_user.la_admin_sep %}
   {% set goi_y_tro_ly = [
-    ("📄", "Có bao nhiêu việc đang chờ duyệt?"),
-    ("🕐", "Có việc nào đang quá hạn không?"),
-    ("👥", "Làm sao để giao việc mới?"),
-    ("📊", "Làm sao để xem bảng công cả công ty?"),
+    (bi("file-text")|string, "Có bao nhiêu việc đang chờ duyệt?"),
+    (bi("clock")|string, "Có việc nào đang quá hạn không?"),
+    (bi("users")|string, "Làm sao để giao việc mới?"),
+    (bi("bar-chart")|string, "Làm sao để xem bảng công cả công ty?"),
   ] %}
 {% elif current_user.la_quan_ly %}
   {% set goi_y_tro_ly = [
-    ("📋", "Hôm nay tôi có việc gì?"),
-    ("✅", "Có việc nào đang chờ tôi duyệt không?"),
-    ("👥", "Làm sao để giao việc mới?"),
-    ("🌴", "Làm sao để xin nghỉ phép?"),
+    (bi("clipboard-list")|string, "Hôm nay tôi có việc gì?"),
+    (bi("check-circle")|string, "Có việc nào đang chờ tôi duyệt không?"),
+    (bi("users")|string, "Làm sao để giao việc mới?"),
+    (bi("calendar")|string, "Làm sao để xin nghỉ phép?"),
   ] %}
 {% else %}
   {% set goi_y_tro_ly = [
-    ("📋", "Hôm nay tôi có việc gì?"),
-    ("📅", "Ngày mai tôi có việc gì?"),
-    ("🕐", "Tôi đã chấm công hôm nay chưa?"),
-    ("🌴", "Làm sao để xin nghỉ phép?"),
+    (bi("clipboard-list")|string, "Hôm nay tôi có việc gì?"),
+    (bi("calendar")|string, "Ngày mai tôi có việc gì?"),
+    (bi("clock")|string, "Tôi đã chấm công hôm nay chưa?"),
+    (bi("file-text")|string, "Làm sao để xin nghỉ phép?"),
   ] %}
 {% endif %}
 {% set gh_tro_ly = lay_gioi_han_tro_ly() %}
@@ -96,7 +96,7 @@
     background:#faf9f6; min-width:0; }
   .tl-chat-form input:focus { outline:none; border-color:var(--chinh,#a9822a); background:#fff; }
   .tl-chat-form button { flex:0 0 auto; width:40px; height:40px; border-radius:50%; border:0; cursor:pointer;
-    background:var(--chinh,#a9822a); color:#fff; font-size:1rem; }
+    background:var(--chinh,#a9822a); color:#fff; font-size:1rem; display:grid; place-items:center; }
   .tl-chat-form button:disabled { opacity:.5; cursor:default; }
   .tl-han-muc { font-size:.7rem; color:var(--muc-mo,#888); margin-top:6px; text-align:center; }
 
@@ -104,18 +104,20 @@
     .tl-chat-nut { right:16px; bottom:16px; width:54px; height:54px; }
     .tl-loi-chao { right:16px; bottom:80px; max-width:calc(100vw - 32px); }
     .tl-chat-khung { right:0; bottom:0; width:100vw; height:100dvh; border-radius:0; border:0; }
+    .tl-chat-chan { padding-bottom:calc(10px + env(safe-area-inset-bottom)); }
+    .tl-chat-form input { font-size:16px; }
     body.tl-chat-mo .tl-chat-nut { display:none; }
   }
 </style>
 
 <div class="tl-loi-chao" id="tl-loi-chao" role="button" tabindex="0" aria-label="Mở Trợ lý công việc">
-  <button type="button" class="tl-loi-chao-dong" id="tl-loi-chao-dong" aria-label="Tắt lời chào">✕</button>
+  <button type="button" class="tl-loi-chao-dong" id="tl-loi-chao-dong" aria-label="Tắt lời chào">{{ bi('x') }}</button>
   <strong>Trợ lý công việc</strong>
   Chào {{ ten_goi }}! Bạn cần trợ giúp gì không? Bấm vào đây để hỏi mình nhé.
 </div>
 
 <button type="button" class="tl-chat-nut{{ ' co-anh' if anh_dd }}" id="tl-chat-nut" aria-label="Mở Trợ lý công việc" title="Trợ lý công việc">
-  <span class="tl-icon-mo">{{ avatar_tro_ly() }}</span><span class="tl-icon-dong">✕</span><span class="tl-cham"></span>
+  <span class="tl-icon-mo">{{ avatar_tro_ly() }}</span><span class="tl-icon-dong">{{ bi('x') }}</span><span class="tl-cham"></span>
 </button>
 
 <section class="tl-chat-khung" id="tl-chat-khung" aria-label="Trợ lý công việc">
@@ -123,8 +125,8 @@
     <div class="tl-chat-avatar"><span class="tl-avatar-trong">{{ avatar_tro_ly() }}</span></div>
     <div class="tl-chat-ten"><strong>Trợ lý công việc</strong><span>Đang trực tuyến · trả lời theo dữ liệu thật</span></div>
     <div class="tl-chat-dau-nut">
-      <button type="button" id="tl-chat-moi" title="Cuộc trò chuyện mới" aria-label="Cuộc trò chuyện mới">⟳</button>
-      <button type="button" id="tl-chat-dong" title="Thu nhỏ" aria-label="Thu nhỏ">—</button>
+      <button type="button" id="tl-chat-moi" title="Cuộc trò chuyện mới" aria-label="Cuộc trò chuyện mới">{{ bi('refresh-cw') }}</button>
+      <button type="button" id="tl-chat-dong" title="Thu nhỏ" aria-label="Thu nhỏ">{{ bi('minus') }}</button>
     </div>
   </header>
 
@@ -133,7 +135,7 @@
   <div class="tl-chat-chan">
     <form id="form-tro-ly" class="tl-chat-form">
       <input type="text" id="tro-ly-input" placeholder="Nhập câu hỏi…" autocomplete="off">
-      <button type="submit" id="tro-ly-gui" aria-label="Gửi">➤</button>
+      <button type="submit" id="tro-ly-gui" aria-label="Gửi">{{ bi('send') }}</button>
     </form>
     <div id="tro-ly-han-muc" class="tl-han-muc" {% if not gh_tro_ly.gioi_han %}hidden{% endif %}>
       {% if gh_tro_ly.gioi_han %}Đã hỏi {{ gh_tro_ly.so_cau_hoi }}/{{ gh_tro_ly.gh_cau_hoi }} câu hôm nay{% endif %}
@@ -206,13 +208,14 @@
         el.style.cssText = 'display:flex;align-items:center;gap:8px;max-width:260px;padding:8px 12px;border-radius:10px;'
           + 'border:1px solid rgba(0,0,0,.12);background:#fff;color:inherit;text-decoration:none;font-size:.85rem';
         const icon = document.createElement('span');
-        icon.textContent = { doc: '📝', docx: '📝', pdf: '📕', xls: '📊', xlsx: '📊', ppt: '📽', pptx: '📽' }[duoi] || '📄';
-        icon.style.fontSize = '1.3rem';
+        icon.innerHTML = {{ bi('file-text')|tojson }};
+        icon.style.cssText = 'display:inline-flex;color:var(--chinh);flex:0 0 auto';
         const chu = document.createElement('span');
         chu.style.cssText = 'min-width:0;overflow-wrap:anywhere;font-weight:600';
         chu.textContent = ten || ('Tệp .' + duoi);
         const tai = document.createElement('span');
-        tai.textContent = '⬇'; tai.style.marginLeft = 'auto';
+        tai.innerHTML = {{ bi('download', 'ic--sm')|tojson }};
+        tai.style.cssText = 'margin-left:auto;display:inline-flex;color:var(--muc-mo)';
         el.append(icon, chu, tai);
         if (nhieu) el.style.flexBasis = '100%';
       }
@@ -246,7 +249,7 @@
     GOI_Y.forEach(([icon, cau]) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = icon + ' ' + cau;
+      b.innerHTML = icon + ' ' + cau;
       b.addEventListener('click', () => guiCauHoi(cau));
       hop.appendChild(b);
     });
