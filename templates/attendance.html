@@ -72,6 +72,7 @@
     <div class="cc-tk-o cc-tk-o--dung"><strong>{{ dem.dung }}</strong><span>Đúng giờ</span></div>
     <div class="cc-tk-o cc-tk-o--tre"><strong>{{ dem.tre }}</strong><span>Đi trễ</span></div>
     <div class="cc-tk-o cc-tk-o--som"><strong>{{ dem.som }}</strong><span>Về sớm</span></div>
+    <div class="cc-tk-o cc-tk-o--thieu_ra"><strong>{{ dem.thieu_ra }}</strong><span>Quên ra</span></div>
     <div class="cc-tk-o cc-tk-o--nghi_phep"><strong>{{ dem.nghi_phep }}</strong><span>Có phép</span></div>
     <div class="cc-tk-o cc-tk-o--nghi_kp"><strong>{{ dem.nghi_kp }}</strong><span>Không phép</span></div>
   </div>
@@ -81,6 +82,13 @@
     <span><i class="cc-ch cc-ch--don"></i>Có đơn từ</span>
   </div>
   <div class="cc-chi-tiet" data-cc-chi-tiet hidden></div>
+  {% if dem.thieu_ra %}
+  {% if xem_nv %}
+  <div class="cc-thieu-ra">{{ bi('alert-triangle') }} Tháng này có {{ dem.thieu_ra }} ngày quên chấm công ra (ô viền tím).</div>
+  {% else %}
+  <a class="cc-thieu-ra" href="{{ url_for('don_tu.tao', loai='bo_sung_cong') }}">{{ bi('alert-triangle') }} Bạn có {{ dem.thieu_ra }} ngày quên chấm ra (ô viền tím) — bấm để làm đơn Bổ sung công.</a>
+  {% endif %}
+  {% endif %}
 
   {% if xem_nv %}
   <div class="cc-hom-nay">

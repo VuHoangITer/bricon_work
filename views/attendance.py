@@ -54,12 +54,16 @@ def _lich_thang(nd, ngay_hn) -> dict:
                                 DonTu.ngay >= dau, DonTu.ngay < cuoi):
         don_thang.setdefault(d.ngay, []).append(d)
 
-    o_ngay, dem = [], {"dung": 0, "tre": 0, "som": 0, "nghi_phep": 0, "nghi_kp": 0}
+    o_ngay, dem = [], {"dung": 0, "tre": 0, "som": 0, "thieu_ra": 0, "nghi_phep": 0, "nghi_kp": 0}
     d = dau
     while d < cuoi:
         c, nghi = cc_thang.get(d), nghi_thang.get(d, [])
         if c and c.gio_vao and d <= ngay_hn:
-            if c.di_tre and not c.tre_co_phep:
+            if not c.gio_ra and d < ngay_hn and not nghi:
+                # Ngày đã qua mà không chấm ra -> chưa đủ công, không được
+                # hiện "Đúng giờ" (cần làm đơn Bổ sung công)
+                tt = "thieu_ra"
+            elif c.di_tre and not c.tre_co_phep:
                 tt = "tre"
             elif c.ve_som and not c.som_co_phep:
                 tt = "som"
