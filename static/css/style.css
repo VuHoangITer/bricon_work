@@ -936,3 +936,93 @@ a.ql-dong:hover .ql-dong-ten strong, a.ql-dong:active .ql-dong-ten strong { colo
   .don-dong--doi { gap:8px; }
   .cc-luoi { gap:5px; }
 }
+
+/* ---- Lương ---- */
+.luong-thang { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; }
+.luong-thang a { width:34px; height:34px; display:grid; place-items:center; border-radius:50%; color:var(--muc); }
+.luong-thang a:hover { background:var(--chinh-nhat); }
+.luong-tong { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+.luong-tong div { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.luong-tong span { font-size:.72rem; color:var(--muc-mo); }
+.luong-tong strong { font-size:1rem; font-variant-numeric:tabular-nums; }
+.luong-tong .luong-tong-chinh { grid-column:1 / -1; padding:10px 12px; border-radius:10px; background:var(--chinh-nhat); }
+.luong-tong .luong-tong-chinh strong { font-size:1.45rem; color:var(--chinh-dam); }
+.luong-tong .nut { grid-column:1 / -1; }
+.luong-tong .do, .luong-the-so .do, .luong-nv-ten .do { color:#b8483f; }
+a.luong-the { display:block; color:inherit; text-decoration:none; }
+a.luong-the[hidden] { display:none; }
+a.luong-the:hover { border-color:var(--vien-dam); }
+.luong-the-dau { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.luong-the-dau strong { display:block; font-size:.95rem; }
+.luong-the-dau small { display:block; font-size:.76rem; color:var(--muc-mo); margin-top:2px; }
+.luong-the-tien { text-align:right; flex:0 0 auto; }
+.luong-the-tien strong { font-size:1.1rem; color:var(--chinh-dam); font-variant-numeric:tabular-nums; }
+.luong-the-so { display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:8px; padding-top:8px; border-top:1px dashed var(--vien); font-size:.76rem; color:var(--muc-mo); }
+.luong-the-so b { color:var(--muc); font-variant-numeric:tabular-nums; }
+.luong-the-so .do b { color:#b8483f; }
+.luong-tag { display:inline-block; padding:0 6px; border-radius:6px; background:#fff4dc; color:#8a6a1e; font-size:.68rem; font-weight:700; }
+.luong-khoan { display:flex; flex-direction:column; gap:6px; margin-bottom:6px; }
+.luong-khoan-dong { display:grid; grid-template-columns:minmax(0,1fr) 130px 34px; gap:6px; }
+.luong-khoan-xoa { width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--vien); border-radius:8px; background:#fff; color:var(--muc-mo); cursor:pointer; }
+.luong-khoan-xoa:hover { color:#b8483f; border-color:#b8483f; }
+.luong-nv-dong[hidden] { display:none !important; }
+.luong-nv-ten { flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.3; }
+.luong-nv-ten small { font-size:.74rem; color:var(--muc-mo); }
+.luong-nv-ten .luong-sap-toi { color:#8a6a1e; }
+.luong-moc { display:flex; align-items:center; gap:10px; }
+.luong-moc strong { display:block; }
+.luong-moc small { font-size:.76rem; color:var(--muc-mo); }
+.luong-moc--hien-tai { border-left:4px solid var(--chinh); }
+
+.phieu-luong { background:#fff; border:1px solid var(--vien); border-radius:14px; padding:22px 20px; max-width:820px; margin:0 auto; color:#1c1c1a; }
+.pl-dau { text-align:center; border-bottom:2px solid var(--chinh); padding-bottom:12px; margin-bottom:14px; }
+.pl-cty { font-size:.78rem; font-weight:700; letter-spacing:.12em; color:var(--chinh-dam); }
+.pl-dau h1 { margin:4px 0 2px; font-size:1.5rem; letter-spacing:.06em; }
+.pl-ky { font-size:.86rem; color:var(--muc-mo); }
+.pl-tt { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px 18px; margin-bottom:14px; font-size:.84rem; }
+.pl-tt div { display:flex; justify-content:space-between; gap:8px; border-bottom:1px dotted var(--vien); padding:3px 0; }
+.pl-tt span { color:var(--muc-mo); }
+.pl-tt b { text-align:right; }
+.pl-bang { width:100%; border-collapse:collapse; font-size:.82rem; min-width:520px; }
+.pl-bang th { background:var(--chinh); color:#fff; font-weight:700; padding:7px 8px; text-align:left; }
+.pl-bang td { padding:6px 8px; border-bottom:1px solid #eeece6; vertical-align:top; }
+.pl-bang .so { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.pl-bang td small { display:block; font-size:.72rem; color:var(--muc-mo); }
+.pl-bang td small.pl-chi-dt { display:none; }
+.pl-nhom td { background:#f6f1e4; font-weight:700; }
+.pl-nhom--tru td { background:#fbeceb; color:#9b3a32; }
+.pl-tru td { color:#9b3a32; }
+.pl-tong td { background:#efe6cf; font-weight:800; }
+.pl-thuc-linh { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:12px 14px; border-radius:10px; background:var(--den); color:#fff; }
+.pl-thuc-linh span { font-weight:700; letter-spacing:.08em; }
+.pl-thuc-linh strong { font-size:1.4rem; font-variant-numeric:tabular-nums; color:#f1d58a; }
+.pl-bang-chu { margin-top:8px; font-size:.84rem; }
+.pl-ky-ten { margin-top:18px; }
+.pl-ngay { text-align:right; font-size:.82rem; font-style:italic; margin-bottom:8px; }
+.pl-ky-cot { display:grid; grid-template-columns:1fr 1fr; text-align:center; font-size:.84rem; }
+.pl-ky-cot div { display:flex; flex-direction:column; }
+.pl-ky-cot small { color:var(--muc-mo); font-size:.72rem; }
+.pl-ky-cot span { margin-top:56px; font-weight:700; }
+@media (max-width: 600px) {
+  .phieu-luong { padding:16px 12px; border-radius:10px; }
+  .pl-tt { grid-template-columns:1fr; }
+  .luong-khoan-dong { grid-template-columns:minmax(0,1fr) 110px 34px; }
+  .pl-bang { min-width:0; font-size:.76rem; }
+  .pl-bang .pl-phu { display:none; }
+  .pl-bang td small.pl-chi-dt { display:block; }
+  .pl-bang th { font-size:.62rem; padding:6px 4px; }
+  .pl-bang td { padding:5px 4px; }
+  .pl-bang td small { font-size:.62rem; }
+  .pl-thuc-linh strong { font-size:1.15rem; }
+}
+@media print {
+  @page { size:A4; margin:12mm; }
+  body { background:#fff !important; }
+  .sidebar, .topbar, .bottom-nav, .khong-in, .tl-chat-nut, .tl-loi-chao, .tl-chat-khung, .flash-wrap, .thong-bao { display:none !important; }
+  .app-main, .content-wrap { margin:0 !important; padding:0 !important; max-width:none !important; }
+  .phieu-luong { border:0; padding:0; max-width:none; }
+  .pl-bang { min-width:0; font-size:.8rem !important; }
+  .pl-bang .pl-phu { display:table-cell !important; }
+  .pl-bang td small.pl-chi-dt { display:none !important; }
+  .pl-bang th, .pl-nhom td, .pl-tong td, .pl-thuc-linh { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}

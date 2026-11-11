@@ -1423,3 +1423,62 @@ class TepQuyTrinh(db.Model):
     def kich_thuoc_dep(self):
         n = self.kich_thuoc or 0
         return f"{max(1, n // 1024)} KB" if n < 1048576 else f"{n / 1048576:.1f} MB"
+
+# --------------------------------------------------------------------------
+# Lương: vị trí lương (mẫu phiếu lương) + lịch sử vị trí của từng nhân viên
+# --------------------------------------------------------------------------
+class ViTriLuong(db.Model):
+    """Mẫu lương của 1 vị trí — tương đương 1 file preset .json của app Phiếu
+    Lương cũ (VD "Thử việc NVKD", "Admin Kho"). Các khoản là list
+    [{"noi_dung": str, "so_tien": int}]."""
+    __tablename__ = "vi_tri_luong"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ten = db.Column(db.String(120), nullable=False, unique=True)
+    phong_ban = db.Column(db.String(120))
+    luong_co_ban = db.Column(db.Integer, nullable=False, default=0)
+    trach_nhiem = db.Column(db.JSON, nullable=False, default=list)  # chia theo ngày công
+    nang_luc = db.Column(db.JSON, nullable=False, default=list)     # cộng đủ, không chia công
+    khau_tru = db.Column(db.JSON, nullable=False, default=list)     # trừ cố định hằng tháng
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    @staticmethod
+    def _tong(ds) -> int:
+        return sum(int(x.get("so_tien") or 0) for x in (ds or []))
+
+    @property
+    def tong_trach_nhiem(self) -> int:
+        return self._tong(self.trach_nhiem)
+
+    @property
+    def tong_nang_luc(self) -> int:
+        return self._tong(self.nang_luc)
+
+    @property
+    def tong_khau_tru(self) -> int:
+        return self._tong(self.khau_tru)
+
+    @property
+    def tong_thang(self) -> int:
+        """Lương đủ công 1 tháng (chưa trừ khấu trừ)."""
+        return self.luong_co_ban + self.tong_trach_nhiem + self.tong_nang_luc
+
+
+class LuongNhanVien(db.Model):
+    """Nhân viên áp dụng vị trí lương nào TỪ NGÀY nào. 1 người có nhiều dòng
+    theo thời gian (thử việc -> chính thức…): tháng có ngày chuyển vị trí sẽ
+    tính lương từng giai đoạn theo đúng số công của giai đoạn đó."""
+    __tablename__ = "luong_nhan_vien"
+    __table_args__ = (db.UniqueConstraint("nguoi_dung_id", "tu_ngay", name="uq_luong_nv_tu_ngay"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id", ondelete="CASCADE"),
+                              nullable=False, index=True)
+    vi_tri_luong_id = db.Column(db.Integer, db.ForeignKey("vi_tri_luong.id"), nullable=False, index=True)
+    tu_ngay = db.Column(db.Date, nullable=False)
+    ghi_chu = db.Column(db.String(255))
+    tao_boi_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
+    vi_tri = db.relationship("ViTriLuong")

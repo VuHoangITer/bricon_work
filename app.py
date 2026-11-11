@@ -32,6 +32,7 @@ def create_app(config_class=Config):
     from views.de_xuat import bp as de_xuat_bp
     from views.dong_goi import bp as dong_goi_bp
     from views.don_tu import bp as don_tu_bp
+    from views.luong import bp as luong_bp
     from views.menu import bp as menu_bp
     from views.tasks import bp as tasks_bp
     from views.thong_bao import bp as thong_bao_bp
@@ -44,6 +45,7 @@ def create_app(config_class=Config):
     app.register_blueprint(dong_goi_bp)
     app.register_blueprint(don_tu_bp)
     app.register_blueprint(menu_bp)
+    app.register_blueprint(luong_bp)
     app.register_blueprint(cong_no_bp)
     app.register_blueprint(bien_ban_bp)
     app.register_blueprint(attendance_bp)
@@ -407,6 +409,16 @@ def create_app(config_class=Config):
             cuoi = m.end()
         phan.append(str(escape((van_ban or "")[cuoi:])))
         return Markup("".join(phan))
+
+    @app.template_filter("tien")
+    def _tien(so):
+        """8000000 -> "8.000.000" (không kèm đơn vị)."""
+        return f"{int(round(so or 0)):,}".replace(",", ".")
+
+    @app.template_filter("cong")
+    def _cong(so):
+        """Số công: 22.0 -> "22", 21.5 -> "21,5"."""
+        return f"{so:g}".replace(".", ",")
 
     @app.template_filter("gio")
     def f_gio(dt):

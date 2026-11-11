@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Vị trí lương nhân viên · BRICON{% endblock %}
+
+{% block content %}
+<div>
+  <a class="quay-lai" href="{{ url_for('luong.bang_luong') }}">{{ bi('chevron-left') }} Bảng lương</a>
+</div>
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Vị trí lương nhân viên</h1>
+    <p>Mỗi người áp dụng mẫu lương nào, từ ngày nào. Lên chính thức giữa tháng thì thêm vị trí mới với ngày bắt đầu — tháng đó tự tính 2 giai đoạn.</p>
+  </div>
+</div>
+
+<input type="search" class="ql-tim" data-luong-tim placeholder="Tìm nhân viên…" style="margin-bottom:10px">
+<div class="the hub-danh-sach the--khong-dem" data-luong-ds>
+  {% for d in dong %}
+  <a href="{{ url_for('luong.nhan_vien', id=d.nd.id) }}" data-ten="{{ d.nd.ho_ten|lower }}" class="luong-nv-dong">
+    <span>{{ bi('user') }}</span>
+    <span class="luong-nv-ten">
+      <b>{{ d.nd.ho_ten }}</b>
+      {% if d.hien_tai %}
+      <small>{{ d.hien_tai.vi_tri.ten }} · từ {{ d.hien_tai.tu_ngay.strftime('%d/%m/%Y') }}</small>
+      {% else %}
+      <small class="do">Chưa gán vị trí lương</small>
+      {% endif %}
+      {% if d.sap_toi %}<small class="luong-sap-toi">Từ {{ d.sap_toi.tu_ngay.strftime('%d/%m') }}: {{ d.sap_toi.vi_tri.ten }}</small>{% endif %}
+    </span>
+    <i>{{ bi('chevron-right') }}</i>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var tim = document.querySelector('[data-luong-tim]');
+  tim.addEventListener('input', function () {
+    var t = tim.value.trim().toLowerCase();
+    document.querySelectorAll('[data-luong-ds] a').forEach(function (a) { a.hidden = t && a.dataset.ten.indexOf(t) < 0; });
+  });
+})();
+</script>
+{% endblock %}

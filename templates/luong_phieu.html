@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Phiếu lương {{ p.nd.ho_ten }} {{ p.thg }}/{{ p.nam }} · BRICON{% endblock %}
+
+{% block content %}
+<div class="khong-in" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+  <a class="quay-lai" href="{{ url_for('luong.bang_luong', thang=thang) }}">{{ bi('chevron-left') }} Bảng lương</a>
+  <span style="flex:1"></span>
+  <a class="nut nut--phu" href="{{ url_for('luong.nhan_vien', id=p.nd.id) }}">{{ bi('wallet') }} Vị trí lương</a>
+  <button class="nut nut--vang" type="button" onclick="window.print()">{{ bi('download') }} In / lưu PDF</button>
+</div>
+
+<div class="phieu-luong">
+  <div class="pl-dau">
+    <div class="pl-cty">CÔNG TY BRICON</div>
+    <h1>PHIẾU LƯƠNG</h1>
+    <div class="pl-ky">Kỳ lương tháng {{ '%02d'|format(p.thg) }} / {{ p.nam }}</div>
+  </div>
+
+  <div class="pl-tt">
+    <div><span>Họ và tên</span><b>{{ p.nd.ho_ten }}</b></div>
+    <div><span>Mã NV</span><b>{{ p.nd.ma_dinh_danh }}</b></div>
+    <div><span>Vị trí</span><b>{{ p.ten_vi_tri }}</b></div>
+    <div><span>Phòng ban</span><b>{{ p.giai_doan[-1].vt.phong_ban or (p.nd.bo_phan.ten if p.nd.bo_phan else '—') }}</b></div>
+    <div><span>Kỳ</span><b>{{ p.dau.strftime('%d/%m/%Y') }} – {{ p.cuoi.strftime('%d/%m/%Y') }}</b></div>
+    <div><span>Ngày công</span><b>{{ p.cong|cong }} / {{ p.cong_chuan }} ngày</b></div>
+  </div>
+
+  <div class="bang-cuon">
+  <table class="pl-bang">
+    <thead><tr><th>Khoản</th><th class="so pl-phu">Mức tháng</th><th class="so pl-phu">Giá/ngày</th><th class="so">Công</th><th class="so">Thành tiền</th></tr></thead>
+    <tbody>
+      <tr class="pl-nhom"><td>I. Lương cơ bản</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.luong_cb|tien }}</td></tr>
+      {% for g in p.giai_doan %}
+      <tr><td>{{ g.vt.ten }}{% if p.giai_doan|length > 1 %}<small>{{ g.tu.strftime('%d/%m') }} – {{ g.den.strftime('%d/%m') }}</small>{% endif %}<small class="pl-chi-dt">Mức {{ g.muc_cb|tien }} · {{ g.cb_ngay|tien }}/ngày</small></td>
+        <td class="so pl-phu">{{ g.muc_cb|tien }}</td><td class="so pl-phu">{{ g.cb_ngay|tien }}</td><td class="so">{{ g.cong|cong }}</td><td class="so">{{ g.cb|tien }}</td></tr>
+      {% endfor %}
+
+      {% if p.trach_nhiem or p.giai_doan|selectattr('tn')|list %}
+      <tr class="pl-nhom"><td>II. Lương trách nhiệm</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.trach_nhiem|tien }}</td></tr>
+      {% for g in p.giai_doan %}{% for x in g.tn %}
+      <tr><td>{{ x.noi_dung }}{% if p.giai_doan|length > 1 %}<small>{{ g.vt.ten }} · {{ g.tu.strftime('%d/%m') }} – {{ g.den.strftime('%d/%m') }}</small>{% endif %}<small class="pl-chi-dt">Mức {{ x.muc|tien }} · {{ x.ngay|tien }}/ngày</small></td>
+        <td class="so pl-phu">{{ x.muc|tien }}</td><td class="so pl-phu">{{ x.ngay|tien }}</td><td class="so">{{ g.cong|cong }}</td><td class="so">{{ x.tien|tien }}</td></tr>
+      {% endfor %}{% endfor %}
+      {% endif %}
+
+      {% if p.nang_luc %}
+      <tr class="pl-nhom"><td>III. Năng lực / thưởng</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.tong_nang_luc|tien }}</td></tr>
+      {% for x in p.nang_luc %}
+      <tr><td>{{ x.noi_dung }}</td><td class="so pl-phu">{{ x.tien|tien }}</td><td class="so pl-phu">—</td><td class="so">—</td><td class="so">{{ x.tien|tien }}</td></tr>
+      {% endfor %}
+      {% endif %}
+
+      <tr class="pl-tong"><td>TỔNG THU NHẬP</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">{{ p.thu|tien }}</td></tr>
+
+      {% if p.khau_tru %}
+      <tr class="pl-nhom pl-nhom--tru"><td>IV. Khấu trừ</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">−{{ p.tong_khau_tru|tien }}</td></tr>
+      {% for x in p.khau_tru %}
+      <tr class="pl-tru"><td>{{ x.noi_dung }}</td><td class="pl-phu"></td><td class="pl-phu"></td><td></td><td class="so">−{{ x.tien|tien }}</td></tr>
+      {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="pl-thuc-linh">
+    <span>THỰC LĨNH</span>
+    <strong>{{ p.thuc_linh|tien }} ₫</strong>
+  </div>
+  <div class="pl-bang-chu">Bằng chữ: <i>{{ bang_chu }}</i></div>
+
+  <div class="pl-ky-ten">
+    <div class="pl-ngay">TP. HCM, ngày {{ '%02d'|format(hom_nay.day) }} tháng {{ '%02d'|format(hom_nay.month) }} năm {{ hom_nay.year }}</div>
+    <div class="pl-ky-cot">
+      <div><b>Người lập phiếu</b><small>(Ký, ghi rõ họ tên)</small><span>{{ current_user.ho_ten }}</span></div>
+      <div><b>Nhân viên</b><small>(Ký, ghi rõ họ tên)</small><span>{{ p.nd.ho_ten }}</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ vt.ten if vt else 'Thêm vị trí lương' }} · BRICON{% endblock %}
+
+{% macro dong_khoan(tien_to, ds, goi_y) %}
+<div class="luong-khoan" data-khoan="{{ tien_to }}">
+  {% for x in ds %}
+  <div class="luong-khoan-dong">
+    <input type="text" name="{{ tien_to }}_nd" value="{{ x.noi_dung }}" placeholder="{{ goi_y }}">
+    <input type="text" name="{{ tien_to }}_st" value="{{ x.so_tien|tien if x.so_tien else '' }}" inputmode="numeric" placeholder="Số tiền" data-tien>
+    <button type="button" class="luong-khoan-xoa" aria-label="Xoá dòng" data-xoa-dong>{{ bi('x') }}</button>
+  </div>
+  {% endfor %}
+</div>
+<button type="button" class="nut nut--phu nut--nho" data-them-dong="{{ tien_to }}" data-goi-y="{{ goi_y }}">{{ bi('plus') }} Thêm dòng</button>
+{% endmacro %}
+
+{% block content %}
+<div>
+  <a class="quay-lai" href="{{ url_for('luong.vi_tri') }}">{{ bi('chevron-left') }} Mẫu lương</a>
+</div>
+<h1>{{ vt.ten if vt else 'Thêm vị trí lương' }}</h1>
+
+<form class="the don-form" method="post">
+  <div class="don-dong"><label for="ten">Tên vị trí</label>
+    <input id="ten" type="text" name="ten" required value="{{ vt.ten if vt else '' }}" placeholder="VD: Thử việc NVKD"></div>
+  <div class="don-dong"><label for="phong_ban">Phòng ban</label>
+    <input id="phong_ban" type="text" name="phong_ban" value="{{ vt.phong_ban or '' if vt else '' }}" placeholder="VD: Kinh doanh"></div>
+  <div class="don-dong"><label for="luong_co_ban">Lương cơ bản / tháng (chia theo công)</label>
+    <input id="luong_co_ban" type="text" name="luong_co_ban" inputmode="numeric" required data-tien
+           value="{{ vt.luong_co_ban|tien if vt else '' }}" placeholder="VD: 5.310.000"></div>
+
+  <div class="don-dong"><label>Lương trách nhiệm (chia theo công)</label>
+    {{ dong_khoan('tn', vt.trach_nhiem if vt else [{'noi_dung': 'Lương trách nhiệm', 'so_tien': 0}], 'VD: Lương trách nhiệm') }}</div>
+  <div class="don-dong"><label>Năng lực / phụ cấp (cộng đủ, không chia công)</label>
+    {{ dong_khoan('nl', vt.nang_luc if vt else [], 'VD: Phụ cấp xăng xe') }}</div>
+  <div class="don-dong"><label>Khấu trừ cố định hằng tháng</label>
+    {{ dong_khoan('kt', vt.khau_tru if vt else [], 'VD: Bảo hiểm') }}</div>
+  <div class="goi-y">Tạm ứng và tiền phạt được trừ tự động theo tháng, không cần nhập ở đây.</div>
+
+  <button class="nut nut--vang nut--rong nut--lon" type="submit">{{ bi('check') }} Lưu vị trí</button>
+</form>
+
+{% if vt %}
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+  <a class="nut nut--phu" href="{{ url_for('luong.tai_json', id=vt.id) }}">{{ bi('download') }} Tải file .json</a>
+  <form method="post" action="{{ url_for('luong.xoa_vi_tri', id=vt.id) }}" onsubmit="return confirm('Xoá vị trí {{ vt.ten }}?')">
+    <button class="nut nut--vien-do" type="submit">{{ bi('trash') }} Xoá vị trí</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function dinhDang(o) {
+    var so = o.value.replace(/\D/g, '');
+    o.value = so ? (+so).toLocaleString('vi-VN') : '';
+  }
+  document.addEventListener('input', function (e) { if (e.target.matches('[data-tien]')) dinhDang(e.target); });
+  document.addEventListener('click', function (e) {
+    var xoa = e.target.closest('[data-xoa-dong]');
+    if (xoa) { xoa.parentElement.remove(); return; }
+    var them = e.target.closest('[data-them-dong]');
+    if (!them) return;
+    var tt = them.dataset.themDong, khung = document.querySelector('[data-khoan="' + tt + '"]');
+    var d = document.createElement('div'); d.className = 'luong-khoan-dong';
+    d.innerHTML = '<input type="text" name="' + tt + '_nd"><input type="text" name="' + tt + '_st" inputmode="numeric" placeholder="Số tiền" data-tien>'
+      + '<button type="button" class="luong-khoan-xoa" aria-label="Xoá dòng" data-xoa-dong>✕</button>';
+    d.querySelector('input').placeholder = them.dataset.goiY;
+    khung.appendChild(d); d.querySelector('input').focus();
+  });
+})();
+</script>
+{% endblock %}

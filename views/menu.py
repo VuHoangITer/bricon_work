@@ -122,6 +122,9 @@ def menu_chinh() -> list[dict]:
     if current_user.la_quan_ly:
         nhan_su.append(_muc("attendance.bang_cong", "Bảng công", bi("bar-chart"), "Công cả bộ phận, xuất Excel",
                             khop=lambda: request.endpoint in ("attendance.bang_cong", "attendance.sua_cham_cong")))
+    if current_user.la_admin_sep:
+        nhan_su.append(_muc("luong.bang_luong", "Bảng lương", bi("credit-card"), "Tính lương tự động, phiếu lương",
+                            khop=lambda: request.blueprint == "luong"))
     if current_user.duoc_quan_ly_giay_to:
         nhan_su.append(_muc("admin.giay_to", "Giấy tờ nhân sự", bi("folder"), "Hợp đồng, cam kết",
                             khop=lambda: request.endpoint in ("admin.giay_to", "admin.giay_to_nhan_vien")))
@@ -149,7 +152,7 @@ def cong_viec():
 @login_required
 def nhan_su():
     return render_template("menu_hub.html", nhom=menu_chinh()[1], tieu_de="Hành chính nhân sự",
-                           mo_ta="Chấm công, đơn từ, tạm ứng, biên bản phạt")
+                           mo_ta="Chấm công, đơn từ, tạm ứng, biên bản phạt, lương")
 
 
 @bp.route("/ca-nhan")

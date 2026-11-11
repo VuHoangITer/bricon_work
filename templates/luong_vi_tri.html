@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mẫu lương · BRICON{% endblock %}
+
+{% block content %}
+<div>
+  <a class="quay-lai" href="{{ url_for('luong.bang_luong') }}">{{ bi('chevron-left') }} Bảng lương</a>
+</div>
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Mẫu lương theo vị trí</h1>
+    <p>Lương cơ bản, trách nhiệm (chia theo công), năng lực (cộng đủ), khấu trừ cố định của từng vị trí.</p>
+  </div>
+  <div class="page-actions">
+    <a class="nut nut--vang" href="{{ url_for('luong.sua_vi_tri') }}">{{ bi('plus') }} Thêm vị trí</a>
+  </div>
+</div>
+
+<form class="the" method="post" enctype="multipart/form-data">
+  <div class="o-nhap" style="margin:0">
+    <label for="tep">{{ bi('upload') }} Nhập file preset .json từ app Phiếu Lương cũ (chọn nhiều file cùng lúc)</label>
+    <input id="tep" type="file" name="tep" accept=".json,application/json" multiple required>
+  </div>
+  <div class="goi-y">Trùng tên vị trí thì cập nhật lại mức lương. File nhanvien.json không cần nhập — gán vị trí cho nhân viên ở trang "Vị trí nhân viên".</div>
+  <button class="nut nut--phu nut--rong" type="submit">{{ bi('upload') }} Nhập</button>
+</form>
+
+{% for vt in ds %}
+<a class="the luong-the" href="{{ url_for('luong.sua_vi_tri', id=vt.id) }}">
+  <div class="luong-the-dau">
+    <div style="min-width:0">
+      <strong>{{ vt.ten }}</strong>
+      <small>{{ vt.phong_ban or '—' }} · {{ dem.get(vt.id, 0) }} nhân viên</small>
+    </div>
+    <div class="luong-the-tien">
+      <strong>{{ vt.tong_thang|tien }}</strong>
+      <small>đủ công / tháng</small>
+    </div>
+  </div>
+  <div class="luong-the-so">
+    <span>Cơ bản <b>{{ vt.luong_co_ban|tien }}</b></span>
+    {% if vt.tong_trach_nhiem %}<span>Trách nhiệm <b>{{ vt.tong_trach_nhiem|tien }}</b></span>{% endif %}
+    {% if vt.tong_nang_luc %}<span>Năng lực <b>{{ vt.tong_nang_luc|tien }}</b></span>{% endif %}
+    {% if vt.tong_khau_tru %}<span class="do">Khấu trừ <b>−{{ vt.tong_khau_tru|tien }}</b></span>{% endif %}
+  </div>
+</a>
+{% else %}
+<div class="the trong-rong">Chưa có vị trí nào. Nhập file .json ở trên hoặc bấm "Thêm vị trí".</div>
+{% endfor %}
+{% endblock %}

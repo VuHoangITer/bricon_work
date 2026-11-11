@@ -3163,3 +3163,181 @@ def bao_ket_qua_don_tu(don: "DonTu"):
         nd += f"\nÝ kiến: {don.y_kien_duyet}"
     nd += f"\n\nXem đơn:\n{current_app.config['BASE_URL']}/don-tu/{don.id}"
     gui_cho_nhan_vien(don.nguoi_dung, nd)
+
+
+# ===========================================================================
+# LƯƠNG — tính tự động từ chấm công + tạm ứng + biên bản phạt
+# Công thức giữ đúng như app Phiếu Lương cũ:
+#   Công chuẩn       = số ngày trong tháng trừ Chủ nhật (T2 → T7)
+#   Lương CB thực tế = Lương CB / công chuẩn × công thực tế
+#   Trách nhiệm      = mức trách nhiệm × công thực tế / công chuẩn
+#   Năng lực         = cộng đủ (không chia công)
+#   Khấu trừ         = khấu trừ cố định của vị trí + tạm ứng + phạt
+#   Thực lĩnh        = Lương CB thực tế + Trách nhiệm + Năng lực − Khấu trừ
+# Công thực tế CHỈ tính ngày có chấm công (nghỉ phép loại nào cũng không
+# tính công); tăng ca không cộng tiền.
+# Tháng có đổi vị trí (VD 2 tuần thử việc rồi lên chính thức) -> chia giai
+# đoạn theo ngày áp dụng, mỗi giai đoạn tính theo mức lương của nó với số
+# công trong giai đoạn đó, rồi cộng lại.
+# ===========================================================================
+def cong_chuan_thang(nam: int, thg: int) -> int:
+    dau = date(nam, thg, 1)
+    cuoi = date(nam + (thg == 12), thg % 12 + 1, 1)
+    return sum(1 for i in range((cuoi - dau).days) if (dau + timedelta(days=i)).weekday() != 6)
+
+
+def _tien(x) -> int:
+    try:
+        return int(x.get("so_tien") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def tinh_luong(nd, nam: int, thg: int) -> dict | None:
+    """Phiếu lương tháng thg/nam của nd. None nếu nd chưa được gán vị trí
+    lương nào có hiệu lực trong tháng."""
+    from models import (BienBanPhat, DeXuat, LoaiDeXuat, LuongNhanVien, TrangThaiBienBan,
+                        TrangThaiDeXuat)
+    dau = date(nam, thg, 1)
+    cuoi = date(nam + (thg == 12), thg % 12 + 1, 1)
+    qd = cong_chuan_thang(nam, thg)
+
+    moc = (LuongNhanVien.query.filter(LuongNhanVien.nguoi_dung_id == nd.id, LuongNhanVien.tu_ngay < cuoi)
+           .order_by(LuongNhanVien.tu_ngay).all())
+    if not moc:
+        return None
+    # Mốc đang hiệu lực tại ngày 1 (mốc cuối cùng <= ngày 1) + các mốc giữa tháng
+    truoc = [m for m in moc if m.tu_ngay <= dau]
+    trong = [m for m in moc if m.tu_ngay > dau]
+    ds_moc = ([truoc[-1]] if truoc else []) + trong
+    giai_doan = []
+    for i, m in enumerate(ds_moc):
+        # Mới vào giữa tháng: những ngày trước mốc đầu tiên gộp vào giai đoạn đầu
+        bd = dau if i == 0 else m.tu_ngay
+        kt = ds_moc[i + 1].tu_ngay if i + 1 < len(ds_moc) else cuoi
+        giai_doan.append({"vt": m.vi_tri, "tu": bd, "den": kt - timedelta(days=1), "_kt": kt, "cong": 0.0})
+
+    for c in ChamCong.query.filter(ChamCong.nguoi_dung_id == nd.id, ChamCong.ngay >= dau, ChamCong.ngay < cuoi):
+        cong = gio_cong_trong_ngay(c)
+        for g in giai_doan:
+            if g["tu"] <= c.ngay < g["_kt"]:
+                g["cong"] += cong
+                break
+
+    luong_cb = trach_nhiem = 0
+    for g in giai_doan:
+        vt, tt = g["vt"], g["cong"]
+        g["muc_cb"] = vt.luong_co_ban
+        g["cb_ngay"] = vt.luong_co_ban / qd if qd else 0
+        g["cb"] = round(g["cb_ngay"] * tt)
+        g["tn"] = [{"noi_dung": x.get("noi_dung") or "Trách nhiệm", "muc": _tien(x),
+                    "ngay": _tien(x) / qd if qd else 0,
+                    "tien": round(_tien(x) * tt / qd) if qd else 0}
+                   for x in (vt.trach_nhiem or []) if _tien(x)]
+        g["tong_tn"] = sum(x["tien"] for x in g["tn"])
+        luong_cb += g["cb"]
+        trach_nhiem += g["tong_tn"]
+
+    vt_cuoi = giai_doan[-1]["vt"]  # năng lực + khấu trừ cố định theo vị trí cuối tháng
+    nang_luc = [{"noi_dung": x.get("noi_dung") or "Năng lực", "tien": _tien(x)}
+                for x in (vt_cuoi.nang_luc or []) if _tien(x)]
+    khau_tru = [{"noi_dung": x.get("noi_dung") or "Khấu trừ", "tien": _tien(x), "loai": "co_dinh"}
+                for x in (vt_cuoi.khau_tru or []) if _tien(x)]
+
+    tam_ung = (DeXuat.query.filter(DeXuat.nguoi_de_xuat_id == nd.id, DeXuat.loai == LoaiDeXuat.TAM_UNG,
+                                   DeXuat.trang_thai == TrangThaiDeXuat.DA_DUYET,
+                                   DeXuat.duyet_luc >= datetime.combine(dau, datetime.min.time()),
+                                   DeXuat.duyet_luc < datetime.combine(cuoi, datetime.min.time()))
+               .order_by(DeXuat.duyet_luc).all())
+    for dx in tam_ung:
+        khau_tru.append({"noi_dung": f"Tạm ứng duyệt ngày {dx.duyet_luc.strftime('%d/%m')}",
+                         "tien": int(dx.chi_phi_du_kien or 0), "loai": "tam_ung", "id": dx.id})
+    phat = (BienBanPhat.query.filter(BienBanPhat.nguoi_vi_pham_id == nd.id,
+                                     BienBanPhat.trang_thai.in_(TrangThaiBienBan.CO_HIEU_LUC),
+                                     BienBanPhat.ngay_vi_pham >= dau, BienBanPhat.ngay_vi_pham < cuoi,
+                                     BienBanPhat.so_tien > 0)
+            .order_by(BienBanPhat.ngay_vi_pham).all())
+    for bb in phat:
+        khau_tru.append({"noi_dung": f"Phạt {bb.ngay_vi_pham.strftime('%d/%m')} — {bb.ten_loi}",
+                         "tien": int(bb.so_tien), "loai": "phat", "id": bb.id})
+
+    tong_nl = sum(x["tien"] for x in nang_luc)
+    tong_kt = sum(x["tien"] for x in khau_tru)
+    thu = luong_cb + trach_nhiem + tong_nl
+    return {
+        "nd": nd, "nam": nam, "thg": thg, "dau": dau, "cuoi": cuoi - timedelta(days=1),
+        "cong_chuan": qd, "cong": sum(g["cong"] for g in giai_doan), "giai_doan": giai_doan,
+        "luong_cb": luong_cb, "trach_nhiem": trach_nhiem, "nang_luc": nang_luc, "tong_nang_luc": tong_nl,
+        "khau_tru": khau_tru, "tong_khau_tru": tong_kt,
+        "tam_ung": sum(x["tien"] for x in khau_tru if x["loai"] == "tam_ung"),
+        "phat": sum(x["tien"] for x in khau_tru if x["loai"] == "phat"),
+        "khau_tru_khac": sum(x["tien"] for x in khau_tru if x["loai"] == "co_dinh"),
+        "thu": thu, "thuc_linh": thu - tong_kt,
+        "ten_vi_tri": " → ".join(g["vt"].ten for g in giai_doan),
+    }
+
+
+def so_tien_bang_chu(n) -> str:
+    """Đọc số tiền bằng chữ, VD 8000000 -> "Tám triệu đồng chẵn"."""
+    dv = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
+    hang = ["", "nghìn", "triệu", "tỷ"]
+    n = int(round(n))
+    if n == 0:
+        return "Không đồng"
+    if n < 0:
+        return "Âm " + so_tien_bang_chu(-n).lower()
+
+    def ba_so(g: int, day_du: bool) -> str:
+        h, t, d = g // 100, (g % 100) // 10, g % 10
+        s = []
+        if h or day_du:
+            s.append(f"{dv[h]} trăm")
+        if t > 1:
+            s.append(f"{dv[t]} mươi")
+        elif t == 1:
+            s.append("mười")
+        elif d and (h or day_du):
+            s.append("lẻ")
+        if d:
+            s.append("mốt" if t > 1 and d == 1 else "lăm" if t > 0 and d == 5 else dv[d])
+        return " ".join(s)
+
+    nhom = []
+    while n > 0:
+        nhom.append(n % 1000)
+        n //= 1000
+    phan = [(ba_so(nhom[i], i < len(nhom) - 1) + " " + hang[i]).strip()
+            for i in range(len(nhom) - 1, -1, -1) if nhom[i]]
+    s = " ".join(phan) + " đồng chẵn"
+    return s[0].upper() + s[1:]
+
+
+def xuat_excel_bang_luong(thang: str, ds: list) -> BytesIO:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Luong {thang}"
+    ws.append([f"BẢNG LƯƠNG THÁNG {thang[5:]}/{thang[:4]}"])
+    ws["A1"].font = Font(bold=True, size=14)
+    ws.append(["Họ tên", "Mã NV", "Vị trí", "Công thực tế", "Công chuẩn", "Lương CB thực tế", "Trách nhiệm",
+               "Năng lực", "Tổng thu nhập", "Tạm ứng", "Phạt", "Khấu trừ khác", "Thực lĩnh"])
+    for o in ws[2]:
+        o.font = Font(bold=True, color="FFFFFF")
+        o.fill = PatternFill("solid", fgColor="A9822A")
+        o.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    khoa = ("luong_cb", "trach_nhiem", "tong_nang_luc", "thu", "tam_ung", "phat", "khau_tru_khac", "thuc_linh")
+    for p in ds:
+        ws.append([p["nd"].ho_ten, p["nd"].ma_dinh_danh, p["ten_vi_tri"], p["cong"], p["cong_chuan"],
+                   *[p[k] for k in khoa]])
+    ws.append(["TỔNG", "", "", "", "", *[sum(p[k] for p in ds) for k in khoa]])
+    for o in ws[ws.max_row]:
+        o.font = Font(bold=True)
+    for hang in ws.iter_rows(min_row=3, min_col=6, max_col=13):
+        for o in hang:
+            o.number_format = "#,##0"
+    for i, rong in enumerate([26, 12, 30, 12, 11, 16, 14, 12, 16, 13, 12, 14, 16], start=1):
+        ws.column_dimensions[ws.cell(row=2, column=i).column_letter].width = rong
+    ws.freeze_panes = "B3"
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out
