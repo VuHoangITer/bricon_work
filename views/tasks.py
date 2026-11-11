@@ -286,10 +286,14 @@ def danh_sach():
             den_ngay_raw = ""
 
     che_do_3_cot = trang_thai in ("", "dang_mo")
+    from views.menu import _so_viec_can_lam, _so_viec_doi_duyet, _so_viec_can_duyet
     ngu_canh_chung = dict(
         nhan_vien=_nhan_vien_duoc_giao() if current_user.la_quan_ly else [],
         f_xem=xem, f_trang_thai=trang_thai, f_nguoi=nguoi, f_q=tim, f_sao=sao,
         f_tu_ngay=tu_ngay_raw, f_den_ngay=den_ngay_raw,
+        so_can_lam=0 if current_user.la_admin_sep else _so_viec_can_lam(),
+        so_doi_duyet=0 if current_user.la_admin_sep else _so_viec_doi_duyet(),
+        so_can_duyet=_so_viec_can_duyet() if current_user.la_quan_ly else 0,
     )
 
     if che_do_3_cot:

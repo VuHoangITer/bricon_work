@@ -13,7 +13,7 @@
     <span class="uu-tien" data-muc="{{ v.do_uu_tien }}">{{ v.ten_uu_tien }}</span>
     {% if v.so_sao_cuoi is not none %}
       {% if v.so_sao_cuoi == 0 %}
-        <span style="color:var(--lam-lai);font-weight:700;font-size:.72rem">0★ Tự động đóng</span>
+        <span class="sao-0">0★ Tự động đóng</span>
       {% else %}
         <span class="sao-hien">{{ '★' * v.so_sao_cuoi }}</span>
       {% endif %}
@@ -21,10 +21,10 @@
     {% if v.lan_gui > 1 %}<span style="font-size:.72rem;color:var(--muc-nhat)">Nộp lần {{ v.lan_gui }}</span>{% endif %}
   </div>
   <div class="viec-the-cuoi">
-    <span>{{ v.nguoi_nhan.ho_ten }}</span>
+    <span>{{ bi('user') }} {{ v.nguoi_nhan.ho_ten }}</span>
     {% if v.han %}
-      <span class="{{ 'qua-han' if v.qua_han }}">{{ 'Quá hạn' if v.qua_han else 'Hạn' }} {{ v.han|gio }}</span>
-    {% else %}<span>Không đặt hạn</span>{% endif %}
+      <span class="{{ 'qua-han' if v.qua_han }}">{{ bi('clock') }} {{ 'Quá hạn' if v.qua_han else 'Hạn' }} {{ v.han|gio }}</span>
+    {% else %}<span>{{ bi('clock') }} Không đặt hạn</span>{% endif %}
   </div>
 </a>
 {% endmacro %}
@@ -38,13 +38,13 @@
 
 <div class="tab-chip">
   {% if not current_user.la_admin_sep %}
-  <a href="{{ url_for('tasks.danh_sach', xem='can_lam') }}" class="{{ 'active' if f_xem == 'can_lam' }}">Cần làm</a>
-  <a href="{{ url_for('tasks.danh_sach', xem='doi_duyet') }}" class="{{ 'active' if f_xem == 'doi_duyet' }}">Đợi duyệt</a>
+  <a href="{{ url_for('tasks.danh_sach', xem='can_lam') }}" class="{{ 'active' if f_xem == 'can_lam' }}">{{ bi('clipboard-list') }} Cần làm{% if so_can_lam %} <span class="dem-loc">{{ so_can_lam }}</span>{% endif %}</a>
+  <a href="{{ url_for('tasks.danh_sach', xem='doi_duyet') }}" class="{{ 'active' if f_xem == 'doi_duyet' }}">{{ bi('hourglass') }} Đợi duyệt{% if so_doi_duyet %} <span class="dem-loc">{{ so_doi_duyet }}</span>{% endif %}</a>
   {% endif %}
   {% if current_user.la_quan_ly %}
-  <a href="{{ url_for('tasks.danh_sach', xem='can_duyet') }}" class="{{ 'active' if f_xem == 'can_duyet' }}">Cần duyệt</a>
+  <a href="{{ url_for('tasks.danh_sach', xem='can_duyet') }}" class="{{ 'active' if f_xem == 'can_duyet' }}">{{ bi('check-circle') }} Cần duyệt{% if so_can_duyet %} <span class="dem-loc">{{ so_can_duyet }}</span>{% endif %}</a>
   {% endif %}
-  <a href="{{ url_for('tasks.danh_sach') }}" class="{{ 'active' if not f_xem }}">Tất cả</a>
+  <a href="{{ url_for('tasks.danh_sach') }}" class="{{ 'active' if not f_xem }}">{{ bi('briefcase') }} Tất cả</a>
 </div>
 
 {% set so_loc = [f_trang_thai if not f_xem else '', f_nguoi, (f_sao is not none) or '', f_tu_ngay, f_den_ngay]|select|list|length %}
@@ -81,8 +81,8 @@
   </div>
   <div class="bo-loc-tim">
     <input type="search" name="q" value="{{ f_q }}" placeholder="Tìm mã hoặc tên việc">
-    <button class="nut nut--phu" type="submit">Tìm</button>
-    <button type="button" class="nut nut--phu bo-loc-nut" aria-expanded="false">Lọc{% if so_loc %} <span class="dem-loc">{{ so_loc }}</span>{% endif %}</button>
+    <button class="nut nut--phu" type="submit">{{ bi('search', 'ic--sm') }} Tìm</button>
+    <button type="button" class="nut nut--phu bo-loc-nut" aria-expanded="false">{{ bi('filter', 'ic--sm') }} Lọc{% if so_loc %} <span class="dem-loc">{{ so_loc }}</span>{% endif %}</button>
   </div>
 </form>
 

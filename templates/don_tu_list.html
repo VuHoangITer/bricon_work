@@ -12,14 +12,14 @@
 
 <div class="tab-chip">
   {% if not current_user.la_admin_sep %}
-  <a href="{{ url_for('don_tu.danh_sach', tab='tao') }}" class="{{ 'active' if tab == 'tao' }}">Tạo đơn</a>
+  <a href="{{ url_for('don_tu.danh_sach', tab='tao') }}" class="{{ 'active' if tab == 'tao' }}">{{ bi('plus-circle') }} Tạo đơn</a>
   {% endif %}
   {% if current_user.la_quan_ly %}
-  <a href="{{ url_for('don_tu.danh_sach', tab='duyet') }}" class="{{ 'active' if tab == 'duyet' }}">Chờ duyệt{% if cho_duyet %} <span class="dem-loc">{{ cho_duyet|length }}</span>{% endif %}</a>
-  <a href="{{ url_for('don_tu.danh_sach', tab='da_xu_ly') }}" class="{{ 'active' if tab == 'da_xu_ly' }}">Đã xử lý</a>
+  <a href="{{ url_for('don_tu.danh_sach', tab='duyet') }}" class="{{ 'active' if tab == 'duyet' }}">{{ bi('check-circle') }} Chờ duyệt{% if cho_duyet %} <span class="dem-loc">{{ cho_duyet|length }}</span>{% endif %}</a>
+  <a href="{{ url_for('don_tu.danh_sach', tab='da_xu_ly') }}" class="{{ 'active' if tab == 'da_xu_ly' }}">{{ bi('clipboard-list') }} Đã xử lý</a>
   {% endif %}
   {% if not current_user.la_admin_sep %}
-  <a href="{{ url_for('don_tu.danh_sach', tab='cua_toi') }}" class="{{ 'active' if tab == 'cua_toi' }}">Đơn của tôi</a>
+  <a href="{{ url_for('don_tu.danh_sach', tab='cua_toi') }}" class="{{ 'active' if tab == 'cua_toi' }}">{{ bi('file-text') }} Đơn của tôi</a>
   {% endif %}
 </div>
 

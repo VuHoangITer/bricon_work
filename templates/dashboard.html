@@ -10,13 +10,13 @@
   <div class="viec-ten">{{ v.tieu_de }}</div>
   <div class="viec-phu">
     <span class="uu-tien" data-muc="{{ v.do_uu_tien }}">{{ v.ten_uu_tien }}</span>
-    {% if hien_nguoi %}<span>{{ v.nguoi_nhan.ho_ten }}</span>{% endif %}
+    {% if hien_nguoi %}<span class="viec-meta">{{ bi('user') }} {{ v.nguoi_nhan.ho_ten }}</span>{% endif %}
     {% if v.han %}
-      <span class="{{ 'qua-han' if v.qua_han }}">{{ 'Quá hạn' if v.qua_han else 'Hạn' }} {{ v.han|gio }}</span>
-    {% else %}<span>Không đặt hạn</span>{% endif %}
+      <span class="viec-meta {{ 'qua-han' if v.qua_han }}">{{ bi('clock') }} {{ 'Quá hạn' if v.qua_han else 'Hạn' }} {{ v.han|gio }}</span>
+    {% else %}<span class="viec-meta">{{ bi('clock') }} Không đặt hạn</span>{% endif %}
     {% if v.so_sao_cuoi is not none %}
       {% if v.so_sao_cuoi == 0 %}
-        <span style="color:var(--lam-lai);font-weight:700">0★ Tự động đóng</span>
+        <span class="sao-0">0★ Tự động đóng</span>
       {% else %}
         <span class="sao-hien">{{ '★' * v.so_sao_cuoi }}</span>
       {% endif %}
@@ -77,10 +77,19 @@
 
 {% if not current_user.la_admin_sep %}
 <div class="the dashboard-hero">
-  <div class="card-title-row">
-    <div>
-      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:#8f8f94;font-weight:700">Chấm công hôm nay</div>
-      <div style="font-size:1.05rem;font-weight:700;margin-top:4px">
+  <div class="hero-cc">
+    {% if cc_hom_nay and cc_hom_nay.gio_ra %}
+      <span class="stat-card-icon stat-card-icon--luc">{{ bi('check-circle') }}</span>
+    {% elif cc_hom_nay and cc_hom_nay.gio_vao %}
+      <span class="stat-card-icon stat-card-icon--xanh">{{ bi('clock') }}</span>
+    {% elif cc_hom_nay and cc_hom_nay.nghi_khong_phep %}
+      <span class="stat-card-icon stat-card-icon--do">{{ bi('alert-triangle') }}</span>
+    {% else %}
+      <span class="stat-card-icon stat-card-icon--cam">{{ bi('map-pin') }}</span>
+    {% endif %}
+    <div class="hero-cc-noi-dung">
+      <div class="hero-cc-nhan">Chấm công hôm nay</div>
+      <div class="hero-cc-tieu-de">
         {% if cc_hom_nay and cc_hom_nay.gio_ra %}
           Đã hoàn tất ngày làm việc
         {% elif cc_hom_nay and cc_hom_nay.gio_vao %}
@@ -91,7 +100,7 @@
           Chưa chấm công vào
         {% endif %}
       </div>
-      <div class="subtle" style="font-size:.78rem;margin-top:4px">
+      <div class="hero-cc-phu">
         {% if cc_hom_nay and cc_hom_nay.gio_ra %}
           Vào {{ cc_hom_nay.gio_vao.strftime('%H:%M') }} · Ra {{ cc_hom_nay.gio_ra.strftime('%H:%M') }}
         {% elif cc_hom_nay and cc_hom_nay.di_tre %}
@@ -104,31 +113,27 @@
       </div>
     </div>
     <a class="nut nut--vang nut--nho" href="{{ url_for('attendance.trang_cham_cong') }}">
-      {% if cc_hom_nay and cc_hom_nay.gio_ra %}Xem chấm công{% elif cc_hom_nay %}Chấm công ra{% else %}Chấm công vào{% endif %}
+      {% if cc_hom_nay and cc_hom_nay.gio_ra %}{{ bi('calendar') }} Xem chấm công{% elif cc_hom_nay %}{{ bi('clock') }} Chấm công ra{% else %}{{ bi('clock') }} Chấm công vào{% endif %}
     </a>
   </div>
 </div>
 {% endif %}
 
 {% if not current_user.la_admin_sep and viec_0_sao_hom_nay %}
-<div class="the" style="border-left:3px solid var(--lam-lai);margin-bottom:18px">
-  <div class="card-title-row">
-    <div>
-      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--lam-lai);font-weight:700">
-        {{ bi('alert-triangle') }} Việc bị 0★ hôm nay</div>
-      <div style="font-size:1.05rem;font-weight:700;margin-top:4px;color:var(--lam-lai)">
-        {{ viec_0_sao_hom_nay|length }} việc bị hệ thống tự động đóng vì quá hạn</div>
-      <div class="subtle" style="font-size:.78rem;margin-top:4px">
-        Thấy chưa hợp lý thì liên hệ người giao để xin mở lại.</div>
+<div class="the the-0sao">
+  <div class="hero-cc">
+    <span class="stat-card-icon stat-card-icon--do">{{ bi('alert-triangle') }}</span>
+    <div class="hero-cc-noi-dung">
+      <div class="hero-cc-nhan">Việc bị 0★ hôm nay</div>
+      <div class="hero-cc-tieu-de">{{ viec_0_sao_hom_nay|length }} việc bị hệ thống tự động đóng vì quá hạn</div>
+      <div class="hero-cc-phu">Thấy chưa hợp lý thì liên hệ người giao để xin mở lại.</div>
     </div>
   </div>
-  <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+  <div class="ds-0sao">
     {% for v in viec_0_sao_hom_nay %}
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;
-                flex-wrap:wrap;padding:9px 11px;border:1px solid var(--vien);border-radius:7px">
-      <a href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}" style="font-weight:600">
-        [{{ v.ma }}] {{ v.tieu_de }}</a>
-      <div style="display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--muc-mo)">
+    <div class="dong-0sao">
+      <a href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}">[{{ v.ma }}] {{ v.tieu_de }}</a>
+      <div class="dong-0sao-phu">
         <span>Người giao: {{ v.nguoi_giao.ho_ten }}</span>
         {% if v.nguoi_giao.so_dien_thoai %}
         <a class="nut nut--phu nut--nho" href="tel:{{ v.nguoi_giao.so_dien_thoai }}">{{ bi('phone') }} Gọi</a>
@@ -154,7 +159,7 @@
     <span class="stat-card-mui-ten">{{ bi('chevron-right') }}</span>
   </button>
   {% else %}
-  <a href="{{ url_for('tasks.danh_sach') }}" class="stat-card stat-card--lienket">
+  <a href="{{ url_for('tasks.danh_sach', xem='can_lam') }}" class="stat-card stat-card--lienket">
     <span class="stat-card-icon stat-card-icon--xanh">{{ bi('calendar') }}</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Việc hằng ngày</div>
@@ -165,7 +170,7 @@
   </a>
   {% endif %}
   {% if current_user.la_quan_ly %}
-  <a href="{{ url_for('tasks.danh_sach', trang_thai='cho_duyet') }}" class="stat-card stat-card--lienket">
+  <a href="{{ url_for('tasks.danh_sach', xem='can_duyet') }}" class="stat-card stat-card--lienket">
     <span class="stat-card-icon stat-card-icon--luc">{{ bi('check-circle') }}</span>
     <div class="stat-card-noi-dung">
       <div class="stat-card-label">Chờ đánh giá</div>

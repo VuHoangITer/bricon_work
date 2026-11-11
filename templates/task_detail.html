@@ -31,10 +31,8 @@
   </div>
   <h1 style="font-size:1.2rem">{{ viec.tieu_de }}</h1>
   {% if viec.mo_ta or viec.anh_yeu_cau %}
-  <div style="background:var(--chinh-nhat);border-left:3px solid var(--chinh);
-              border-radius:var(--bk-n);padding:10px 12px;margin:8px 0 4px">
-    <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;
-                letter-spacing:.04em;color:var(--chinh-dam);margin-bottom:4px">
+  <div class="yeu-cau-hop">
+    <div class="yeu-cau-hop-nhan">
       {{ bi('clipboard-list') }} Yêu cầu công việc
     </div>
     {% if viec.mo_ta %}
@@ -51,20 +49,20 @@
   </div>
   {% endif %}
 
-  <div class="dong-tt"><span>Mức độ</span>
+  <div class="dong-tt"><span>{{ bi('target') }}Mức độ</span>
     <span><span class="uu-tien" data-muc="{{ viec.do_uu_tien }}">{{ viec.ten_uu_tien }}</span></span></div>
-  <div class="dong-tt"><span>Người giao</span><span>{{ viec.nguoi_giao.ho_ten }}</span></div>
-  <div class="dong-tt"><span>Người thực hiện</span><span>{{ viec.nguoi_nhan.ho_ten }}</span></div>
-  <div class="dong-tt"><span>Giao lúc</span><span>{{ viec.tao_luc|gio }}</span></div>
-  <div class="dong-tt"><span>Hạn hoàn thành</span>
+  <div class="dong-tt"><span>{{ bi('user') }}Người giao</span><span>{{ viec.nguoi_giao.ho_ten }}</span></div>
+  <div class="dong-tt"><span>{{ bi('user') }}Người thực hiện</span><span>{{ viec.nguoi_nhan.ho_ten }}</span></div>
+  <div class="dong-tt"><span>{{ bi('calendar') }}Giao lúc</span><span>{{ viec.tao_luc|gio }}</span></div>
+  <div class="dong-tt"><span>{{ bi('clock') }}Hạn hoàn thành</span>
     <span {% if viec.qua_han %}style="color:var(--lam-lai)"{% endif %}>
       {{ viec.han|gio if viec.han else 'Không đặt hạn' }}
       {%- if viec.qua_han %} · quá hạn{% endif %}</span></div>
   {% if viec.ngay_bat_dau %}
-  <div class="dong-tt"><span>Ngày bắt đầu</span><span>{{ viec.ngay_bat_dau|ngay }}</span></div>
+  <div class="dong-tt"><span>{{ bi('calendar') }}Ngày bắt đầu</span><span>{{ viec.ngay_bat_dau|ngay }}</span></div>
   {% endif %}
   {% if viec.gui_doi_chung_luc %}
-  <div class="dong-tt"><span>Nộp đối chứng lúc</span>
+  <div class="dong-tt"><span>{{ bi('upload') }}Nộp đối chứng lúc</span>
     <span style="color:var(--hoan-thanh)">{{ viec.gui_doi_chung_luc|gio }}</span></div>
   {% endif %}
   {% if current_user.la_admin_sep %}
@@ -84,10 +82,10 @@
   </div>
   {% endif %}
   {% if viec.hoan_thanh_luc %}
-  <div class="dong-tt"><span>Hoàn thành</span><span>{{ viec.hoan_thanh_luc|gio }}</span></div>
+  <div class="dong-tt"><span>{{ bi('check-circle') }}Hoàn thành</span><span>{{ viec.hoan_thanh_luc|gio }}</span></div>
   {% endif %}
   {% if viec.so_sao_cuoi is not none %}
-  <div class="dong-tt"><span>Đánh giá</span>
+  <div class="dong-tt"><span>{{ bi('sparkles') }}Đánh giá</span>
     {% if viec.so_sao_cuoi == 0 %}
     <span style="color:var(--lam-lai);font-weight:700">0★ — Hệ thống tự động đóng do quá hạn</span>
     {% else %}
@@ -126,27 +124,28 @@
       {% endif %}
 
       {% if gc %}
-        <div style="background:var(--nen);border-radius:var(--bk-n);padding:10px;margin-bottom:10px">
-          <div style="font-size:.82rem;font-weight:600;margin-bottom:2px">
-            Ghi chú của {{ viec.nguoi_nhan.ho_ten }}
+        <div class="ghi-chu-hop">
+          <div class="ghi-chu-hop-dau">
+            {{ bi('message-square') }} Ghi chú của {{ viec.nguoi_nhan.ho_ten }}
           </div>
-          <div style="font-size:.88rem;white-space:pre-wrap">{{ gc.noi_dung }}</div>
-          <div style="font-size:.74rem;color:var(--muc-nhat);margin-top:4px">{{ gc.tao_luc|gio }}</div>
+          <div class="ghi-chu-hop-than">{{ gc.noi_dung }}</div>
+          <div class="ghi-chu-hop-gio">{{ gc.tao_luc|gio }}</div>
         </div>
       {% endif %}
 
       {% if dg %}
-        <div style="background:var(--nen);border-radius:var(--bk-n);padding:10px">
-          <div style="font-size:.82rem;font-weight:600;margin-bottom:2px">
+        <div class="ghi-chu-hop {{ 'ghi-chu-hop--dat' if dg.ket_qua == 'dat' else 'ghi-chu-hop--lam-lai' }}">
+          <div class="ghi-chu-hop-dau">
             {% if dg.ket_qua == 'dat' %}
               <span class="sao-hien">{{ '★' * dg.so_sao }}{{ '☆' * (5 - dg.so_sao) }}</span>
-               — {{ dg.nguoi_danh_gia.ho_ten }}
+              <span>— {{ dg.nguoi_danh_gia.ho_ten }}</span>
             {% else %}
-              <span style="color:var(--lam-lai)">Yêu cầu làm lại</span> — {{ dg.nguoi_danh_gia.ho_ten }}
+              <span style="color:var(--lam-lai)">{{ bi('rotate-ccw') }} Yêu cầu làm lại</span>
+              <span>— {{ dg.nguoi_danh_gia.ho_ten }}</span>
             {% endif %}
           </div>
           {% if dg.ghi_chu %}
-          <div style="font-size:.88rem;white-space:pre-wrap">{{ dg.ghi_chu }}</div>{% endif %}
+          <div class="ghi-chu-hop-than">{{ dg.ghi_chu }}</div>{% endif %}
           {% if dg.anh %}
           <div class="luoi-tep" style="margin-top:8px">
             {% for a in dg.anh %}
@@ -155,7 +154,7 @@
             {% endfor %}
           </div>
           {% endif %}
-          <div style="font-size:.74rem;color:var(--muc-nhat);margin-top:4px">{{ dg.tao_luc|gio }}</div>
+          <div class="ghi-chu-hop-gio">{{ dg.tao_luc|gio }}</div>
         </div>
       {% endif %}
     </div>

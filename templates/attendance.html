@@ -68,14 +68,17 @@
     </button>
     {% endfor %}
   </div>
-  <div class="cc-chu-giai">
-    <span><i class="cc-ch cc-ch--dung"></i>Đúng giờ</span>
-    <span><i class="cc-ch cc-ch--tre"></i>Đi trễ</span>
-    <span><i class="cc-ch cc-ch--som"></i>Về sớm</span>
-    <span><i class="cc-ch cc-ch--nghi_phep"></i>Nghỉ có phép</span>
-    <span><i class="cc-ch cc-ch--nghi_kp"></i>Nghỉ không phép</span>
+  <div class="cc-tk" aria-label="Thống kê chấm công trong tháng">
+    <div class="cc-tk-o cc-tk-o--dung"><strong>{{ dem.dung }}</strong><span>Đúng giờ</span></div>
+    <div class="cc-tk-o cc-tk-o--tre"><strong>{{ dem.tre }}</strong><span>Đi trễ</span></div>
+    <div class="cc-tk-o cc-tk-o--som"><strong>{{ dem.som }}</strong><span>Về sớm</span></div>
+    <div class="cc-tk-o cc-tk-o--nghi_phep"><strong>{{ dem.nghi_phep }}</strong><span>Có phép</span></div>
+    <div class="cc-tk-o cc-tk-o--nghi_kp"><strong>{{ dem.nghi_kp }}</strong><span>Không phép</span></div>
+  </div>
+  <div class="cc-chu-giai cc-chu-giai--phu">
     <span><i class="cc-ch cc-ch--cty_nghi"></i>CN / lễ</span>
     <span><i class="cc-ch cc-ch--tuong_lai"></i>Chưa đến ngày</span>
+    <span><i class="cc-ch cc-ch--don"></i>Có đơn từ</span>
   </div>
   <div class="cc-chi-tiet" data-cc-chi-tiet hidden></div>
 
@@ -109,14 +112,6 @@
     {%- if hom_nay.diem_vao %} · {{ hom_nay.diem_vao.ten }}{% endif %}</div>
   {% endif %}
   {% endif %}
-</div>
-
-<div class="the cc-thong-ke">
-  <div><strong class="xanh">{{ dem.dung }}</strong><span>Đúng giờ</span></div>
-  <div><strong class="do">{{ dem.tre }}</strong><span>Đi trễ</span></div>
-  <div><strong class="cam">{{ dem.som }}</strong><span>Về sớm</span></div>
-  <div><strong class="lam">{{ dem.nghi_phep }}</strong><span>Có phép</span></div>
-  <div><strong>{{ dem.nghi_kp }}</strong><span>Không phép</span></div>
 </div>
 
 <div class="the cc-ca">
