@@ -55,7 +55,7 @@
   <div class="app-main">
     <header class="topbar">
       <button class="menu-button" type="button" data-sidebar-open aria-label="Mở menu">{{ bi('menu') }}</button>
-      <div class="topbar-brand-mobile"><span class="brand-mark brand-mark--small">B</span><strong>BRICON WORK</strong></div>
+      <a class="topbar-brand-mobile" href="{{ url_for('tasks.dashboard') }}" aria-label="Về trang chủ"><span class="brand-mark brand-mark--small">B</span><strong>BRICON WORK</strong></a>
       <div class="topbar-right">
         {# Điện thoại: bong bóng AI nổi bị ẩn (che nội dung) -> mở từ nút này #}
         <button type="button" class="topbar-ai" onclick="document.getElementById('tl-chat-nut').click()" aria-label="Mở Trợ lý AI">
