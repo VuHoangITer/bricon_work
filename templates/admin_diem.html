@@ -52,8 +52,14 @@
     <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
       <input type="checkbox" name="dang_hoat_dong" {{ 'checked' if d.dang_hoat_dong }}
              style="width:18px;height:18px;accent-color:var(--chinh)"> Đang áp dụng</label>
-    <button class="nut nut--nho" type="submit">Lưu</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="nut nut--nho" type="submit">Lưu</button>
+      <button class="nut nut--nho nut--vien-do" type="submit" form="xoa-diem-{{ d.id }}">{{ bi('trash') }} Xoá điểm</button>
+      {% if so_luot[d.id] %}<span class="goi-y" style="margin:0">Đã có {{ so_luot[d.id] }} lượt chấm công tại điểm này</span>{% endif %}
+    </div>
   </form>
+  <form id="xoa-diem-{{ d.id }}" method="post" action="{{ url_for('admin.xoa_diem_cham_cong', id=d.id) }}"
+        onsubmit="return confirm({{ ('Xoá điểm chấm công “' ~ d.ten ~ '”?' ~ ((' ' ~ so_luot[d.id] ~ ' lượt chấm công cũ vẫn giữ giờ và toạ độ, chỉ không còn hiện tên điểm.') if so_luot[d.id] else '') ~ ' Nếu chỉ tạm ngưng, hãy bỏ tick Đang áp dụng thay vì xoá.')|tojson }})"></form>
 </details>
 {% else %}
 <div class="trong"><strong>Chưa có điểm chấm công nào</strong>Thêm điểm đầu tiên ở khối bên trên.</div>

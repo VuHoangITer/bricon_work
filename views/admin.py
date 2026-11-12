@@ -447,8 +447,28 @@ def diem_cham_cong():
         flash("Đã lưu điểm chấm công.", "success")
         return redirect(url_for("admin.diem_cham_cong"))
 
-    return render_template("admin_diem.html",
-                           ds=DiemChamCong.query.order_by(DiemChamCong.ten).all())
+    ds = DiemChamCong.query.order_by(DiemChamCong.ten).all()
+    # Số lượt chấm công đã dùng từng điểm — để cảnh báo trước khi xoá
+    from models import ChamCong
+    so_luot = {d.id: ChamCong.query.filter(db.or_(ChamCong.diem_vao_id == d.id,
+                                                  ChamCong.diem_ra_id == d.id)).count() for d in ds}
+    return render_template("admin_diem.html", ds=ds, so_luot=so_luot)
+
+
+@bp.route("/diem-cham-cong/<int:id>/xoa", methods=["POST"])
+@chi_admin
+def xoa_diem_cham_cong(id):
+    """Xoá điểm chấm công. Lượt chấm công cũ đã dùng điểm này vẫn giữ
+    nguyên giờ vào/ra, toạ độ và khoảng cách — chỉ bỏ liên kết tới điểm."""
+    from models import ChamCong
+    d = db.session.get(DiemChamCong, id) or abort(404)
+    ten = d.ten
+    ChamCong.query.filter_by(diem_vao_id=d.id).update({"diem_vao_id": None}, synchronize_session=False)
+    ChamCong.query.filter_by(diem_ra_id=d.id).update({"diem_ra_id": None}, synchronize_session=False)
+    db.session.delete(d)
+    db.session.commit()
+    flash(f"Đã xoá điểm chấm công {ten}.", "success")
+    return redirect(url_for("admin.diem_cham_cong"))
 
 
 @bp.route("/ngay-nghi")
