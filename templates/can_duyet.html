@@ -3,11 +3,28 @@
 {% from "_avatar.html" import avatar %}
 {% block title %}Cần duyệt · BRICON{% endblock %}
 
+{% set GIOI_HAN = 20 %}
 {% macro trong(chu) %}
 <div class="the trong-rong cd-xong">
   <span class="cd-xong-icon">{{ bi('check-circle') }}</span>
   <strong>{{ chu }}</strong>
 </div>
+{% endmacro %}
+
+{% macro ds_de_xuat(ds_dx) %}
+<div class="the the--khong-dem cd-ds">
+  {% for d in ds_dx %}
+  <a class="cd-dong" href="{{ url_for('de_xuat.chi_tiet', id=d.id) }}">
+    {{ avatar(d.nguoi_de_xuat, cls="don-avatar") }}
+    <span class="cd-dong-ten">
+      <b>{{ d.noi_dung|truncate(70) }}</b>
+      <small>{{ d.nguoi_de_xuat.ho_ten }} · {{ d.tao_luc.strftime('%d/%m') }}{% if d.chi_phi_du_kien %} · <b class="cd-tien">{{ d.chi_phi_du_kien|tien }} ₫</b>{% endif %}</small>
+    </span>
+    <span class="nut nut--phu nut--nho">Xem & duyệt</span>
+  </a>
+  {% endfor %}
+</div>
+<div class="goi-y">Duyệt cần ký tên nên bấm vào từng đề xuất để duyệt.</div>
 {% endmacro %}
 
 {% block content %}
@@ -19,23 +36,20 @@
 </div>
 
 <div class="tab-chip cd-tab">
-  <a href="{{ url_for('menu.can_duyet', tab='don') }}" class="{{ 'active' if tab == 'don' }}">
-    {{ bi('file-text', 'ic--sm') }} Đơn từ{% if dem.don %} <span class="dem-loc">{{ dem.don }}</span>{% endif %}</a>
-  <a href="{{ url_for('menu.can_duyet', tab='viec') }}" class="{{ 'active' if tab == 'viec' }}">
-    {{ bi('clipboard-list', 'ic--sm') }} Công việc{% if dem.viec %} <span class="dem-loc">{{ dem.viec }}</span>{% endif %}</a>
-  <a href="{{ url_for('menu.can_duyet', tab='tam_ung') }}" class="{{ 'active' if tab == 'tam_ung' }}">
-    {{ bi('wallet', 'ic--sm') }} Tạm ứng{% if dem.tam_ung %} <span class="dem-loc">{{ dem.tam_ung }}</span>{% endif %}</a>
+  {% for ma, nhan, icon in [('don', 'Đơn từ', 'file-text'), ('viec', 'Việc cần duyệt', 'clipboard-list'), ('de_xuat', 'Việc đề xuất', 'lightbulb'), ('tam_ung', 'Tạm ứng', 'wallet')] %}
+  <a href="{{ url_for('menu.can_duyet', tab=ma) }}" class="{{ 'active' if tab == ma }}">
+    {{ bi(icon, 'ic--sm') }} {{ nhan }}{% if dem[ma] %} <span class="dem-loc">{{ dem[ma] }}</span>{% endif %}</a>
+  {% endfor %}
 </div>
 
 {% if tab == 'don' %}
   {% for d in ds.don %}{{ the_don(d, nut_duyet=True) }}{% else %}{{ trong('Không có đơn từ nào chờ duyệt') }}{% endfor %}
-  {% if ds.don %}<a class="lien-ket-nho cd-xem-them" href="{{ url_for('don_tu.danh_sach', tab='da_xu_ly') }}">Xem đơn đã xử lý {{ bi('chevron-right') }}</a>{% endif %}
 
 {% elif tab == 'viec' %}
   {% if ds.viec %}
-  <div class="tieu-khu"><h2>Việc đã nộp, chờ đánh giá</h2><span class="dem">{{ ds.viec|length }}</span></div>
+  <div class="goi-y" style="margin:0 0 8px">Nhân viên đã làm xong và nộp kết quả. Bấm "Đánh giá" để xem ảnh/tệp và chấm sao.</div>
   <div class="the the--khong-dem cd-ds">
-    {% for v in ds.viec %}
+    {% for v in ds.viec[:GIOI_HAN] %}
     <a class="cd-dong" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}">
       {{ avatar(v.nguoi_nhan, cls="don-avatar") }}
       <span class="cd-dong-ten">
@@ -46,7 +60,12 @@
     </a>
     {% endfor %}
   </div>
+  {% if ds.viec|length > GIOI_HAN %}
+  <a class="nut nut--phu nut--rong" href="{{ url_for('tasks.danh_sach', xem='can_duyet') }}">Xem tất cả {{ ds.viec|length }} việc (lọc theo nhân viên) {{ bi('chevron-right') }}</a>
   {% endif %}
+  {% else %}{{ trong('Không có việc nào chờ đánh giá') }}{% endif %}
+
+{% elif tab == 'de_xuat' %}
   {% if ds.nhan_viec %}
   <div class="tieu-khu"><h2>Nhân viên xin nhận việc</h2><span class="dem">{{ ds.nhan_viec|length }}</span></div>
   {% for d in ds.nhan_viec %}
@@ -61,7 +80,7 @@
     {% if d.mo_ta %}<div class="nv-dx-nd">{{ d.mo_ta }}</div>{% endif %}
     {% if d.ket_qua %}<div class="nv-dx-nd"><b>Kết quả:</b> {{ d.ket_qua }}</div>{% endif %}
     <form method="post" action="{{ url_for('nhiem_vu.duyet_de_xuat', id=d.id) }}" class="don-the-nut">
-      <input type="hidden" name="tiep" value="{{ url_for('menu.can_duyet', tab='viec') }}">
+      <input type="hidden" name="tiep" value="{{ url_for('menu.can_duyet', tab='de_xuat') }}">
       <input type="hidden" name="y_kien">
       <button class="nut nut--vien-do" type="submit" name="hanh_dong" value="tu_choi" data-hoi-ly-do>{{ bi('x') }} Từ chối</button>
       <button class="nut nut--xanh" type="submit" name="hanh_dong" value="duyet">{{ bi('check') }} Duyệt</button>
@@ -69,23 +88,16 @@
   </div>
   {% endfor %}
   {% endif %}
-  {% if not ds.viec and not ds.nhan_viec %}{{ trong('Không có công việc nào chờ duyệt') }}{% endif %}
+  {% if ds.de_xuat_cv %}
+  <div class="tieu-khu"><h2>Đề xuất mua sắm, cải tiến</h2><span class="dem">{{ ds.de_xuat_cv|length }}</span></div>
+  {{ ds_de_xuat(ds.de_xuat_cv) }}
+  {% endif %}
+  {% if not ds.nhan_viec and not ds.de_xuat_cv %}{{ trong('Không có đề xuất công việc nào chờ duyệt') }}{% endif %}
 
 {% else %}
-  {% if ds.de_xuat %}
-  <div class="the the--khong-dem cd-ds">
-    {% for d in ds.de_xuat %}
-    <a class="cd-dong" href="{{ url_for('de_xuat.chi_tiet', id=d.id) }}">
-      {{ avatar(d.nguoi_de_xuat, cls="don-avatar") }}
-      <span class="cd-dong-ten">
-        <b>{{ d.ten_loai }}{% if d.chi_phi_du_kien %} · {{ d.chi_phi_du_kien|tien }} ₫{% endif %}</b>
-        <small>{{ d.nguoi_de_xuat.ho_ten }} · {{ d.noi_dung|truncate(60) }}</small>
-      </span>
-      <span class="nut nut--phu nut--nho">Xem & duyệt</span>
-    </a>
-    {% endfor %}
-  </div>
-  <div class="goi-y">Gồm tạm ứng lương và đề xuất mua sắm. Duyệt cần ký tên nên mở từng đề xuất để duyệt.</div>
+  {% if ds.tam_ung %}
+  <div class="cd-tong-tien">Tổng đang xin ứng: <b>{{ ds.tam_ung|map(attribute='chi_phi_du_kien')|select|sum|tien }} ₫</b></div>
+  {{ ds_de_xuat(ds.tam_ung) }}
   {% else %}{{ trong('Không có tạm ứng nào chờ duyệt') }}{% endif %}
 {% endif %}
 {% endblock %}

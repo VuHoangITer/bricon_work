@@ -1274,7 +1274,9 @@ a.cd-dong:last-child { border-bottom:0; }
 .cd-dong-ten b { font-size:.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cd-dong-ten small { font-size:.74rem; color:var(--muc-mo); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tieu-khu h2 .ic--sm { vertical-align:-2px; color:var(--chinh-dam); }
-.cd-tab { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); overflow:visible; }
+.cd-tab { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); overflow:visible; }
 .cd-tab a { justify-content:center; display:inline-flex; align-items:center; gap:5px; padding:8px 6px; }
-@media (max-width: 430px) { .cd-tab a .ic { display:none; } .cd-tab a { font-size:.8rem; gap:4px; } }
+@media (max-width: 700px) { .cd-tab { grid-template-columns:repeat(2, minmax(0,1fr)); } .cd-tab a .ic { display:none; } .cd-tab a { font-size:.8rem; gap:4px; } }
+.cd-tong-tien { margin-bottom:8px; padding:10px 14px; border-radius:10px; background:#fff4dc; font-size:.86rem; }
+.cd-tien { color:var(--chinh-dam); }
 .cd-xem-them { display:inline-flex; margin-top:4px; }

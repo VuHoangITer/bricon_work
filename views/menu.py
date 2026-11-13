@@ -164,12 +164,18 @@ def menu_chinh() -> list[dict]:
 def can_duyet():
     if not current_user.la_quan_ly:
         return redirect(url_for("nhiem_vu.cua_toi"))
+    from models import LoaiDeXuat
     ds = danh_sach_can_duyet()
-    dem = {"don": len(ds["don"]), "viec": len(ds["viec"]) + len(ds["nhan_viec"]), "tam_ung": len(ds["de_xuat"])}
+    # Đề xuất có 2 loại: đề xuất công việc (mua sắm, cải tiến) và tạm ứng —
+    # tách 2 tab riêng; nhân viên xin nhận việc cũng là đề xuất công việc.
+    ds["de_xuat_cv"] = [d for d in ds["de_xuat"] if d.loai == LoaiDeXuat.CONG_VIEC]
+    ds["tam_ung"] = [d for d in ds["de_xuat"] if d.loai == LoaiDeXuat.TAM_UNG]
+    dem = {"don": len(ds["don"]), "viec": len(ds["viec"]),
+           "de_xuat": len(ds["de_xuat_cv"]) + len(ds["nhan_viec"]), "tam_ung": len(ds["tam_ung"])}
     tab = request.args.get("tab")
     if tab not in dem:
-        # Mặc định mở tab đầu tiên đang có việc chờ
-        tab = next((k for k in ("don", "viec", "tam_ung") if dem[k]), "don")
+        # Mặc định mở tab đầu tiên đang có mục chờ
+        tab = next((k for k in ("don", "viec", "de_xuat", "tam_ung") if dem[k]), "don")
     return render_template("can_duyet.html", ds=ds, dem=dem, tab=tab)
 
 
