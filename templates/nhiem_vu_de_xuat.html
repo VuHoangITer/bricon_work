@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block title %}Đề xuất nhận việc · BRICON{% endblock %}
+
+{% block content %}
+<div>
+  <a class="quay-lai" href="{{ url_for('nhiem_vu.cua_toi') }}">{{ bi('chevron-left') }} Công việc của tôi</a>
+</div>
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Đề xuất nhận việc</h1>
+    <p>Bạn thấy việc gì nên làm (ý tưởng video, cải tiến đóng gói, tuyến khách mới…) thì đề xuất tự nhận. Quản lý duyệt xong việc mới bắt đầu và được tính vào kết quả.</p>
+  </div>
+</div>
+
+{% if cho_duyet %}
+<div class="tieu-khu"><h2>Chờ bạn duyệt <span class="dem-loc">{{ cho_duyet|length }}</span></h2></div>
+{% for d in cho_duyet %}
+<div class="the nv-dx">
+  <div class="nv-dx-dau">
+    {{ avatar(d.nguoi_dung, cls="don-avatar") }}
+    <div style="flex:1;min-width:0">
+      <strong>{{ d.tieu_de }}</strong>
+      <small>{{ d.nguoi_dung.ho_ten }} · gửi {{ d.tao_luc.strftime('%H:%M %d/%m') }} · hạn {{ d.han.strftime('%H:%M %d/%m') }}</small>
+    </div>
+  </div>
+  {% if d.mo_ta %}<div class="nv-dx-nd">{{ d.mo_ta }}</div>{% endif %}
+  {% if d.ket_qua %}<div class="nv-dx-nd"><b>Kết quả:</b> {{ d.ket_qua }}</div>{% endif %}
+  <form method="post" action="{{ url_for('nhiem_vu.duyet_de_xuat', id=d.id) }}" class="don-the-nut">
+    <input type="hidden" name="y_kien">
+    <button class="nut nut--vien-do" type="submit" name="hanh_dong" value="tu_choi" data-hoi-ly-do>{{ bi('x') }} Từ chối</button>
+    <button class="nut nut--xanh" type="submit" name="hanh_dong" value="duyet">{{ bi('check') }} Duyệt, giao việc</button>
+  </form>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if not current_user.la_admin_sep %}
+<form class="the don-form" method="post">
+  <h2 style="margin:0 0 4px;display:flex;align-items:center;gap:8px">{{ bi('lightbulb') }} Đề xuất mới</h2>
+  <div class="don-dong"><label for="tieu_de">Việc bạn muốn nhận</label>
+    <input id="tieu_de" type="text" name="tieu_de" required maxlength="255" placeholder="VD: Thử kịch bản video so sánh keo chà ron"></div>
+  <div class="don-dong"><label for="mo_ta">Cách làm</label>
+    <textarea id="mo_ta" name="mo_ta" rows="3" placeholder="Làm thế nào, cần hỗ trợ gì…"></textarea></div>
+  <div class="don-dong"><label for="ket_qua">Kết quả / đầu ra dự kiến</label>
+    <input id="ket_qua" type="text" name="ket_qua" maxlength="255" placeholder="VD: 1 video thử + số liệu xem sau 3 ngày"></div>
+  <div class="don-dong don-dong--doi">
+    <div><label for="ngay_han">{{ bi('calendar') }} Hạn hoàn thành</label>
+      <input id="ngay_han" type="date" name="ngay_han" required min="{{ hom_nay.isoformat() }}" value="{{ hom_nay.isoformat() }}"></div>
+    <div><label for="gio_han">{{ bi('clock') }} Giờ</label>
+      <input id="gio_han" type="time" name="gio_han" required value="17:00"></div>
+  </div>
+  <button class="nut nut--vang nut--rong nut--lon" type="submit">{{ bi('send') }} Gửi đề xuất</button>
+</form>
+
+<div class="tieu-khu"><h2>Đề xuất của tôi</h2></div>
+{% for d in cua_toi %}
+<div class="the nv-dx">
+  <div class="nv-dx-dau">
+    <div style="flex:1;min-width:0">
+      <strong>{{ d.tieu_de }}</strong>
+      <small>Gửi {{ d.tao_luc.strftime('%d/%m') }} · hạn {{ d.han.strftime('%H:%M %d/%m') }}{% if d.nguoi_duyet %} · {{ d.nguoi_duyet.ho_ten }}{% endif %}</small>
+    </div>
+    <span class="nhan" data-tt="{{ d.mau_trang_thai }}">{{ d.ten_trang_thai }}</span>
+  </div>
+  {% if d.y_kien %}<div class="nv-dx-nd"><b>Ý kiến:</b> {{ d.y_kien }}</div>{% endif %}
+  {% if d.cong_viec %}<a class="lien-ket-nho" href="{{ url_for('tasks.chi_tiet', viec_id=d.cong_viec_id) }}">Mở việc {{ d.cong_viec.ma }} {{ bi('chevron-right') }}</a>{% endif %}
+  {% if d.trang_thai == 'cho_duyet' %}
+  <form method="post" action="{{ url_for('nhiem_vu.huy_de_xuat', id=d.id) }}" onsubmit="return confirm('Huỷ đề xuất này?')">
+    <button class="nut nut--phu nut--nho" type="submit">Huỷ đề xuất</button>
+  </form>
+  {% endif %}
+</div>
+{% else %}
+<div class="the trong-rong">Bạn chưa gửi đề xuất nào.</div>
+{% endfor %}
+{% elif not cho_duyet %}
+<div class="the trong-rong">{{ bi('check-circle') }} Không có đề xuất nào chờ duyệt.</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-hoi-ly-do]').forEach(function (nut) {
+  nut.addEventListener('click', function (e) {
+    var ly_do = prompt('Lý do từ chối (không bắt buộc):', '');
+    if (ly_do === null) { e.preventDefault(); return; }
+    nut.form.querySelector('[name=y_kien]').value = ly_do;
+  });
+});
+</script>
+{% endblock %}

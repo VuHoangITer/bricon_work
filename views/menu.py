@@ -77,11 +77,14 @@ def menu_chinh() -> list[dict]:
     dx_cho = _de_xuat_can_duyet()  # [] với nhân viên thường
     dx_dem = {loai: sum(1 for d in dx_cho if d.loai == loai) for loai in (LoaiDeXuat.CONG_VIEC, LoaiDeXuat.TAM_UNG)}
 
+    from views.nhiem_vu import de_xuat_cho_duyet
+
     cong_viec = []
     if not current_user.la_admin_sep:
-        cong_viec.append(_muc("tasks.danh_sach", "Việc cần làm", bi("clipboard-list"),
-                              "Việc được giao, chưa hoàn thành", dem=_so_viec_can_lam(),
-                              kw={"xem": "can_lam"}, khop=_xem_viec("can_lam")))
+        cong_viec.append(_muc("nhiem_vu.cua_toi", "Công việc của tôi", bi("calendar"),
+                              "Lịch việc, mục tiêu tuần, nhiệm vụ hằng ngày", dem=_so_viec_can_lam(),
+                              khop=lambda: request.endpoint == "nhiem_vu.cua_toi" and not request.args.get("nguoi")
+                              or _xem_viec("can_lam")()))
     if current_user.la_quan_ly:
         cong_viec.append(_muc("tasks.danh_sach", "Việc cần duyệt", bi("check-circle"),
                               "Nhân viên đã nộp, chờ bạn đánh giá", dem=_so_viec_can_duyet(),
@@ -91,10 +94,18 @@ def menu_chinh() -> list[dict]:
         cong_viec.append(_muc("tasks.danh_sach", "Việc đợi duyệt", bi("hourglass"),
                               f"{n} việc đã nộp, chờ quản lý duyệt" if n else "Việc đã nộp, chờ quản lý duyệt",
                               kw={"xem": "doi_duyet"}, khop=_xem_viec("doi_duyet")))
+    cong_viec.append(_muc("nhiem_vu.de_xuat", "Đề xuất nhận việc", bi("plus-circle"),
+                          "Nhân viên đề xuất tự nhận việc, quản lý duyệt",
+                          dem=len(de_xuat_cho_duyet()), khop=lambda: request.endpoint == "nhiem_vu.de_xuat"))
     if current_user.la_quan_ly:
         cong_viec.append(_muc("tasks.danh_sach", "Tất cả công việc", bi("briefcase"), "Giao việc, theo dõi cả bộ phận",
                               khop=lambda: request.endpoint in ("tasks.chi_tiet", "tasks.giao_viec")
-                              or (request.endpoint == "tasks.danh_sach" and not request.args.get("xem"))))
+                              or (request.endpoint == "tasks.danh_sach" and not request.args.get("xem"))
+                              or (request.endpoint == "nhiem_vu.cua_toi" and bool(request.args.get("nguoi")))))
+    if current_user.la_admin_sep:
+        cong_viec.append(_muc("nhiem_vu.cau_hinh", "Cấu hình nhiệm vụ", bi("settings"),
+                              "Bộ việc hằng ngày theo vị trí & giai đoạn",
+                              khop=lambda: request.endpoint == "nhiem_vu.cau_hinh"))
     cong_viec += [
         _muc("tasks.kpi", "KPI", bi("target"), "Điểm sao, xếp loại"),
         _muc("de_xuat.danh_sach", "Đề xuất công việc", bi("lightbulb"), "Mua sắm, đề xuất cải tiến",

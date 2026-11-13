@@ -246,6 +246,33 @@ class AnhSanPhamAI(db.Model):
         return f"<AnhSanPhamAI {self.nhan or self.duong_dan}>"
 
 
+class GiaiDoan:
+    """Giai đoạn phát triển của nhân viên — mỗi giai đoạn có bộ nhiệm vụ
+    hằng ngày riêng (ViecDinhKy.giai_doan)."""
+    THU_VIEC = "thu_viec"
+    CHINH_THUC = "chinh_thuc"
+    PHAT_HUY = "phat_huy"
+
+    TAT_CA = (THU_VIEC, CHINH_THUC, PHAT_HUY)
+    NHAN = {THU_VIEC: "Thử việc", CHINH_THUC: "Chính thức", PHAT_HUY: "Phát huy"}
+    TRONG_TAM = {
+        THU_VIEC: "Làm theo hướng dẫn, kiểm từng kết quả",
+        CHINH_THUC: "Tự xử lý công việc trong phạm vi được giao",
+        PHAT_HUY: "Duy trì việc nền tảng, thêm phân tích và cải tiến",
+    }
+
+
+class NguonViec:
+    """3 nguồn công việc: hằng ngày (tự tạo theo bộ nhiệm vụ), quản lý giao,
+    nhân viên đề xuất nhận (chỉ thành việc sau khi được duyệt)."""
+    HANG_NGAY = "hang_ngay"
+    QUAN_LY_GIAO = "quan_ly_giao"
+    DE_XUAT = "de_xuat"
+
+    TAT_CA = (HANG_NGAY, QUAN_LY_GIAO, DE_XUAT)
+    NHAN = {HANG_NGAY: "Hằng ngày", QUAN_LY_GIAO: "Quản lý giao", DE_XUAT: "Đề xuất nhận"}
+
+
 class NguoiDung(UserMixin, db.Model):
     __tablename__ = "nguoi_dung"
 
@@ -277,6 +304,12 @@ class NguoiDung(UserMixin, db.Model):
     # giấy tờ nhân sự (hợp đồng, bàn giao, cam kết, biên bản vi phạm…) của
     # mọi nhân viên, dù không phải Ban giám đốc/Quản trị.
     quan_ly_giay_to = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    # Giai đoạn phát triển (thử việc / chính thức / phát huy) + mảng phụ
+    # trách (VD Online: "CSKH,Sàn TMĐT") — quyết định bộ nhiệm vụ hằng ngày.
+    giai_doan = db.Column(db.String(20), nullable=False, default=GiaiDoan.CHINH_THUC,
+                          server_default=GiaiDoan.CHINH_THUC)
+    giai_doan_tu = db.Column(db.Date)
+    mang_phu_trach = db.Column(db.String(255))
 
     bo_phan = db.relationship("BoPhan", back_populates="nhan_vien")
     ho_so = db.relationship("HoSoNhanVien", back_populates="nguoi_dung",
@@ -285,6 +318,14 @@ class NguoiDung(UserMixin, db.Model):
     chuc_vu = db.relationship("ChucVu")
     bot_zalo = db.relationship("BotZalo")
     bo_phan_phu = db.relationship("BoPhan", secondary=nguoi_dung_bo_phan, order_by="BoPhan.ten")
+
+    @property
+    def ten_giai_doan(self) -> str:
+        return GiaiDoan.NHAN.get(self.giai_doan or GiaiDoan.CHINH_THUC, "Chính thức")
+
+    @property
+    def ds_mang(self) -> list:
+        return [x.strip() for x in (self.mang_phu_trach or "").split(",") if x.strip()]
 
     # ---- bộ phận ----
     @property
@@ -550,10 +591,13 @@ class CongViec(db.Model):
     # Việc được hệ thống tự tạo từ mẫu Việc định kỳ (VD việc cố định hằng
     # ngày của kho) — dùng để không tạo trùng trong cùng 1 ngày.
     viec_dinh_ky_id = db.Column(db.Integer, db.ForeignKey("viec_dinh_ky.id", ondelete="SET NULL"), index=True)
+    nguon = db.Column(db.String(20), nullable=False, default=NguonViec.QUAN_LY_GIAO,
+                      server_default=NguonViec.QUAN_LY_GIAO, index=True)
     da_nhac_sap_qua_han = db.Column(db.Boolean, default=False, nullable=False)  # tránh nhắc lặp lại
 
     nguoi_giao = db.relationship("NguoiDung", foreign_keys=[nguoi_giao_id])
     nguoi_nhan = db.relationship("NguoiDung", foreign_keys=[nguoi_nhan_id])
+    viec_dinh_ky = db.relationship("ViecDinhKy")
     dinh_kem = db.relationship(
         "DinhKem", back_populates="cong_viec", cascade="all, delete-orphan",
         order_by="DinhKem.id"
@@ -1386,8 +1430,21 @@ class ViecDinhKy(db.Model):
     gio_han = db.Column(db.String(5), nullable=False, default="17:00")       # "HH:MM"
     dang_dung = db.Column(db.Boolean, nullable=False, default=True)
     tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+    # Bộ nhiệm vụ theo giai đoạn: None = áp dụng mọi giai đoạn
+    giai_doan = db.Column(db.String(20), index=True)
+    mang = db.Column(db.String(60))          # mảng phụ trách; None = mọi mảng
+    ket_qua = db.Column(db.String(255))      # kết quả cần đạt
+    minh_chung = db.Column(db.String(255))   # minh chứng cần nộp
+    # False = việc có điều kiện (khi có lệnh pha, khi có dự án…): không tự
+    # tạo mỗi ngày, quản lý bấm giao khi phát sinh.
+    tu_dong = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    ma = db.Column(db.String(10))            # mã mẫu (VD 221 trong file dự thảo)
 
     chuc_vu = db.relationship("ChucVu")
+
+    @property
+    def ten_giai_doan(self) -> str:
+        return GiaiDoan.NHAN.get(self.giai_doan, "Mọi giai đoạn")
 
     TEN_THU = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
 
@@ -1500,3 +1557,83 @@ class KhenThuong(db.Model):
 
     nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
     nguoi_tao = db.relationship("NguoiDung", foreign_keys=[nguoi_tao_id])
+
+
+
+class MucTieuTuan(db.Model):
+    """Mục tiêu tuần của 1 nhân viên (VD "Đăng 5 video sản phẩm" 3/5).
+    Gắn với 1 mẫu nhiệm vụ thì tiến độ tự đếm số việc của mẫu đó đã được
+    duyệt hoàn thành trong tuần; không gắn thì cập nhật số đạt bằng tay."""
+    __tablename__ = "muc_tieu_tuan"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id", ondelete="CASCADE"),
+                              nullable=False, index=True)
+    tuan = db.Column(db.Date, nullable=False, index=True)  # thứ Hai đầu tuần
+    ten = db.Column(db.String(200), nullable=False)
+    chi_tieu = db.Column(db.Integer, nullable=False, default=1)
+    da_dat = db.Column(db.Integer, nullable=False, default=0)
+    viec_dinh_ky_id = db.Column(db.Integer, db.ForeignKey("viec_dinh_ky.id", ondelete="SET NULL"))
+    tao_boi_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
+    mau = db.relationship("ViecDinhKy")
+
+
+class TrangThaiDeXuatNhan:
+    CHO_DUYET = "cho_duyet"
+    DA_DUYET = "da_duyet"
+    TU_CHOI = "tu_choi"
+    DA_HUY = "da_huy"
+
+    NHAN = {CHO_DUYET: "Chờ duyệt", DA_DUYET: "Đã nhận việc", TU_CHOI: "Từ chối", DA_HUY: "Đã huỷ"}
+    MAU = {CHO_DUYET: "cho_duyet", DA_DUYET: "hoan_thanh", TU_CHOI: "lam_lai", DA_HUY: "huy"}
+
+
+class DeXuatNhanViec(db.Model):
+    """Nhân viên đề xuất tự nhận 1 việc (ý tưởng video, cải tiến đóng gói,
+    tuyến khách mới…). Quản lý duyệt thì mới thành CongViec (nguồn Đề xuất)."""
+    __tablename__ = "de_xuat_nhan_viec"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nguoi_dung_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id", ondelete="CASCADE"),
+                              nullable=False, index=True)
+    tieu_de = db.Column(db.String(255), nullable=False)
+    mo_ta = db.Column(db.Text)                 # cách làm
+    ket_qua = db.Column(db.String(255))        # kết quả / đầu ra dự kiến
+    han = db.Column(db.DateTime, nullable=False)
+    trang_thai = db.Column(db.String(20), nullable=False, default=TrangThaiDeXuatNhan.CHO_DUYET, index=True)
+    nguoi_duyet_id = db.Column(db.Integer, db.ForeignKey("nguoi_dung.id"))
+    y_kien = db.Column(db.Text)
+    duyet_luc = db.Column(db.DateTime)
+    cong_viec_id = db.Column(db.Integer, db.ForeignKey("cong_viec.id", ondelete="SET NULL"))
+    tao_luc = db.Column(db.DateTime, default=gio_vn_hien_tai)
+
+    nguoi_dung = db.relationship("NguoiDung", foreign_keys=[nguoi_dung_id])
+    nguoi_duyet = db.relationship("NguoiDung", foreign_keys=[nguoi_duyet_id])
+    cong_viec = db.relationship("CongViec")
+
+    @property
+    def ten_trang_thai(self):
+        return TrangThaiDeXuatNhan.NHAN.get(self.trang_thai, self.trang_thai)
+
+    @property
+    def mau_trang_thai(self):
+        return TrangThaiDeXuatNhan.MAU.get(self.trang_thai, "huy")
+
+
+class TieuChiDanhGia(db.Model):
+    """Trọng số đánh giá (khối lượng / chất lượng / đúng hạn, tổng 100) theo
+    vị trí + giai đoạn. Chưa cấu hình thì dùng mặc định 40/40/20."""
+    __tablename__ = "tieu_chi_danh_gia"
+    __table_args__ = (db.UniqueConstraint("chuc_vu_id", "giai_doan", name="uq_tieu_chi_cv_gd"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    chuc_vu_id = db.Column(db.Integer, db.ForeignKey("chuc_vu.id", ondelete="CASCADE"), nullable=False)
+    giai_doan = db.Column(db.String(20), nullable=False)
+    khoi_luong = db.Column(db.Integer, nullable=False, default=40)
+    chat_luong = db.Column(db.Integer, nullable=False, default=40)
+    dung_han = db.Column(db.Integer, nullable=False, default=20)
+
+    MAC_DINH = (40, 40, 20)

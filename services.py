@@ -2910,20 +2910,56 @@ def nguoi_giao_mac_dinh(nv: NguoiDung) -> NguoiDung | None:
     return None
 
 
+def mau_hop_nhan_vien(m, nv) -> bool:
+    """Mẫu nhiệm vụ m có áp dụng cho nhân viên nv không: đúng giai đoạn
+    (mẫu không ghi giai đoạn = mọi giai đoạn) và đúng mảng phụ trách (mẫu
+    không ghi mảng, hoặc nhân viên chưa được phân mảng = nhận mọi mảng)."""
+    if m.giai_doan and m.giai_doan != (nv.giai_doan or "chinh_thuc"):
+        return False
+    if m.mang and nv.ds_mang and m.mang.lower() not in {x.lower() for x in nv.ds_mang}:
+        return False
+    return True
+
+
+def mo_ta_tu_mau(m) -> str | None:
+    """Mô tả việc sinh từ mẫu: mô tả + kết quả cần đạt + minh chứng."""
+    dong = [m.mo_ta] if m.mo_ta else []
+    if m.ket_qua:
+        dong.append(f"Kết quả cần đạt: {m.ket_qua}")
+    if m.minh_chung:
+        dong.append(f"Minh chứng: {m.minh_chung}")
+    return "\n".join(dong) or None
+
+
+def giao_viec_tu_mau(m, nv, han: datetime, nguoi_giao) -> "CongViec":
+    """Giao ngay 1 việc từ mẫu (dùng cho mẫu có điều kiện — khi phát sinh
+    lệnh pha, dự án…). Nguồn = Hằng ngày vì thuộc bộ nhiệm vụ của vị trí."""
+    from models import NguonViec, TrangThai
+    v = CongViec(tieu_de=m.tieu_de, mo_ta=mo_ta_tu_mau(m), han=han, do_uu_tien="thuong",
+                 nguoi_giao_id=nguoi_giao.id, nguoi_nhan_id=nv.id, trang_thai=TrangThai.MOI,
+                 viec_dinh_ky_id=m.id, nguon=NguonViec.HANG_NGAY)
+    db.session.add(v)
+    db.session.flush()
+    gan_ma(v)
+    return v
+
+
 def tao_viec_dinh_ky(ngay: date | None = None, gui_zalo_bao: bool = True) -> dict:
     """Tạo việc định kỳ cho ngày `ngay` (mặc định hôm nay) — chạy bằng cron
     mỗi sáng. An toàn khi chạy lại nhiều lần: việc đã tạo (cùng mẫu, cùng
     người, cùng ngày) thì bỏ qua. Bỏ qua ngày nghỉ công ty; nhân viên xin
     nghỉ cả ngày thì không giao, nghỉ buổi sáng/chiều thì bỏ việc có hạn
     rơi vào buổi đó (hạn trước 12:00 = sáng)."""
-    from models import BuoiNghi, TrangThai, ViecDinhKy, XinNghi
+    from models import BuoiNghi, NguonViec, TrangThai, ViecDinhKy, XinNghi
     ngay = ngay or ngay_vn_hien_tai()
     kq = {"ngay": ngay, "so_viec": 0, "so_nguoi": 0, "bo_qua": "", "qua_gio": 0}
     bay_gio = gio_vn_hien_tai()
     if la_ngay_nghi(ngay):
         kq["bo_qua"] = "ngày nghỉ công ty"
         return kq
-    mau = [m for m in ViecDinhKy.query.filter_by(dang_dung=True).all() if ngay.weekday() in m.ds_thu]
+    # Mẫu "có điều kiện" (tu_dong=False: khi có lệnh pha, khi có dự án…)
+    # không tự tạo — quản lý bấm giao khi phát sinh.
+    mau = [m for m in ViecDinhKy.query.filter_by(dang_dung=True, tu_dong=True).all() if ngay.weekday() in m.ds_thu]
     if not mau:
         return kq
     dau_ngay = datetime.combine(ngay, datetime.min.time())
@@ -2932,6 +2968,8 @@ def tao_viec_dinh_ky(ngay: date | None = None, gui_zalo_bao: bool = True) -> dic
     for m in sorted(mau, key=lambda x: x.gio_han):
         for nv in NguoiDung.query.filter_by(chuc_vu_id=m.chuc_vu_id, dang_hoat_dong=True).all():
             if nv.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
+                continue
+            if not mau_hop_nhan_vien(m, nv):
                 continue
             nghi = {x.buoi for x in XinNghi.query.filter_by(nguoi_dung_id=nv.id, ngay=ngay).all()}
             try:
@@ -2954,9 +2992,9 @@ def tao_viec_dinh_ky(ngay: date | None = None, gui_zalo_bao: bool = True) -> dic
             giao = nguoi_giao_mac_dinh(nv)
             if not giao:
                 continue
-            v = CongViec(tieu_de=m.tieu_de, mo_ta=m.mo_ta, han=han, do_uu_tien="thap",
+            v = CongViec(tieu_de=m.tieu_de, mo_ta=mo_ta_tu_mau(m), han=han, do_uu_tien="thap",
                          nguoi_giao_id=giao.id, nguoi_nhan_id=nv.id, trang_thai=TrangThai.MOI,
-                         viec_dinh_ky_id=m.id)
+                         viec_dinh_ky_id=m.id, nguon=NguonViec.HANG_NGAY)
             db.session.add(v)
             theo_nguoi.setdefault(nv.id, []).append(v)
     db.session.flush()

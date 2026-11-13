@@ -33,6 +33,7 @@ def create_app(config_class=Config):
     from views.dong_goi import bp as dong_goi_bp
     from views.don_tu import bp as don_tu_bp
     from views.luong import bp as luong_bp
+    from views.nhiem_vu import bp as nhiem_vu_bp
     from views.menu import bp as menu_bp
     from views.tasks import bp as tasks_bp
     from views.thong_bao import bp as thong_bao_bp
@@ -46,6 +47,7 @@ def create_app(config_class=Config):
     app.register_blueprint(don_tu_bp)
     app.register_blueprint(menu_bp)
     app.register_blueprint(luong_bp)
+    app.register_blueprint(nhiem_vu_bp)
     app.register_blueprint(cong_no_bp)
     app.register_blueprint(bien_ban_bp)
     app.register_blueprint(attendance_bp)
