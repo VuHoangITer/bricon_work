@@ -36,8 +36,12 @@
   {% if current_user.la_quan_ly %}<div class="page-actions"><a class="nut nut--vang" href="{{ url_for('tasks.giao_viec') }}">{{ bi('plus') }} Giao việc</a></div>{% endif %}
 </div>
 
+{% if not current_user.la_quan_ly %}
+{% include "_tab_viec_cua_toi.html" %}
+{% else %}
 <div class="tab-chip">
   {% if not current_user.la_admin_sep %}
+  <a href="{{ url_for('nhiem_vu.cua_toi') }}">{{ bi('calendar') }} Lịch tháng</a>
   <a href="{{ url_for('tasks.danh_sach', xem='can_lam') }}" class="{{ 'active' if f_xem == 'can_lam' }}">{{ bi('clipboard-list') }} Cần làm{% if so_can_lam %} <span class="dem-loc">{{ so_can_lam }}</span>{% endif %}</a>
   <a href="{{ url_for('tasks.danh_sach', xem='doi_duyet') }}" class="{{ 'active' if f_xem == 'doi_duyet' }}">{{ bi('hourglass') }} Đợi duyệt{% if so_doi_duyet %} <span class="dem-loc">{{ so_doi_duyet }}</span>{% endif %}</a>
   {% endif %}
@@ -46,6 +50,7 @@
   {% endif %}
   <a href="{{ url_for('tasks.danh_sach') }}" class="{{ 'active' if not f_xem }}">{{ bi('briefcase') }} Tất cả</a>
 </div>
+{% endif %}
 
 {% set so_loc = [f_trang_thai if not f_xem else '', f_nguoi, (f_sao is not none) or '', f_tu_ngay, f_den_ngay]|select|list|length %}
 <form class="the bo-loc" method="get">

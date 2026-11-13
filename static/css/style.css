@@ -1280,3 +1280,23 @@ a.cd-dong:last-child { border-bottom:0; }
 .cd-tong-tien { margin-bottom:8px; padding:10px 14px; border-radius:10px; background:#fff4dc; font-size:.86rem; }
 .cd-tien { color:var(--chinh-dam); }
 .cd-xem-them { display:inline-flex; margin-top:4px; }
+.nv-che-do { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); overflow:visible; }
+.nv-che-do a { display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:8px 4px; }
+@media (max-width: 480px) { .nv-che-do a .ic { display:none; } .nv-che-do a { font-size:.78rem; } }
+/* Lịch làm việc nhân viên */
+a.lnv-dong { display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--vien); color:inherit; text-decoration:none; }
+a.lnv-dong:last-child { border-bottom:0; }
+a.lnv-dong[hidden] { display:none; }
+a.lnv-dong:hover { background:#fdfbf6; }
+.lnv-ten { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.lnv-ten b { font-size:.92rem; }
+.lnv-ten small { font-size:.74rem; color:var(--muc-mo); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.lnv-gd { padding:1px 8px; font-size:.64rem; }
+.lnv-so { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:2px; }
+.lnv-so i { font-style:normal; font-size:.74rem; color:var(--muc-mo); }
+.lnv-so b { color:var(--den); }
+.lnv-so .lnv-so--do { color:#b8483f; font-weight:700; }
+.lnv-so .lnv-so--vang { color:#8a6a1e; font-weight:700; }
+.ql-so-lieu > div { display:flex; flex-direction:column; align-items:center; }
+.ql-so-lieu > div { border-left:1px solid var(--vien); padding:4px; gap:2px; }
+.ql-so-lieu > div:first-child { border-left:0; }

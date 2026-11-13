@@ -1,0 +1,10 @@
+{# Hàng tab chung của "Công việc của tôi" (lịch) và danh sách việc của mình —
+   bấm qua lại giữa lịch tháng và các danh sách không phải vào lại từ menu. #}
+{% set _ep = request.endpoint %}
+{% set _xem = request.args.get('xem', '') %}
+<div class="tab-chip nv-che-do">
+  <a href="{{ url_for('nhiem_vu.cua_toi') }}" class="{{ 'active' if _ep == 'nhiem_vu.cua_toi' }}">{{ bi('calendar') }} Lịch tháng</a>
+  <a href="{{ url_for('tasks.danh_sach', xem='can_lam') }}" class="{{ 'active' if _ep == 'tasks.danh_sach' and _xem == 'can_lam' }}">{{ bi('clipboard-list') }} Cần làm{% if so_can_lam %} <span class="dem-loc">{{ so_can_lam }}</span>{% endif %}</a>
+  <a href="{{ url_for('tasks.danh_sach', xem='doi_duyet') }}" class="{{ 'active' if _ep == 'tasks.danh_sach' and _xem == 'doi_duyet' }}">{{ bi('hourglass') }} Đợi duyệt{% if so_doi_duyet %} <span class="dem-loc">{{ so_doi_duyet }}</span>{% endif %}</a>
+  <a href="{{ url_for('tasks.danh_sach') }}" class="{{ 'active' if _ep == 'tasks.danh_sach' and not _xem }}">{{ bi('briefcase') }} Tất cả</a>
+</div>

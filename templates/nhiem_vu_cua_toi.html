@@ -8,56 +8,13 @@
 {%- endmacro %}
 
 {% block content %}
+{% if not la_minh %}
+<div><a class="quay-lai" href="{{ url_for('nhiem_vu.lich_nhan_vien') }}">{{ bi('chevron-left') }} Lịch làm việc nhân viên</a></div>
+{% endif %}
 <div class="page-head">
   <div class="page-head-copy"><h1>{{ 'Công việc của tôi' if la_minh else 'Công việc' }}</h1></div>
   <div class="page-actions">
     <span class="nv-ngay-chip">{{ bi('calendar') }} {{ hom_nay.strftime('%d/%m/%Y') }}</span>
-  </div>
-</div>
-
-<div class="the nv-nguoi">
-  {{ avatar(nd, cls="don-avatar nv-nguoi-avatar") }}
-  <div style="flex:1;min-width:0">
-    <strong>{{ nd.ho_ten }}</strong>
-    <small>{{ nd.chuc_vu.ten if nd.chuc_vu else 'Chưa có vị trí' }}{% if nd.bo_phan %} · {{ nd.bo_phan.ten }}{% endif %}</small>
-    <span class="nv-giai-doan nv-giai-doan--{{ nd.giai_doan }}">{{ nd.ten_giai_doan }}</span>
-  </div>
-  {% if not la_minh %}
-  <a class="nut nut--phu nut--nho" href="{{ url_for('attendance.cham_cong_nhan_vien', id=nd.id) }}">{{ bi('clock') }} Chấm công</a>
-  {% endif %}
-</div>
-
-<div class="tab-chip nv-che-do">
-  <a href="{{ lk() }}" class="active">Lịch tháng</a>
-  <a href="{{ url_for('tasks.danh_sach', xem='can_lam') if la_minh else url_for('tasks.danh_sach', nguoi=nd.id) }}">Danh sách</a>
-  {% if la_minh %}<a href="{{ url_for('tasks.danh_sach', xem='doi_duyet') }}">Đợi duyệt{% if so_doi_duyet %} <span class="dem-loc">{{ so_doi_duyet }}</span>{% endif %}</a>{% endif %}
-</div>
-
-{# ---------------- Lịch tháng ---------------- #}
-<div class="the nv-lich">
-  <div class="cc-lich-dau">
-    <a href="{{ lk(thang=thang_truoc) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
-    <strong>Tháng {{ dau_thang.month }} / {{ dau_thang.year }}</strong>
-    <a href="{{ lk(thang=thang_sau) }}" aria-label="Tháng sau">{{ bi('chevron-right') }}</a>
-  </div>
-  <div class="nv-luoi">
-    {% for t in ['T2','T3','T4','T5','T6','T7','CN'] %}<div class="cc-thu">{{ t }}</div>{% endfor %}
-    {% for _ in range(o_trong_dau) %}<div class="{{ 'nv-tuan-chon' if o_trong_dau and (o_ngay[0].ngay - tuan).days < 7 and o_ngay[0].ngay >= tuan }}"></div>{% endfor %}
-    {% for o in o_ngay %}
-    <div class="nv-o-boc {{ 'nv-tuan-chon' if tuan <= o.ngay and (o.ngay - tuan).days < 7 }}">
-      <a href="{{ lk(ngay=o.ngay.isoformat()) }}#ngay"
-         class="nv-o {{ 'nv-o--chon' if o.ngay == ngay_chon }} {{ 'nv-o--hn' if o.ngay == hom_nay }} {{ 'nv-o--nghi' if o.nghi and not o.viec }}">
-        <span>{{ o.ngay.day }}</span>
-        {% if o.ngay == hom_nay %}<small>Hôm nay</small>{% endif %}
-        {% if o.cham %}<i class="nv-cham">{% for c in o.cham %}<b class="nv-cham--{{ c }}"></b>{% endfor %}</i>{% endif %}
-      </a>
-    </div>
-    {% endfor %}
-  </div>
-  <div class="cc-chu-giai">
-    <span><i class="nv-ch nv-cham--co_viec"></i>Có việc</span>
-    <span><i class="nv-ch nv-cham--qua_han"></i>Quá hạn</span>
-    <span><i class="nv-ch nv-cham--xong"></i>Hoàn thành</span>
   </div>
 </div>
 
@@ -127,6 +84,53 @@
     </form>
   </details>
   {% endif %}
+</div>
+
+<div class="the nv-nguoi">
+  {{ avatar(nd, cls="don-avatar nv-nguoi-avatar") }}
+  <div style="flex:1;min-width:0">
+    <strong>{{ nd.ho_ten }}</strong>
+    <small>{{ nd.chuc_vu.ten if nd.chuc_vu else 'Chưa có vị trí' }}{% if nd.bo_phan %} · {{ nd.bo_phan.ten }}{% endif %}</small>
+    <span class="nv-giai-doan nv-giai-doan--{{ nd.giai_doan }}">{{ nd.ten_giai_doan }}</span>
+  </div>
+  {% if not la_minh %}
+  <a class="nut nut--phu nut--nho" href="{{ url_for('attendance.cham_cong_nhan_vien', id=nd.id) }}">{{ bi('clock') }} Chấm công</a>
+  {% endif %}
+</div>
+
+{% if la_minh %}{% include "_tab_viec_cua_toi.html" %}{% else %}
+<div class="tab-chip nv-che-do">
+  <a href="{{ lk() }}" class="active">Lịch tháng</a>
+  <a href="{{ url_for('tasks.danh_sach', nguoi=nd.id) }}">Danh sách</a>
+</div>
+{% endif %}
+
+{# ---------------- Lịch tháng ---------------- #}
+<div class="the nv-lich">
+  <div class="cc-lich-dau">
+    <a href="{{ lk(thang=thang_truoc) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
+    <strong>Tháng {{ dau_thang.month }} / {{ dau_thang.year }}</strong>
+    <a href="{{ lk(thang=thang_sau) }}" aria-label="Tháng sau">{{ bi('chevron-right') }}</a>
+  </div>
+  <div class="nv-luoi">
+    {% for t in ['T2','T3','T4','T5','T6','T7','CN'] %}<div class="cc-thu">{{ t }}</div>{% endfor %}
+    {% for _ in range(o_trong_dau) %}<div class="{{ 'nv-tuan-chon' if o_trong_dau and (o_ngay[0].ngay - tuan).days < 7 and o_ngay[0].ngay >= tuan }}"></div>{% endfor %}
+    {% for o in o_ngay %}
+    <div class="nv-o-boc {{ 'nv-tuan-chon' if tuan <= o.ngay and (o.ngay - tuan).days < 7 }}">
+      <a href="{{ lk(ngay=o.ngay.isoformat()) }}#ngay"
+         class="nv-o {{ 'nv-o--chon' if o.ngay == ngay_chon }} {{ 'nv-o--hn' if o.ngay == hom_nay }} {{ 'nv-o--nghi' if o.nghi and not o.viec }}">
+        <span>{{ o.ngay.day }}</span>
+        {% if o.ngay == hom_nay %}<small>Hôm nay</small>{% endif %}
+        {% if o.cham %}<i class="nv-cham">{% for c in o.cham %}<b class="nv-cham--{{ c }}"></b>{% endfor %}</i>{% endif %}
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="cc-chu-giai">
+    <span><i class="nv-ch nv-cham--co_viec"></i>Có việc</span>
+    <span><i class="nv-ch nv-cham--qua_han"></i>Quá hạn</span>
+    <span><i class="nv-ch nv-cham--xong"></i>Hoàn thành</span>
+  </div>
 </div>
 
 {# ---------------- Điểm tuần ---------------- #}

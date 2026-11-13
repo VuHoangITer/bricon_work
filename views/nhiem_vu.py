@@ -11,7 +11,7 @@ Việc hằng ngày vẫn do cron `tao-viec-dinh-ky` tạo mỗi sáng (services
 import re
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for  # noqa: F401
 from flask_login import current_user, login_required
 
 import services
@@ -170,6 +170,7 @@ def cua_toi():
         tuan=tuan, tuan_cuoi=tuan + timedelta(days=6), tuan_truoc=(tuan - timedelta(days=7)).isoformat(), tuan_sau=(tuan + timedelta(days=7)).isoformat(),
         muc_tieu=muc_tieu, diem=diem_tuan(nd, tuan), de_xuat=de_xuat, mau_nv=mau_nv,
         so_doi_duyet=CongViec.query.filter_by(nguoi_nhan_id=nd.id, trang_thai=TrangThai.CHO_DUYET).count(),
+        so_can_lam=CongViec.query.filter(CongViec.nguoi_nhan_id == nd.id, CongViec.trang_thai.in_(TrangThai.CHUA_XONG)).count(),
         NguonViec=NguonViec, TEN_THU=TEN_THU,
     )
 
@@ -254,6 +255,45 @@ def xoa_muc_tieu(id):
     db.session.commit()
     flash("Đã xoá mục tiêu.", "success")
     return _ve_trang(nd_id, tuan)
+
+
+# ---------------------------------------------------------------------------
+# Lịch làm việc nhân viên (quản lý / sếp): danh sách người trong phạm vi,
+# tình hình việc hôm nay; bấm vào ai thì mở lịch tháng của người đó.
+# ---------------------------------------------------------------------------
+@bp.route("/nhan-vien")
+@login_required
+def lich_nhan_vien():
+    if not current_user.la_quan_ly:
+        return redirect(url_for("nhiem_vu.cua_toi"))
+    q = NguoiDung.query.filter(NguoiDung.dang_hoat_dong.is_(True),
+                               NguoiDung.vai_tro.notin_((VaiTro.ADMIN, VaiTro.SEP)),
+                               NguoiDung.id != current_user.id)
+    if not current_user.la_admin_sep:
+        q = q.filter(NguoiDung.thuoc_bo_phan(current_user.ds_bo_phan_id or {-1}))
+    ds_nv = q.order_by(NguoiDung.ho_ten).all()
+    ids = [n.id for n in ds_nv] or [-1]
+    hn = ngay_vn_hien_tai()
+    bay_gio = gio_vn_hien_tai()
+    dau = datetime.combine(hn, datetime.min.time())
+    tk = {n.id: {"hom_nay": 0, "xong": 0, "tre": 0, "cho_duyet": 0} for n in ds_nv}
+    for v in CongViec.query.filter(CongViec.nguoi_nhan_id.in_(ids), CongViec.trang_thai != TrangThai.HUY,
+                                   CongViec.han >= dau, CongViec.han < dau + timedelta(days=1)):
+        tk[v.nguoi_nhan_id]["hom_nay"] += 1
+        tk[v.nguoi_nhan_id]["xong"] += v.trang_thai == TrangThai.HOAN_THANH
+    for nid, so in (db.session.query(CongViec.nguoi_nhan_id, db.func.count(CongViec.id))
+                    .filter(CongViec.nguoi_nhan_id.in_(ids), CongViec.trang_thai.in_(TrangThai.CHUA_XONG),
+                            CongViec.han < bay_gio).group_by(CongViec.nguoi_nhan_id)):
+        tk[nid]["tre"] = so
+    for nid, so in (db.session.query(CongViec.nguoi_nhan_id, db.func.count(CongViec.id))
+                    .filter(CongViec.nguoi_nhan_id.in_(ids), CongViec.trang_thai == TrangThai.CHO_DUYET)
+                    .group_by(CongViec.nguoi_nhan_id)):
+        tk[nid]["cho_duyet"] = so
+    dong = [{"nv": n, **tk[n.id]} for n in ds_nv]
+    # Người đang có việc trễ lên đầu để quản lý thấy ngay
+    dong.sort(key=lambda d: (-d["tre"], d["nv"].ho_ten))
+    tong = {k: sum(d[k] for d in dong) for k in ("hom_nay", "xong", "tre", "cho_duyet")}
+    return render_template("nhiem_vu_lich_nv.html", dong=dong, tong=tong, hom_nay=hn)
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block title %}Lịch làm việc nhân viên · BRICON{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Lịch làm việc nhân viên</h1>
+    <p>Bấm vào một người để xem lịch tháng, mục tiêu tuần và điểm tuần của người đó.</p>
+  </div>
+</div>
+
+<div class="the ql-the">
+  <div class="ql-so-lieu">
+    <div><strong>{{ dong|length }}</strong><span>Nhân viên</span></div>
+    <div><strong>{{ tong.hom_nay }}</strong><span>Việc hôm nay</span></div>
+    <div><strong class="do">{{ tong.tre }}</strong><span>Đang trễ</span></div>
+    <div><strong>{{ tong.cho_duyet }}</strong><span>Chờ duyệt</span></div>
+  </div>
+</div>
+
+<input type="search" class="ql-tim" data-lnv-tim placeholder="Tìm nhân viên theo tên…" style="margin-bottom:10px">
+<div class="the the--khong-dem lnv-ds" data-lnv-ds>
+  {% for d in dong %}
+  <a class="lnv-dong" href="{{ url_for('nhiem_vu.cua_toi', nguoi=d.nv.id) }}" data-ten="{{ d.nv.ho_ten|lower }}">
+    {{ avatar(d.nv, cls="don-avatar") }}
+    <span class="lnv-ten">
+      <b>{{ d.nv.ho_ten }}</b>
+      <small>{{ d.nv.chuc_vu.ten if d.nv.chuc_vu else (d.nv.bo_phan.ten if d.nv.bo_phan else '') }}
+        <span class="nv-giai-doan nv-giai-doan--{{ d.nv.giai_doan }} lnv-gd">{{ d.nv.ten_giai_doan }}</span></small>
+      <span class="lnv-so">
+        <i>Hôm nay <b>{{ d.xong }}/{{ d.hom_nay }}</b></i>
+        {% if d.tre %}<i class="lnv-so--do">{{ d.tre }} việc trễ</i>{% endif %}
+        {% if d.cho_duyet %}<i class="lnv-so--vang">{{ d.cho_duyet }} chờ duyệt</i>{% endif %}
+      </span>
+    </span>
+    <i class="nv-viec-mui">{{ bi('chevron-right') }}</i>
+  </a>
+  {% else %}
+  <div class="trong-rong" style="padding:20px">Chưa có nhân viên nào trong phạm vi quản lý.</div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var tim = document.querySelector('[data-lnv-tim]'); if (!tim) return;
+  tim.addEventListener('input', function () {
+    var t = tim.value.trim().toLowerCase();
+    document.querySelectorAll('[data-lnv-ds] .lnv-dong').forEach(function (a) { a.hidden = t && a.dataset.ten.indexOf(t) < 0; });
+  });
+})();
+</script>
+{% endblock %}

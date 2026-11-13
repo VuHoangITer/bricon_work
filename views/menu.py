@@ -113,7 +113,11 @@ def menu_chinh() -> list[dict]:
         cong_viec.append(_muc("tasks.danh_sach", "Tất cả công việc", bi("briefcase"), "Giao việc, theo dõi cả bộ phận",
                               khop=lambda: request.endpoint in ("tasks.chi_tiet", "tasks.giao_viec")
                               or (request.endpoint == "tasks.danh_sach" and not request.args.get("xem"))
-                              or (request.endpoint == "nhiem_vu.cua_toi" and bool(request.args.get("nguoi")))))
+                              ))
+        cong_viec.insert(len(cong_viec) - 1, _muc("nhiem_vu.lich_nhan_vien", "Lịch làm việc nhân viên", bi("calendar"),
+                                 "Xem lịch tháng, việc trễ của từng người",
+                                 khop=lambda: request.endpoint == "nhiem_vu.lich_nhan_vien"
+                                 or (request.endpoint == "nhiem_vu.cua_toi" and bool(request.args.get("nguoi")))))
     cong_viec += [
         _muc("tasks.kpi", "KPI", bi("target"), "Điểm sao, xếp loại"),
         _muc("de_xuat.danh_sach", "Đề xuất mua sắm", bi("lightbulb"), "Mua sắm, cải tiến",
