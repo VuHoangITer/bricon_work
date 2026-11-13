@@ -93,12 +93,14 @@
   {{ ds_de_xuat(ds.de_xuat_cv) }}
   {% endif %}
   {% if not ds.nhan_viec and not ds.de_xuat_cv %}{{ trong('Không có đề xuất công việc nào chờ duyệt') }}{% endif %}
+  <a class="nut nut--phu nut--rong cd-lich-su" href="{{ url_for('de_xuat.danh_sach', loai='cong_viec') }}">{{ bi('clock') }} Lịch sử đề xuất mua sắm đã xử lý</a>
 
 {% else %}
   {% if ds.tam_ung %}
   <div class="cd-tong-tien">Tổng đang xin ứng: <b>{{ ds.tam_ung|map(attribute='chi_phi_du_kien')|select|sum|tien }} ₫</b></div>
   {{ ds_de_xuat(ds.tam_ung) }}
   {% else %}{{ trong('Không có tạm ứng nào chờ duyệt') }}{% endif %}
+  <a class="nut nut--phu nut--rong cd-lich-su" href="{{ url_for('de_xuat.danh_sach', loai='tam_ung') }}">{{ bi('clock') }} Lịch sử tạm ứng đã duyệt / từ chối</a>
 {% endif %}
 {% endblock %}
 
