@@ -30,6 +30,7 @@
 <div class="tab-chip nv-che-do">
   <a href="{{ lk() }}" class="active">Lịch tháng</a>
   <a href="{{ url_for('tasks.danh_sach', xem='can_lam') if la_minh else url_for('tasks.danh_sach', nguoi=nd.id) }}">Danh sách</a>
+  {% if la_minh %}<a href="{{ url_for('tasks.danh_sach', xem='doi_duyet') }}">Đợi duyệt{% if so_doi_duyet %} <span class="dem-loc">{{ so_doi_duyet }}</span>{% endif %}</a>{% endif %}
 </div>
 
 {# ---------------- Lịch tháng ---------------- #}

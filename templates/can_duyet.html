@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% from "_don_tu_the.html" import the_don %}
+{% from "_avatar.html" import avatar %}
+{% block title %}Cần duyệt · BRICON{% endblock %}
+
+{% macro trong(chu) %}
+<div class="the trong-rong cd-xong">
+  <span class="cd-xong-icon">{{ bi('check-circle') }}</span>
+  <strong>{{ chu }}</strong>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div class="page-head-copy">
+    <h1>Cần duyệt</h1>
+    <p>{% if ds.tong %}Có <b>{{ ds.tong }}</b> mục đang chờ bạn.{% else %}Mọi thứ đã được xử lý.{% endif %}</p>
+  </div>
+</div>
+
+<div class="tab-chip cd-tab">
+  <a href="{{ url_for('menu.can_duyet', tab='don') }}" class="{{ 'active' if tab == 'don' }}">
+    {{ bi('file-text', 'ic--sm') }} Đơn từ{% if dem.don %} <span class="dem-loc">{{ dem.don }}</span>{% endif %}</a>
+  <a href="{{ url_for('menu.can_duyet', tab='viec') }}" class="{{ 'active' if tab == 'viec' }}">
+    {{ bi('clipboard-list', 'ic--sm') }} Công việc{% if dem.viec %} <span class="dem-loc">{{ dem.viec }}</span>{% endif %}</a>
+  <a href="{{ url_for('menu.can_duyet', tab='tam_ung') }}" class="{{ 'active' if tab == 'tam_ung' }}">
+    {{ bi('wallet', 'ic--sm') }} Tạm ứng{% if dem.tam_ung %} <span class="dem-loc">{{ dem.tam_ung }}</span>{% endif %}</a>
+</div>
+
+{% if tab == 'don' %}
+  {% for d in ds.don %}{{ the_don(d, nut_duyet=True) }}{% else %}{{ trong('Không có đơn từ nào chờ duyệt') }}{% endfor %}
+  {% if ds.don %}<a class="lien-ket-nho cd-xem-them" href="{{ url_for('don_tu.danh_sach', tab='da_xu_ly') }}">Xem đơn đã xử lý {{ bi('chevron-right') }}</a>{% endif %}
+
+{% elif tab == 'viec' %}
+  {% if ds.viec %}
+  <div class="tieu-khu"><h2>Việc đã nộp, chờ đánh giá</h2><span class="dem">{{ ds.viec|length }}</span></div>
+  <div class="the the--khong-dem cd-ds">
+    {% for v in ds.viec %}
+    <a class="cd-dong" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}">
+      {{ avatar(v.nguoi_nhan, cls="don-avatar") }}
+      <span class="cd-dong-ten">
+        <b>{{ v.tieu_de }}</b>
+        <small>{{ v.nguoi_nhan.ho_ten }}{% if v.gui_doi_chung_luc %} · nộp {{ v.gui_doi_chung_luc.strftime('%H:%M %d/%m') }}{% endif %}</small>
+      </span>
+      <span class="nut nut--xanh nut--nho">Đánh giá</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if ds.nhan_viec %}
+  <div class="tieu-khu"><h2>Nhân viên xin nhận việc</h2><span class="dem">{{ ds.nhan_viec|length }}</span></div>
+  {% for d in ds.nhan_viec %}
+  <div class="the nv-dx">
+    <div class="nv-dx-dau">
+      {{ avatar(d.nguoi_dung, cls="don-avatar") }}
+      <div style="flex:1;min-width:0">
+        <strong>{{ d.tieu_de }}</strong>
+        <small>{{ d.nguoi_dung.ho_ten }} · hạn {{ d.han.strftime('%H:%M %d/%m') }}</small>
+      </div>
+    </div>
+    {% if d.mo_ta %}<div class="nv-dx-nd">{{ d.mo_ta }}</div>{% endif %}
+    {% if d.ket_qua %}<div class="nv-dx-nd"><b>Kết quả:</b> {{ d.ket_qua }}</div>{% endif %}
+    <form method="post" action="{{ url_for('nhiem_vu.duyet_de_xuat', id=d.id) }}" class="don-the-nut">
+      <input type="hidden" name="tiep" value="{{ url_for('menu.can_duyet', tab='viec') }}">
+      <input type="hidden" name="y_kien">
+      <button class="nut nut--vien-do" type="submit" name="hanh_dong" value="tu_choi" data-hoi-ly-do>{{ bi('x') }} Từ chối</button>
+      <button class="nut nut--xanh" type="submit" name="hanh_dong" value="duyet">{{ bi('check') }} Duyệt</button>
+    </form>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% if not ds.viec and not ds.nhan_viec %}{{ trong('Không có công việc nào chờ duyệt') }}{% endif %}
+
+{% else %}
+  {% if ds.de_xuat %}
+  <div class="the the--khong-dem cd-ds">
+    {% for d in ds.de_xuat %}
+    <a class="cd-dong" href="{{ url_for('de_xuat.chi_tiet', id=d.id) }}">
+      {{ avatar(d.nguoi_de_xuat, cls="don-avatar") }}
+      <span class="cd-dong-ten">
+        <b>{{ d.ten_loai }}{% if d.chi_phi_du_kien %} · {{ d.chi_phi_du_kien|tien }} ₫{% endif %}</b>
+        <small>{{ d.nguoi_de_xuat.ho_ten }} · {{ d.noi_dung|truncate(60) }}</small>
+      </span>
+      <span class="nut nut--phu nut--nho">Xem & duyệt</span>
+    </a>
+    {% endfor %}
+  </div>
+  <div class="goi-y">Gồm tạm ứng lương và đề xuất mua sắm. Duyệt cần ký tên nên mở từng đề xuất để duyệt.</div>
+  {% else %}{{ trong('Không có tạm ứng nào chờ duyệt') }}{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-hoi-ly-do]').forEach(function (nut) {
+  nut.addEventListener('click', function (e) {
+    var ly_do = prompt('Lý do từ chối (không bắt buộc):', '');
+    if (ly_do === null) { e.preventDefault(); return; }
+    nut.form.querySelector('[name=y_kien]').value = ly_do;
+  });
+});
+</script>
+{% endblock %}

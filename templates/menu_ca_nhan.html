@@ -19,6 +19,14 @@
   <a href="{{ url_for('auth.doi_mat_khau') }}"><span>{{ bi('lock') }}</span>Đổi mật khẩu<i>{{ bi('chevron-right') }}</i></a>
 </div>
 
+{% if current_user.la_quan_ly %}
+<div class="tieu-khu"><h2>Công cụ</h2></div>
+<div class="hub-danh-sach the the--khong-dem">
+  {% if current_user.la_admin_sep %}<a href="{{ url_for('nhiem_vu.cau_hinh') }}"><span>{{ bi('settings') }}</span>Cấu hình nhiệm vụ hằng ngày<i>{{ bi('chevron-right') }}</i></a>{% endif %}
+  <a href="{{ url_for('tasks.thu_vien') }}"><span>{{ bi('images') }}</span>Thư viện ảnh đối chứng<i>{{ bi('chevron-right') }}</i></a>
+</div>
+{% endif %}
+
 {% if current_user.vai_tro in (VaiTro.ADMIN, VaiTro.SEP) %}
 <div class="tieu-khu"><h2>Quản trị</h2></div>
 <div class="hub-danh-sach the the--khong-dem">

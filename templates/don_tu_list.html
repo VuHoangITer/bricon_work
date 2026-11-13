@@ -32,6 +32,11 @@
     <small>{{ LoaiDonTu.MO_TA[ma] }}</small>
   </a>
   {% endfor %}
+  <a class="loai-don-o" href="{{ url_for('de_xuat.danh_sach', loai='tam_ung') }}">
+    <span class="loai-don-icon">{{ bi('wallet') }}</span>
+    <strong>Tạm ứng lương</strong>
+    <small>Xin ứng trước một phần lương</small>
+  </a>
 </div>
 
 {% set gan_day = cua_toi[:5] %}

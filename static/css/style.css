@@ -1263,3 +1263,18 @@ details.nv-them[open] > summary, details.nv-nhap[open] > summary { margin-bottom
   .nv-diem-dong > span { min-width:92px; }
 }
 details.nv-mau > summary::after { display:none !important; }
+/* Cần duyệt */
+.cd-xong { display:flex; flex-direction:column; align-items:center; gap:6px; padding:32px 16px; text-align:center; }
+.cd-xong-icon { width:56px; height:56px; display:grid; place-items:center; border-radius:50%; background:#eaf6ee; color:#2f9e57; }
+.cd-xong-icon .ic { width:28px; height:28px; }
+.cd-xong small { color:var(--muc-mo); }
+a.cd-dong { display:flex; align-items:center; gap:10px; padding:11px 14px; border-bottom:1px solid var(--vien); color:inherit; text-decoration:none; }
+a.cd-dong:last-child { border-bottom:0; }
+.cd-dong-ten { flex:1; min-width:0; display:flex; flex-direction:column; }
+.cd-dong-ten b { font-size:.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cd-dong-ten small { font-size:.74rem; color:var(--muc-mo); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tieu-khu h2 .ic--sm { vertical-align:-2px; color:var(--chinh-dam); }
+.cd-tab { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); overflow:visible; }
+.cd-tab a { justify-content:center; display:inline-flex; align-items:center; gap:5px; padding:8px 6px; }
+@media (max-width: 430px) { .cd-tab a .ic { display:none; } .cd-tab a { font-size:.8rem; gap:4px; } }
+.cd-xem-them { display:inline-flex; margin-top:4px; }

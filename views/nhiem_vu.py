@@ -169,6 +169,7 @@ def cua_toi():
         thang_truoc=thang_truoc, thang_sau=cuoi.strftime("%Y-%m"),
         tuan=tuan, tuan_cuoi=tuan + timedelta(days=6), tuan_truoc=(tuan - timedelta(days=7)).isoformat(), tuan_sau=(tuan + timedelta(days=7)).isoformat(),
         muc_tieu=muc_tieu, diem=diem_tuan(nd, tuan), de_xuat=de_xuat, mau_nv=mau_nv,
+        so_doi_duyet=CongViec.query.filter_by(nguoi_nhan_id=nd.id, trang_thai=TrangThai.CHO_DUYET).count(),
         NguonViec=NguonViec, TEN_THU=TEN_THU,
     )
 

@@ -7,7 +7,7 @@
 
 Dùng chung cho sidebar trên máy tính (base.html) và các trang "hub" mở từ
 thanh menu dưới cùng trên điện thoại."""
-from flask import Blueprint, render_template, request, url_for
+from flask import Blueprint, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from icons import bi
@@ -64,53 +64,60 @@ def _xem_viec(ma):
     return lambda: request.endpoint == "tasks.danh_sach" and request.args.get("xem", "") == ma
 
 
+def danh_sach_can_duyet() -> dict:
+    """Mọi thứ đang chờ current_user duyệt, gom về 1 chỗ (trang Cần duyệt)."""
+    from models import CongViec, TrangThai
+    from views.de_xuat import _de_xuat_can_duyet
+    from views.don_tu import don_cho_duyet
+    from views.nhiem_vu import de_xuat_cho_duyet
+    from views.tasks import _viec_lien_quan
+    if not current_user.la_quan_ly:
+        return {"don": [], "viec": [], "de_xuat": [], "nhan_viec": [], "tong": 0}
+    viec = [v for v in _viec_lien_quan().filter(CongViec.trang_thai == TrangThai.CHO_DUYET)
+            .order_by(CongViec.gui_doi_chung_luc).all() if current_user.duoc_duyet_viec(v)]
+    kq = {"don": don_cho_duyet(), "viec": viec, "de_xuat": _de_xuat_can_duyet(), "nhan_viec": de_xuat_cho_duyet()}
+    kq["tong"] = sum(len(x) for x in kq.values())
+    return kq
+
+
+def so_can_duyet() -> int:
+    if not current_user.is_authenticated or not current_user.la_quan_ly:
+        return 0
+    return danh_sach_can_duyet()["tong"]
+
+
 def menu_chinh() -> list[dict]:
-    """[{ma, nhan, muc: [...]}] theo quyền của người đang đăng nhập."""
+    """[{ma, nhan, muc: [...]}] theo quyền của người đang đăng nhập.
+    Gọn theo vai trò: nhân viên chỉ thấy việc của mình; mọi thứ chờ duyệt của
+    quản lý gom vào 1 ô "Cần duyệt"; mục ít dùng (thư viện, cấu hình nhiệm
+    vụ…) để ở Cá nhân → Công cụ."""
     if not current_user.is_authenticated:
         return []
     from models import BienBanPhat, TrangThaiBienBan
     from views.cong_no import duoc_vao as duoc_vao_cong_no
-    from models import LoaiDeXuat
-    from views.de_xuat import _de_xuat_can_duyet
-    from views.don_tu import so_don_cho_duyet
 
-    dx_cho = _de_xuat_can_duyet()  # [] với nhân viên thường
-    dx_dem = {loai: sum(1 for d in dx_cho if d.loai == loai) for loai in (LoaiDeXuat.CONG_VIEC, LoaiDeXuat.TAM_UNG)}
-
-    from views.nhiem_vu import de_xuat_cho_duyet
+    la_ql, la_sep = current_user.la_quan_ly, current_user.la_admin_sep
 
     cong_viec = []
-    if not current_user.la_admin_sep:
+    if not la_sep:
         cong_viec.append(_muc("nhiem_vu.cua_toi", "Công việc của tôi", bi("calendar"),
-                              "Lịch việc, mục tiêu tuần, nhiệm vụ hằng ngày", dem=_so_viec_can_lam(),
-                              khop=lambda: request.endpoint == "nhiem_vu.cua_toi" and not request.args.get("nguoi")
-                              or _xem_viec("can_lam")()))
-    if current_user.la_quan_ly:
-        cong_viec.append(_muc("tasks.danh_sach", "Việc cần duyệt", bi("check-circle"),
-                              "Nhân viên đã nộp, chờ bạn đánh giá", dem=_so_viec_can_duyet(),
-                              kw={"xem": "can_duyet"}, khop=_xem_viec("can_duyet")))
-    if not current_user.la_admin_sep:
-        n = _so_viec_doi_duyet()
-        cong_viec.append(_muc("tasks.danh_sach", "Việc đợi duyệt", bi("hourglass"),
-                              f"{n} việc đã nộp, chờ quản lý duyệt" if n else "Việc đã nộp, chờ quản lý duyệt",
-                              kw={"xem": "doi_duyet"}, khop=_xem_viec("doi_duyet")))
-    cong_viec.append(_muc("nhiem_vu.de_xuat", "Đề xuất nhận việc", bi("plus-circle"),
-                          "Nhân viên đề xuất tự nhận việc, quản lý duyệt",
-                          dem=len(de_xuat_cho_duyet()), khop=lambda: request.endpoint == "nhiem_vu.de_xuat"))
-    if current_user.la_quan_ly:
+                              "Lịch việc, mục tiêu tuần, đề xuất nhận việc", dem=_so_viec_can_lam(),
+                              khop=lambda: request.endpoint in ("nhiem_vu.cua_toi", "nhiem_vu.de_xuat")
+                              and not request.args.get("nguoi")
+                              or (request.endpoint == "tasks.danh_sach" and request.args.get("xem") in ("can_lam", "doi_duyet"))))
+    if la_ql:
+        cong_viec.append(_muc("menu.can_duyet", "Cần duyệt", bi("check-circle"),
+                              "Việc, đơn từ, tạm ứng, đề xuất chờ bạn", dem=so_can_duyet(),
+                              khop=lambda: request.endpoint == "menu.can_duyet"
+                              or (request.endpoint == "tasks.danh_sach" and request.args.get("xem") == "can_duyet")))
         cong_viec.append(_muc("tasks.danh_sach", "Tất cả công việc", bi("briefcase"), "Giao việc, theo dõi cả bộ phận",
                               khop=lambda: request.endpoint in ("tasks.chi_tiet", "tasks.giao_viec")
                               or (request.endpoint == "tasks.danh_sach" and not request.args.get("xem"))
                               or (request.endpoint == "nhiem_vu.cua_toi" and bool(request.args.get("nguoi")))))
-    if current_user.la_admin_sep:
-        cong_viec.append(_muc("nhiem_vu.cau_hinh", "Cấu hình nhiệm vụ", bi("settings"),
-                              "Bộ việc hằng ngày theo vị trí & giai đoạn",
-                              khop=lambda: request.endpoint == "nhiem_vu.cau_hinh"))
     cong_viec += [
         _muc("tasks.kpi", "KPI", bi("target"), "Điểm sao, xếp loại"),
-        _muc("de_xuat.danh_sach", "Đề xuất công việc", bi("lightbulb"), "Mua sắm, đề xuất cải tiến",
-             dem=dx_dem[LoaiDeXuat.CONG_VIEC], kw={"loai": "cong_viec"}, khop=lambda: _loai_de_xuat_dang_xem() == "cong_viec"),
-        _muc("tasks.thu_vien", "Thư viện", bi("images"), "Ảnh, tệp đối chứng"),
+        _muc("de_xuat.danh_sach", "Đề xuất mua sắm", bi("lightbulb"), "Mua sắm, cải tiến",
+             kw={"loai": "cong_viec"}, khop=lambda: _loai_de_xuat_dang_xem() == "cong_viec"),
         _muc("dong_goi.moi", "Đóng gói", bi("package"), "Chụp ảnh gói hàng",
              khop=lambda: request.blueprint == "dong_goi"),
     ]
@@ -118,27 +125,24 @@ def menu_chinh() -> list[dict]:
         cong_viec.append(_muc("cong_no.danh_sach", "Công nợ", bi("credit-card"), "Thanh toán công nợ",
                               khop=lambda: request.blueprint == "cong_no"))
 
-    nhan_su = [
-        _muc("attendance.trang_cham_cong", "Chấm công", bi("clock"), "Vào/ra ca, lịch công tháng",
-             khop=lambda: request.endpoint in ("attendance.trang_cham_cong", "attendance.xin_nghi")),
-        _muc("don_tu.danh_sach", "Đơn từ", bi("file-text"), "Xin nghỉ, đi trễ, bổ sung công…",
-             dem=so_don_cho_duyet(), khop=lambda: request.blueprint == "don_tu"),
-        _muc("de_xuat.danh_sach", "Tạm ứng", bi("wallet"), "Đề xuất tạm ứng lương",
-             dem=dx_dem[LoaiDeXuat.TAM_UNG], kw={"loai": "tam_ung"}, khop=lambda: _loai_de_xuat_dang_xem() == "tam_ung"),
-        _muc("bien_ban.danh_sach", "Biên bản phạt", bi("alert-triangle"), "Vi phạm, phạt",
-             dem=BienBanPhat.query.filter_by(nguoi_vi_pham_id=current_user.id,
-                                             trang_thai=TrangThaiBienBan.CHO_KY).count(),
-             khop=lambda: request.blueprint == "bien_ban"),
-    ]
-    if current_user.la_quan_ly:
+    nhan_su = []
+    if not la_sep:
+        nhan_su.append(_muc("attendance.trang_cham_cong", "Chấm công", bi("clock"), "Vào/ra ca, lịch công tháng",
+                            khop=lambda: request.endpoint in ("attendance.trang_cham_cong", "attendance.xin_nghi")))
+    nhan_su.append(_muc("don_tu.danh_sach", "Đơn từ", bi("file-text"), "Nghỉ, đi trễ, bổ sung công, tạm ứng…",
+                        khop=lambda: request.blueprint == "don_tu" or _loai_de_xuat_dang_xem() == "tam_ung"))
+    if not la_sep:
+        nhan_su.append(_muc("luong.cua_toi", "Lương của tôi", bi("credit-card"), "Lương tạm tính đến hôm nay"))
+    so_bb = BienBanPhat.query.filter_by(nguoi_vi_pham_id=current_user.id, trang_thai=TrangThaiBienBan.CHO_KY).count()
+    nhan_su.append(_muc("bien_ban.danh_sach", "Biên bản", bi("alert-triangle"), "Vi phạm, phạt", dem=so_bb,
+                        khop=lambda: request.blueprint == "bien_ban"))
+    if la_ql:
         nhan_su.append(_muc("attendance.bang_cong", "Bảng công", bi("bar-chart"), "Công cả bộ phận, xuất Excel",
-                            khop=lambda: request.endpoint in ("attendance.bang_cong", "attendance.sua_cham_cong")))
-    if current_user.la_admin_sep:
-        nhan_su.append(_muc("luong.bang_luong", "Bảng lương", bi("credit-card"), "Tính lương tự động, phiếu lương",
-                            khop=lambda: request.blueprint == "luong" and request.endpoint != "luong.khen_thuong"))
-        nhan_su.append(_muc("luong.khen_thuong", "Khen thưởng", bi("sparkles"), "Thưởng tiền cho nhân viên làm tốt"))
-    else:
-        nhan_su.insert(1, _muc("luong.cua_toi", "Lương của tôi", bi("credit-card"), "Lương tạm tính đến hôm nay"))
+                            khop=lambda: request.endpoint in ("attendance.bang_cong", "attendance.sua_cham_cong")
+                            or request.endpoint == "attendance.cham_cong_nhan_vien"))
+    if la_sep:
+        nhan_su.append(_muc("luong.bang_luong", "Lương & thưởng", bi("wallet"), "Bảng lương, khen thưởng, mẫu lương",
+                            khop=lambda: request.blueprint == "luong"))
     if current_user.duoc_quan_ly_giay_to:
         nhan_su.append(_muc("admin.giay_to", "Giấy tờ nhân sự", bi("folder"), "Hợp đồng, cam kết",
                             khop=lambda: request.endpoint in ("admin.giay_to", "admin.giay_to_nhan_vien")))
@@ -153,6 +157,20 @@ def menu_chinh() -> list[dict]:
         n["active"] = any(m["active"] for m in n["muc"])
         n["dem"] = sum(m["dem"] for m in n["muc"])
     return nhom
+
+
+@bp.route("/can-duyet")
+@login_required
+def can_duyet():
+    if not current_user.la_quan_ly:
+        return redirect(url_for("nhiem_vu.cua_toi"))
+    ds = danh_sach_can_duyet()
+    dem = {"don": len(ds["don"]), "viec": len(ds["viec"]) + len(ds["nhan_viec"]), "tam_ung": len(ds["de_xuat"])}
+    tab = request.args.get("tab")
+    if tab not in dem:
+        # Mặc định mở tab đầu tiên đang có việc chờ
+        tab = next((k for k in ("don", "viec", "tam_ung") if dem[k]), "don")
+    return render_template("can_duyet.html", ds=ds, dem=dem, tab=tab)
 
 
 @bp.route("/cong-viec")

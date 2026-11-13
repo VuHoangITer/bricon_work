@@ -1,23 +1,24 @@
 {# Thanh menu dưới cùng — chỉ hiện trên điện thoại/máy tính bảng (< 1024px).
    5 nút: Trang chủ · Công việc · [nút giữa nổi bật] · Nhân sự · Cá nhân.
-   Nút giữa: nhân viên = Chấm công; Sếp/Quản trị (không chấm công) = Duyệt đơn. #}
+   Nút giữa: nhân viên = Chấm công; Sếp/Quản trị (không chấm công) = Cần duyệt
+   (gom việc, đơn từ, tạm ứng, đề xuất đang chờ duyệt). #}
 {% set _menu = _menu if _menu is defined else menu_chinh() %}
 {% set _ep = request.endpoint or '' %}
 {% set _cv = _menu[0] %}
 {% set _ns = _menu[1] %}
-{% set _dem_duyet = so_don_cho_duyet() %}
-{% set _ns_dem = _ns.dem - (_dem_duyet if current_user.la_admin_sep else 0) %}
+{% set _dem_duyet = tong_can_duyet() if current_user.la_admin_sep else 0 %}
+{% set _cv_dem = _cv.dem - _dem_duyet %}
 <nav class="bottom-nav" aria-label="Menu chính">
   <a href="{{ url_for('tasks.dashboard') }}" class="bn-muc {{ 'active' if _ep == 'tasks.dashboard' }}">
     <span class="bn-icon">{{ bi('home') }}</span><span>{{ 'Tổng quan' if current_user.la_admin_sep else 'Trang chủ' }}</span>
   </a>
-  <a href="{{ url_for('menu.cong_viec') }}" class="bn-muc {{ 'active' if _cv.active or _ep == 'menu.cong_viec' }}">
+  <a href="{{ url_for('menu.cong_viec') }}" class="bn-muc {{ 'active' if (_cv.active and _ep != 'menu.can_duyet') or _ep == 'menu.cong_viec' }}">
     <span class="bn-icon">{{ bi('clipboard-list') }}</span><span>Công việc</span>
-    {% if _cv.dem %}<span class="bn-dem">{{ _cv.dem }}</span>{% endif %}
+    {% if _cv_dem > 0 %}<span class="bn-dem">{{ _cv_dem }}</span>{% endif %}
   </a>
   {% if current_user.la_admin_sep %}
-  <a href="{{ url_for('don_tu.danh_sach', tab='duyet') }}" class="bn-muc bn-muc--giua {{ 'active' if request.blueprint == 'don_tu' }}">
-    <span class="bn-icon">{{ bi('check-circle') }}</span><span>Duyệt đơn</span>
+  <a href="{{ url_for('menu.can_duyet') }}" class="bn-muc bn-muc--giua {{ 'active' if _ep == 'menu.can_duyet' }}">
+    <span class="bn-icon">{{ bi('check-circle') }}</span><span>Cần duyệt</span>
     {% if _dem_duyet %}<span class="bn-dem">{{ _dem_duyet }}</span>{% endif %}
   </a>
   {% else %}
@@ -25,9 +26,9 @@
     <span class="bn-icon">{{ bi('clock') }}</span><span>Chấm công</span>
   </a>
   {% endif %}
-  <a href="{{ url_for('menu.nhan_su') }}" class="bn-muc {{ 'active' if (_ns.active and _ep != 'attendance.trang_cham_cong' and not (current_user.la_admin_sep and request.blueprint == 'don_tu')) or _ep == 'menu.nhan_su' }}">
+  <a href="{{ url_for('menu.nhan_su') }}" class="bn-muc {{ 'active' if (_ns.active and _ep != 'attendance.trang_cham_cong') or _ep == 'menu.nhan_su' }}">
     <span class="bn-icon">{{ bi('users') }}</span><span>Nhân sự</span>
-    {% if _ns_dem > 0 %}<span class="bn-dem">{{ _ns_dem }}</span>{% endif %}
+    {% if _ns.dem > 0 %}<span class="bn-dem">{{ _ns.dem }}</span>{% endif %}
   </a>
   <a href="{{ url_for('menu.ca_nhan') }}" class="bn-muc {{ 'active' if _ep in ('menu.ca_nhan', 'auth.ho_so_cua_toi', 'auth.doi_mat_khau') or request.blueprint == 'admin' and not _ns.active }}">
     <span class="bn-icon">{{ bi('user') }}</span><span>Cá nhân</span>
