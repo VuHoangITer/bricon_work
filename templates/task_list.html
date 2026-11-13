@@ -33,7 +33,10 @@
 <div class="page-head">
   <div class="page-head-copy"><h1>{{ {'can_lam': 'Việc cần làm', 'doi_duyet': 'Việc đợi duyệt', 'can_duyet': 'Việc cần duyệt'}.get(f_xem, 'Công việc') }}</h1>
     <p>{{ {'can_lam': 'Việc được giao cho bạn, chưa hoàn thành.', 'doi_duyet': 'Việc bạn đã gửi đối chứng, đang chờ quản lý duyệt.', 'can_duyet': 'Nhân viên đã gửi đối chứng, chờ bạn đánh giá.'}.get(f_xem, 'Theo dõi, lọc và xử lý toàn bộ công việc được giao.') }}</p></div>
-  {% if current_user.la_quan_ly %}<div class="page-actions"><a class="nut nut--vang" href="{{ url_for('tasks.giao_viec') }}">{{ bi('plus') }} Giao việc</a></div>{% endif %}
+  {% if current_user.la_quan_ly %}<div class="page-actions">
+    {% if f_nguoi %}<a class="nut nut--phu" href="{{ url_for('nhiem_vu.cua_toi', nguoi=f_nguoi) }}">{{ bi('calendar') }} Xem lịch tháng</a>{% endif %}
+    <a class="nut nut--vang" href="{{ url_for('tasks.giao_viec', nguoi_nhan_id=f_nguoi if f_nguoi else None) }}">{{ bi('plus') }} Giao việc</a>
+  </div>{% endif %}
 </div>
 
 {% if not current_user.la_quan_ly %}

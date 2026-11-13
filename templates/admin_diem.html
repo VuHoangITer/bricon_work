@@ -9,8 +9,8 @@
 
 {% include "_tab_quan_tri.html" %}
 
-<details class="the the--them" open>
-  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">+ Thêm điểm</summary>
+<details class="the the--them" {{ 'open' if not ds }}>
+  <summary style="font-weight:800;cursor:pointer;color:var(--chinh-dam)">{{ bi('plus', 'ic--sm') }} Thêm điểm chấm công</summary>
   <form method="post" style="margin-top:14px">
     <div class="o-nhap"><label>Tên điểm</label>
       <input name="ten" required placeholder="VD: Văn phòng Bình Tân"></div>
@@ -27,7 +27,7 @@
     <label style="display:flex;gap:8px;align-items:center;font-weight:500;margin-bottom:14px">
       <input type="checkbox" name="dang_hoat_dong" checked style="width:18px;height:18px;accent-color:var(--chinh)">
       Đang áp dụng</label>
-    <button class="nut nut--rong" type="submit">Lưu điểm</button>
+    <button class="nut nut--rong" type="submit">{{ bi('check') }} Lưu điểm</button>
   </form>
 </details>
 
@@ -35,8 +35,12 @@
 
 {% for d in ds %}
 <details class="the">
-  <summary style="cursor:pointer;display:flex;justify-content:space-between;gap:10px">
-    <strong>{{ d.ten }}</strong>
+  <summary class="nv-tom-tat">
+    <span class="nv-bo-icon" style="background:var(--chinh-nhat);color:var(--chinh-dam)">{{ bi('map-pin') }}</span>
+    <div class="nv-thong-tin">
+      <strong>{{ d.ten }}</strong>
+      {% if d.dia_chi %}<small>{{ d.dia_chi }}</small>{% endif %}
+    </div>
     <span class="nhan" data-tt="{{ 'hoan_thanh' if d.dang_hoat_dong else 'huy' }}">{{ d.ban_kinh_m }}m</span>
   </summary>
   <form method="post" style="margin-top:14px">

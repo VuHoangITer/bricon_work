@@ -11,45 +11,72 @@
 </div>
 
 <div class="the ql-the">
-  <div class="ql-so-lieu">
-    <div><strong>{{ dong|length }}</strong><span>Nhân viên</span></div>
-    <div><strong>{{ tong.hom_nay }}</strong><span>Việc hôm nay</span></div>
-    <div><strong class="do">{{ tong.tre }}</strong><span>Đang trễ</span></div>
-    <div><strong>{{ tong.cho_duyet }}</strong><span>Chờ duyệt</span></div>
+  <div class="ql-so-lieu lnv-thong-ke" data-lnv-tk>
+    <button type="button" class="active" data-loc=""><strong>{{ dong|length }}</strong><span>Nhân viên</span></button>
+    <button type="button" data-loc="hom_nay"><strong class="xanh">{{ tong.hom_nay }}</strong><span>Việc hôm nay</span></button>
+    <button type="button" data-loc="tre"><strong class="do">{{ tong.tre }}</strong><span>Đang trễ</span></button>
+    <button type="button" data-loc="cho_duyet"><strong style="color:var(--chinh-dam)">{{ tong.cho_duyet }}</strong><span>Chờ duyệt</span></button>
   </div>
 </div>
 
-<input type="search" class="ql-tim" data-lnv-tim placeholder="Tìm nhân viên theo tên…" style="margin-bottom:10px">
-<div class="the the--khong-dem lnv-ds" data-lnv-ds>
-  {% for d in dong %}
-  <a class="lnv-dong" href="{{ url_for('nhiem_vu.cua_toi', nguoi=d.nv.id) }}" data-ten="{{ d.nv.ho_ten|lower }}">
-    {{ avatar(d.nv, cls="don-avatar") }}
-    <span class="lnv-ten">
-      <b>{{ d.nv.ho_ten }}</b>
-      <small>{{ d.nv.chuc_vu.ten if d.nv.chuc_vu else (d.nv.bo_phan.ten if d.nv.bo_phan else '') }}
-        <span class="nv-giai-doan nv-giai-doan--{{ d.nv.giai_doan }} lnv-gd">{{ d.nv.ten_giai_doan }}</span></small>
-      <span class="lnv-so">
-        <i>Hôm nay <b>{{ d.xong }}/{{ d.hom_nay }}</b></i>
-        {% if d.tre %}<i class="lnv-so--do">{{ d.tre }} việc trễ</i>{% endif %}
-        {% if d.cho_duyet %}<i class="lnv-so--vang">{{ d.cho_duyet }} chờ duyệt</i>{% endif %}
+<div class="the lnv-khung">
+  <div class="lnv-bo-loc">
+    <input type="search" class="ql-tim" data-lnv-tim placeholder="Tìm nhân viên theo tên hoặc vị trí…" style="margin:0">
+  </div>
+  <div class="lnv-ds" data-lnv-ds>
+    {% for d in dong %}
+    {% set phu_de = (d.nv.chuc_vu.ten if d.nv.chuc_vu else '') ~ (' · ' ~ d.nv.bo_phan.ten if d.nv.bo_phan else '') %}
+    <a class="lnv-dong" href="{{ url_for('nhiem_vu.cua_toi', nguoi=d.nv.id) }}"
+       data-ten="{{ (d.nv.ho_ten ~ ' ' ~ phu_de)|lower }}"
+       data-hom_nay="{{ 1 if d.hom_nay else 0 }}"
+       data-tre="{{ 1 if d.tre else 0 }}"
+       data-cho_duyet="{{ 1 if d.cho_duyet else 0 }}">
+      {{ avatar(d.nv, cls="don-avatar") }}
+      <span class="lnv-ten">
+        <span class="lnv-ten-hang">
+          <b>{{ d.nv.ho_ten }}</b>
+          <span class="nv-giai-doan nv-giai-doan--{{ d.nv.giai_doan }} lnv-gd">{{ d.nv.ten_giai_doan }}</span>
+        </span>
+        {% if phu_de %}<small>{{ phu_de.lstrip(' · ') }}</small>{% endif %}
+        <span class="lnv-so">
+          <i class="lnv-chip {{ 'lnv-chip--xanh' if d.hom_nay and d.xong == d.hom_nay }}">Hôm nay <b>{{ d.xong }}/{{ d.hom_nay }}</b></i>
+          {% if d.tre %}<i class="lnv-chip lnv-chip--do">{{ d.tre }} việc trễ</i>{% endif %}
+          {% if d.cho_duyet %}<i class="lnv-chip lnv-chip--vang">{{ d.cho_duyet }} chờ duyệt</i>{% endif %}
+        </span>
       </span>
-    </span>
-    <i class="nv-viec-mui">{{ bi('chevron-right') }}</i>
-  </a>
-  {% else %}
-  <div class="trong-rong" style="padding:20px">Chưa có nhân viên nào trong phạm vi quản lý.</div>
-  {% endfor %}
+      <i class="nv-viec-mui">{{ bi('chevron-right') }}</i>
+    </a>
+    {% else %}
+    <div class="trong-rong" style="padding:20px">Chưa có nhân viên nào trong phạm vi quản lý.</div>
+    {% endfor %}
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 (function () {
-  var tim = document.querySelector('[data-lnv-tim]'); if (!tim) return;
-  tim.addEventListener('input', function () {
+  var tim = document.querySelector('[data-lnv-tim]'), tk = document.querySelector('[data-lnv-tk]'), loc = '';
+  if (!tim) return;
+  function capNhat() {
     var t = tim.value.trim().toLowerCase();
-    document.querySelectorAll('[data-lnv-ds] .lnv-dong').forEach(function (a) { a.hidden = t && a.dataset.ten.indexOf(t) < 0; });
-  });
+    document.querySelectorAll('[data-lnv-ds] .lnv-dong').forEach(function (a) {
+      var khopTen = !t || a.dataset.ten.indexOf(t) >= 0;
+      var khopLoc = !loc || a.dataset[loc] === '1';
+      a.hidden = !(khopTen && khopLoc);
+    });
+  }
+  tim.addEventListener('input', capNhat);
+  if (tk) {
+    tk.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-loc]'); if (!b) return;
+      loc = (loc === b.dataset.loc && loc !== '') ? '' : b.dataset.loc;
+      tk.querySelectorAll('button[data-loc]').forEach(function (x) {
+        x.classList.toggle('active', x.dataset.loc === loc);
+      });
+      capNhat();
+    });
+  }
 })();
 </script>
 {% endblock %}

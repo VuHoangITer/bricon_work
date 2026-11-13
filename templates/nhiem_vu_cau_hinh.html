@@ -39,7 +39,12 @@
     </div>
   </div>
   <div class="goi-y">Bỏ tick "Tự tạo mỗi ngày" cho việc chỉ có khi phát sinh (lệnh pha, dự án…) — giao tay bằng nút "Giao ngay".</div>
-  <button class="nut nut--vang nut--rong" type="submit">{{ bi('check') }} {{ 'Lưu thay đổi' if m else 'Thêm nhiệm vụ' }}</button>
+  <div class="hang-nut" style="margin-top:8px">
+    <button class="nut nut--vang" style="flex:2" type="submit">{{ bi('check') }} {{ 'Lưu thay đổi' if m else 'Thêm nhiệm vụ' }}</button>
+    {% if m %}
+    <button class="nut nut--vien-do" type="submit" form="xoa-mau-{{ m.id }}">{{ bi('trash') }} Xoá</button>
+    {% endif %}
+  </div>
 </form>
 {% endmacro %}
 
@@ -62,19 +67,17 @@
   </summary>
   <div class="nv-mau-than">
     {{ form_mau(m) }}
+    <form id="xoa-mau-{{ m.id }}" method="post" action="{{ url_for('nhiem_vu.xoa_mau', id=m.id) }}" onsubmit="return confirm('Xoá nhiệm vụ này khỏi bộ? Việc đã giao trước đó vẫn giữ nguyên.')" hidden></form>
     {% if nhan_vien %}
     <form method="post" action="{{ url_for('nhiem_vu.giao_tu_mau', id=m.id) }}" class="nv-giao-ngay">
-      <strong>{{ bi('send', 'ic--sm') }} Giao ngay</strong>
+      <strong class="nv-giao-ngay-nhan">{{ bi('send', 'ic--sm') }} Giao ngay</strong>
       <select name="nguoi_dung_id" required>
         {% for n in nhan_vien %}<option value="{{ n.id }}">{{ n.ho_ten }} · {{ n.ten_giai_doan }}</option>{% endfor %}
       </select>
       <input type="date" name="ngay" value="{{ hom_nay.isoformat() }}" required>
-      <button class="nut nut--phu nut--nho" type="submit">Giao</button>
+      <button class="nut nut--phu nut--nho" type="submit">Giao việc</button>
     </form>
     {% endif %}
-    <form method="post" action="{{ url_for('nhiem_vu.xoa_mau', id=m.id) }}" onsubmit="return confirm('Xoá nhiệm vụ này khỏi bộ? Việc đã giao trước đó vẫn giữ nguyên.')">
-      <button class="nut nut--vien-do nut--nho" type="submit">{{ bi('trash') }} Xoá nhiệm vụ</button>
-    </form>
   </div>
 </details>
 {% endmacro %}
@@ -135,35 +138,46 @@
 </form>
 
 <div class="tieu-khu"><h2>Nhân viên áp dụng · {{ cv.ten }}</h2><span class="dem">{{ nhan_vien|length }}</span></div>
-{% for n in nhan_vien %}
-<form class="the nv-nv" method="post" action="{{ url_for('nhiem_vu.luu_nhan_vien', id=n.id) }}">
-  <input type="hidden" name="gd_dang_xem" value="{{ gd }}">
-  <div class="nv-nv-dau">
-    {{ avatar(n, cls="don-avatar") }}
-    <div style="flex:1;min-width:0">
-      <strong>{{ n.ho_ten }}</strong>
-      <small>{{ n.ten_giai_doan }}{% if n.giai_doan_tu %} từ {{ n.giai_doan_tu.strftime('%d/%m/%Y') }}{% endif %}{% if n.ds_mang %} · {{ n.ds_mang|join(', ') }}{% endif %}</small>
-    </div>
-    <a class="nut nut--phu nut--nho" href="{{ url_for('nhiem_vu.cua_toi', nguoi=n.id) }}">{{ bi('calendar') }} Xem việc</a>
-  </div>
-  <div class="nv-gd-tab nv-gd-tab--nho">
-    {% for ma in GiaiDoan.TAT_CA %}
-    <label class="{{ 'active' if n.giai_doan == ma }}"><input type="radio" name="giai_doan" value="{{ ma }}" {{ 'checked' if n.giai_doan == ma }}>{{ GiaiDoan.NHAN[ma] }}</label>
-    {% endfor %}
-  </div>
-  {% set ds_mang = (mang_co + n.ds_mang)|unique|list %}
-  {% if ds_mang %}
-  <div class="nv-mang">
-    <span>Mảng phụ trách:</span>
-    {% for x in ds_mang %}<label><input type="checkbox" name="mang" value="{{ x }}" {{ 'checked' if x in n.ds_mang }}><i>{{ x }}</i></label>{% endfor %}
-  </div>
-  <div class="goi-y" style="margin:0">Không tick mảng nào = nhận nhiệm vụ của mọi mảng.</div>
-  {% endif %}
-  <button class="nut nut--vang nut--nho" type="submit">Lưu & áp dụng từ hôm nay</button>
-</form>
+{% if nhan_vien %}
+<div class="khoi-nv-bo-phan">
+  {% for n in nhan_vien %}
+  <details class="nv-hang nv-nv-hang">
+    <summary class="nv-tom-tat">
+      {{ avatar(n, cls="don-avatar") }}
+      <div class="nv-thong-tin">
+        <strong>{{ n.ho_ten }}</strong>
+        <small>{% if n.giai_doan_tu %}Từ {{ n.giai_doan_tu.strftime('%d/%m/%Y') }} · {% endif %}{{ n.ds_mang|join(', ') if n.ds_mang else 'Mọi mảng phụ trách' }}</small>
+      </div>
+      <div class="nv-nhan-nhom">
+        <span class="nv-giai-doan nv-giai-doan--{{ n.giai_doan }}">{{ n.ten_giai_doan }}</span>
+      </div>
+    </summary>
+    <form class="nv-hang-form nv-nv" method="post" action="{{ url_for('nhiem_vu.luu_nhan_vien', id=n.id) }}">
+      <input type="hidden" name="gd_dang_xem" value="{{ gd }}">
+      <div class="nv-gd-tab nv-gd-tab--nho">
+        {% for ma in GiaiDoan.TAT_CA %}
+        <label class="{{ 'active' if n.giai_doan == ma }}"><input type="radio" name="giai_doan" value="{{ ma }}" {{ 'checked' if n.giai_doan == ma }}>{{ GiaiDoan.NHAN[ma] }}</label>
+        {% endfor %}
+      </div>
+      {% set ds_mang = (mang_co + n.ds_mang)|unique|list %}
+      {% if ds_mang %}
+      <div class="nv-mang">
+        <span>Mảng phụ trách:</span>
+        {% for x in ds_mang %}<label><input type="checkbox" name="mang" value="{{ x }}" {{ 'checked' if x in n.ds_mang }}><i>{{ x }}</i></label>{% endfor %}
+      </div>
+      <div class="goi-y" style="margin:0 0 8px">Không tick mảng nào = nhận nhiệm vụ của mọi mảng.</div>
+      {% endif %}
+      <div class="hang-nut">
+        <button class="nut nut--vang nut--nho" type="submit">{{ bi('check') }} Lưu & áp dụng từ hôm nay</button>
+        <a class="nut nut--phu nut--nho" href="{{ url_for('nhiem_vu.cua_toi', nguoi=n.id) }}">{{ bi('calendar') }} Xem lịch việc</a>
+      </div>
+    </form>
+  </details>
+  {% endfor %}
+</div>
 {% else %}
 <div class="the trong-rong">Chưa có nhân viên nào thuộc vị trí {{ cv.ten }}. Gán chức vụ cho nhân viên ở Quản trị → Nhân sự.</div>
-{% endfor %}
+{% endif %}
 
 <div class="the nv-tu-dong">
   <div>{{ bi('calendar') }} <b>Tự tạo việc mỗi sáng</b> theo ngày lặp của từng nhiệm vụ; bỏ qua ngày nghỉ và buổi nhân viên xin nghỉ.</div>

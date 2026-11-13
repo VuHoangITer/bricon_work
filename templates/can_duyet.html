@@ -17,46 +17,47 @@
   <a class="cd-dong" href="{{ url_for('de_xuat.chi_tiet', id=d.id) }}">
     {{ avatar(d.nguoi_de_xuat, cls="don-avatar") }}
     <span class="cd-dong-ten">
-      <b>{{ d.noi_dung|truncate(70) }}</b>
+      <b>{{ d.noi_dung|truncate(90) }}</b>
       <small>{{ d.nguoi_de_xuat.ho_ten }} · {{ d.tao_luc.strftime('%d/%m') }}{% if d.chi_phi_du_kien %} · <b class="cd-tien">{{ d.chi_phi_du_kien|tien }} ₫</b>{% endif %}</small>
     </span>
-    <span class="nut nut--phu nut--nho">Xem & duyệt</span>
+    <span class="nut nut--phu nut--nho cd-dong-nut">Duyệt {{ bi('chevron-right', 'ic--xs') }}</span>
   </a>
   {% endfor %}
 </div>
-<div class="goi-y">Duyệt cần ký tên nên bấm vào từng đề xuất để duyệt.</div>
+<div class="goi-y">{{ bi('pen-tool', 'ic--xs') }} Duyệt đề xuất cần chữ ký xác nhận — bấm vào từng mục để xem chi tiết & ký duyệt.</div>
 {% endmacro %}
 
 {% block content %}
 <div class="page-head">
   <div class="page-head-copy">
     <h1>Cần duyệt</h1>
-    <p>{% if ds.tong %}Có <b>{{ ds.tong }}</b> mục đang chờ bạn.{% else %}Mọi thứ đã được xử lý.{% endif %}</p>
+    <p>{% if ds.tong %}Có <b>{{ ds.tong }}</b> mục đang chờ bạn xử lý.{% else %}Mọi mục chờ duyệt đều đã được xử lý xong.{% endif %}</p>
   </div>
 </div>
 
 <div class="tab-chip cd-tab">
   {% for ma, nhan, icon in [('don', 'Đơn từ', 'file-text'), ('viec', 'Việc cần duyệt', 'clipboard-list'), ('de_xuat', 'Việc đề xuất', 'lightbulb'), ('tam_ung', 'Tạm ứng', 'wallet')] %}
   <a href="{{ url_for('menu.can_duyet', tab=ma) }}" class="{{ 'active' if tab == ma }}">
-    {{ bi(icon, 'ic--sm') }} {{ nhan }}{% if dem[ma] %} <span class="dem-loc">{{ dem[ma] }}</span>{% endif %}</a>
+    {{ bi(icon, 'ic--sm') }} <span>{{ nhan }}</span>{% if dem[ma] %} <span class="dem-loc">{{ dem[ma] }}</span>{% endif %}</a>
   {% endfor %}
 </div>
 
 {% if tab == 'don' %}
   {% for d in ds.don %}{{ the_don(d, nut_duyet=True) }}{% else %}{{ trong('Không có đơn từ nào chờ duyệt') }}{% endfor %}
+  <a class="nut nut--phu nut--rong cd-lich-su" href="{{ url_for('don_tu.danh_sach', tab='da_xu_ly') }}">{{ bi('clock') }} Lịch sử đơn từ đã xử lý</a>
 
 {% elif tab == 'viec' %}
   {% if ds.viec %}
-  <div class="goi-y" style="margin:0 0 8px">Nhân viên đã làm xong và nộp kết quả. Bấm "Đánh giá" để xem ảnh/tệp và chấm sao.</div>
+  <div class="goi-y" style="margin:0 0 8px">Nhân viên đã nộp đối chứng kết quả — bấm vào từng việc để xem ảnh/tệp và chấm sao.</div>
   <div class="the the--khong-dem cd-ds">
     {% for v in ds.viec[:GIOI_HAN] %}
     <a class="cd-dong" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}">
       {{ avatar(v.nguoi_nhan, cls="don-avatar") }}
       <span class="cd-dong-ten">
-        <b>{{ v.tieu_de }}</b>
+        <b><span class="ma-viec">[{{ v.ma }}]</span> {{ v.tieu_de }}</b>
         <small>{{ v.nguoi_nhan.ho_ten }}{% if v.gui_doi_chung_luc %} · nộp {{ v.gui_doi_chung_luc.strftime('%H:%M %d/%m') }}{% endif %}</small>
       </span>
-      <span class="nut nut--xanh nut--nho">Đánh giá</span>
+      <span class="nut nut--xanh nut--nho cd-dong-nut">Đánh giá</span>
     </a>
     {% endfor %}
   </div>
@@ -78,7 +79,7 @@
       </div>
     </div>
     {% if d.mo_ta %}<div class="nv-dx-nd">{{ d.mo_ta }}</div>{% endif %}
-    {% if d.ket_qua %}<div class="nv-dx-nd"><b>Kết quả:</b> {{ d.ket_qua }}</div>{% endif %}
+    {% if d.ket_qua %}<div class="nv-dx-nd"><b>Kết quả dự kiến:</b> {{ d.ket_qua }}</div>{% endif %}
     <form method="post" action="{{ url_for('nhiem_vu.duyet_de_xuat', id=d.id) }}" class="don-the-nut">
       <input type="hidden" name="tiep" value="{{ url_for('menu.can_duyet', tab='de_xuat') }}">
       <input type="hidden" name="y_kien">
@@ -97,7 +98,7 @@
 
 {% else %}
   {% if ds.tam_ung %}
-  <div class="cd-tong-tien">Tổng đang xin ứng: <b>{{ ds.tam_ung|map(attribute='chi_phi_du_kien')|select|sum|tien }} ₫</b></div>
+  <div class="cd-tong-tien">{{ bi('wallet', 'ic--sm') }} Tổng đang xin ứng: <b>{{ ds.tam_ung|map(attribute='chi_phi_du_kien')|select|sum|tien }} ₫</b></div>
   {{ ds_de_xuat(ds.tam_ung) }}
   {% else %}{{ trong('Không có tạm ứng nào chờ duyệt') }}{% endif %}
   <a class="nut nut--phu nut--rong cd-lich-su" href="{{ url_for('de_xuat.danh_sach', loai='tam_ung') }}">{{ bi('clock') }} Lịch sử tạm ứng đã duyệt / từ chối</a>

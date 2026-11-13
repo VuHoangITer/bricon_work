@@ -53,22 +53,28 @@
   <button class="nut nut--vang nut--rong nut--lon" type="submit">{{ bi('send') }} Gửi đề xuất</button>
 </form>
 
-<div class="tieu-khu"><h2>Đề xuất của tôi</h2></div>
+<div class="tieu-khu"><h2>Đề xuất của tôi</h2><span class="dem">{{ cua_toi|length }}</span></div>
 {% for d in cua_toi %}
 <div class="the nv-dx">
   <div class="nv-dx-dau">
     <div style="flex:1;min-width:0">
       <strong>{{ d.tieu_de }}</strong>
-      <small>Gửi {{ d.tao_luc.strftime('%d/%m') }} · hạn {{ d.han.strftime('%H:%M %d/%m') }}{% if d.nguoi_duyet %} · {{ d.nguoi_duyet.ho_ten }}{% endif %}</small>
+      <small>Gửi {{ d.tao_luc.strftime('%d/%m') }} · hạn {{ d.han.strftime('%H:%M %d/%m') }}{% if d.nguoi_duyet %} · duyệt bởi {{ d.nguoi_duyet.ho_ten }}{% endif %}</small>
     </div>
     <span class="nhan" data-tt="{{ d.mau_trang_thai }}">{{ d.ten_trang_thai }}</span>
   </div>
-  {% if d.y_kien %}<div class="nv-dx-nd"><b>Ý kiến:</b> {{ d.y_kien }}</div>{% endif %}
-  {% if d.cong_viec %}<a class="lien-ket-nho" href="{{ url_for('tasks.chi_tiet', viec_id=d.cong_viec_id) }}">Mở việc {{ d.cong_viec.ma }} {{ bi('chevron-right') }}</a>{% endif %}
-  {% if d.trang_thai == 'cho_duyet' %}
-  <form method="post" action="{{ url_for('nhiem_vu.huy_de_xuat', id=d.id) }}" onsubmit="return confirm('Huỷ đề xuất này?')">
-    <button class="nut nut--phu nut--nho" type="submit">Huỷ đề xuất</button>
-  </form>
+  {% if d.mo_ta %}<div class="nv-dx-nd">{{ d.mo_ta }}</div>{% endif %}
+  {% if d.ket_qua %}<div class="nv-dx-nd"><b>Kết quả dự kiến:</b> {{ d.ket_qua }}</div>{% endif %}
+  {% if d.y_kien %}<div class="nv-dx-nd"><b>Ý kiến quản lý:</b> {{ d.y_kien }}</div>{% endif %}
+  {% if d.cong_viec or d.trang_thai == 'cho_duyet' %}
+  <div class="hang-nut" style="margin-top:10px">
+    {% if d.cong_viec %}<a class="nut nut--phu nut--nho" href="{{ url_for('tasks.chi_tiet', viec_id=d.cong_viec_id) }}">Mở việc {{ d.cong_viec.ma }} {{ bi('chevron-right') }}</a>{% endif %}
+    {% if d.trang_thai == 'cho_duyet' %}
+    <form method="post" action="{{ url_for('nhiem_vu.huy_de_xuat', id=d.id) }}" onsubmit="return confirm('Huỷ đề xuất này?')">
+      <button class="nut nut--vien-do nut--nho" type="submit">{{ bi('x') }} Huỷ đề xuất</button>
+    </form>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
 {% else %}

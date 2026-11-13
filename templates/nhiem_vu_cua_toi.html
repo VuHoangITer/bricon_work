@@ -10,106 +10,50 @@
 {% block content %}
 {% if not la_minh %}
 <div><a class="quay-lai" href="{{ url_for('nhiem_vu.lich_nhan_vien') }}">{{ bi('chevron-left') }} Lịch làm việc nhân viên</a></div>
-{% endif %}
-<div class="page-head">
-  <div class="page-head-copy"><h1>{{ 'Công việc của tôi' if la_minh else 'Công việc' }}</h1></div>
-  <div class="page-actions">
-    <span class="nv-ngay-chip">{{ bi('calendar') }} {{ hom_nay.strftime('%d/%m/%Y') }}</span>
-  </div>
-</div>
-
-{# ---------------- Mục tiêu tuần ---------------- #}
-<div class="nv-tuan-dau" id="muc-tieu">
-  <a href="{{ lk(ngay=ngay_chon.isoformat(), tuan=tuan_truoc) }}#muc-tieu" aria-label="Tuần trước">{{ bi('chevron-left') }}</a>
-  <h2>Mục tiêu tuần {{ tuan.strftime('%d') }}–{{ tuan_cuoi.strftime('%d/%m') }}</h2>
-  <a href="{{ lk(ngay=ngay_chon.isoformat(), tuan=tuan_sau) }}#muc-tieu" aria-label="Tuần sau">{{ bi('chevron-right') }}</a>
-  {% if not (tuan <= hom_nay and (hom_nay - tuan).days < 7) %}
-  <a class="nv-tuan-nay" href="{{ url_for('nhiem_vu.cua_toi', nguoi=None if la_minh else nd.id) }}#muc-tieu">Tuần này</a>
-  {% endif %}
-</div>
-<div class="the nv-muc-tieu">
-  {% for mt in muc_tieu %}
-  <div class="nv-mt">
-    <span class="nv-mt-icon">{{ bi('target') }}</span>
-    <div class="nv-mt-than">
-      <div class="nv-mt-dong">
-        <strong>{{ mt.ten }}</strong>
-        <span class="nv-mt-so"><b>{{ mt.dat }}/{{ mt.chi_tieu }}</b> ({{ mt.phan_tram }}%)</span>
-      </div>
-      <div class="nv-thanh"><i style="width:{{ mt.phan_tram }}%"></i></div>
-      <div class="nv-mt-phu">
-        {% if mt.viec_dinh_ky_id %}<small>{{ bi('repeat', 'ic--xs') }} Tự đếm việc đã được duyệt</small>
-        {% elif la_minh or quan_ly %}
-        <form method="post" action="{{ url_for('nhiem_vu.cap_nhat_muc_tieu', id=mt.id) }}" class="nv-mt-sua">
-          <button type="submit" name="da_dat" value="{{ [mt.da_dat - 1, 0]|max }}" aria-label="Giảm">−</button>
-          <span>{{ mt.da_dat }}</span>
-          <button type="submit" name="da_dat" value="{{ mt.da_dat + 1 }}" aria-label="Tăng">+</button>
-          <small>Cập nhật số đạt</small>
-        </form>
-        {% endif %}
-        {% if quan_ly %}
-        <form method="post" action="{{ url_for('nhiem_vu.xoa_muc_tieu', id=mt.id) }}" onsubmit="return confirm('Xoá mục tiêu này?')" style="margin-left:auto">
-          <button class="nv-xoa" type="submit" aria-label="Xoá mục tiêu">{{ bi('trash', 'ic--xs') }}</button>
-        </form>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-  {% else %}
-  <div class="trong-rong" style="padding:14px 4px">{{ 'Quản lý chưa đặt mục tiêu cho tuần này.' if la_minh else 'Chưa có mục tiêu tuần này.' }}</div>
-  {% endfor %}
-
-  {% if quan_ly %}
-  <details class="nv-them-mt">
-    <summary>{{ bi('plus', 'ic--sm') }} Đặt mục tiêu tuần</summary>
-    <form method="post" action="{{ url_for('nhiem_vu.them_muc_tieu') }}">
-      <input type="hidden" name="nguoi_dung_id" value="{{ nd.id }}">
-      <input type="hidden" name="tuan" value="{{ tuan.isoformat() }}">
-      {% if mau_nv %}
-      <select name="viec_dinh_ky_id">
-        <option value="">— Mục tiêu tự nhập (cập nhật số tay) —</option>
-        {% for m in mau_nv %}<option value="{{ m.id }}">Đếm theo nhiệm vụ: {{ m.tieu_de }}</option>{% endfor %}
-      </select>
-      {% endif %}
-      <div class="nv-them-mt-hang">
-        <input type="text" name="ten" placeholder="VD: Đăng 5 video sản phẩm" maxlength="200">
-        <input type="number" name="chi_tieu" min="1" value="5" required aria-label="Chỉ tiêu">
-        <button class="nut nut--vang nut--nho" type="submit">Thêm</button>
-      </div>
-    </form>
-    <form method="post" action="{{ url_for('nhiem_vu.chep_muc_tieu') }}">
-      <input type="hidden" name="nguoi_dung_id" value="{{ nd.id }}">
-      <input type="hidden" name="tuan" value="{{ tuan.isoformat() }}">
-      <button class="nut nut--phu nut--nho" type="submit">{{ bi('copy', 'ic--xs') }} Chép mục tiêu tuần trước</button>
-    </form>
-  </details>
-  {% endif %}
-</div>
-
 <div class="the nv-nguoi">
   {{ avatar(nd, cls="don-avatar nv-nguoi-avatar") }}
-  <div style="flex:1;min-width:0">
-    <strong>{{ nd.ho_ten }}</strong>
+  <div class="nv-nguoi-thong-tin">
+    <div class="nv-nguoi-ten-hang">
+      <strong>{{ nd.ho_ten }}</strong>
+      <span class="nv-giai-doan nv-giai-doan--{{ nd.giai_doan }}">{{ nd.ten_giai_doan }}</span>
+    </div>
     <small>{{ nd.chuc_vu.ten if nd.chuc_vu else 'Chưa có vị trí' }}{% if nd.bo_phan %} · {{ nd.bo_phan.ten }}{% endif %}</small>
-    <span class="nv-giai-doan nv-giai-doan--{{ nd.giai_doan }}">{{ nd.ten_giai_doan }}</span>
   </div>
-  {% if not la_minh %}
-  <a class="nut nut--phu nut--nho" href="{{ url_for('attendance.cham_cong_nhan_vien', id=nd.id) }}">{{ bi('clock') }} Chấm công</a>
-  {% endif %}
+  <div class="nv-nguoi-hanh-dong">
+    <a class="nut nut--phu nut--nho" href="{{ url_for('attendance.cham_cong_nhan_vien', id=nd.id) }}">{{ bi('clock') }} Công</a>
+    {% if quan_ly %}<a class="nut nut--vang nut--nho" href="{{ url_for('tasks.giao_viec', nguoi_nhan_id=nd.id) }}">{{ bi('plus') }} Giao việc</a>{% endif %}
+  </div>
 </div>
-
-{% if la_minh %}{% include "_tab_viec_cua_toi.html" %}{% else %}
-<div class="tab-chip nv-che-do">
-  <a href="{{ lk() }}" class="active">Lịch tháng</a>
-  <a href="{{ url_for('tasks.danh_sach', nguoi=nd.id) }}">Danh sách</a>
+<div class="tab-chip nv-che-do nv-che-do--2">
+  <a href="{{ lk() }}" class="active">{{ bi('calendar') }} Lịch tháng</a>
+  <a href="{{ url_for('tasks.danh_sach', nguoi=nd.id) }}">{{ bi('clipboard-list') }} Danh sách việc</a>
 </div>
+{% else %}
+<div class="page-head nv-dau-trang">
+  <div class="page-head-copy">
+    <h1>Công việc của tôi</h1>
+    <p class="nv-phu-de">
+      <span>{{ nd.chuc_vu.ten if nd.chuc_vu else 'Nhân viên' }}{% if nd.bo_phan %} · {{ nd.bo_phan.ten }}{% endif %}</span>
+      <span class="nv-giai-doan nv-giai-doan--{{ nd.giai_doan }}">{{ nd.ten_giai_doan }}</span>
+    </p>
+  </div>
+  <div class="page-actions">
+    <a class="nut nut--vien-vang nut--nho" href="{{ url_for('nhiem_vu.de_xuat') }}">{{ bi('lightbulb') }} Đề xuất nhận việc</a>
+  </div>
+</div>
+{% include "_tab_viec_cua_toi.html" %}
 {% endif %}
 
 {# ---------------- Lịch tháng ---------------- #}
 <div class="the nv-lich">
   <div class="cc-lich-dau">
     <a href="{{ lk(thang=thang_truoc) }}" aria-label="Tháng trước">{{ bi('chevron-left') }}</a>
-    <strong>Tháng {{ dau_thang.month }} / {{ dau_thang.year }}</strong>
+    <div class="nv-lich-tieu-de">
+      <strong>Tháng {{ dau_thang.month }} / {{ dau_thang.year }}</strong>
+      {% if ngay_chon != hom_nay or dau_thang.month != hom_nay.month or dau_thang.year != hom_nay.year %}
+      <a class="nv-hom-nay-nut" href="{{ url_for('nhiem_vu.cua_toi', nguoi=None if la_minh else nd.id) }}">Hôm nay</a>
+      {% endif %}
+    </div>
     <a href="{{ lk(thang=thang_sau) }}" aria-label="Tháng sau">{{ bi('chevron-right') }}</a>
   </div>
   <div class="nv-luoi">
@@ -120,55 +64,44 @@
       <a href="{{ lk(ngay=o.ngay.isoformat()) }}#ngay"
          class="nv-o {{ 'nv-o--chon' if o.ngay == ngay_chon }} {{ 'nv-o--hn' if o.ngay == hom_nay }} {{ 'nv-o--nghi' if o.nghi and not o.viec }}">
         <span>{{ o.ngay.day }}</span>
-        {% if o.ngay == hom_nay %}<small>Hôm nay</small>{% endif %}
         {% if o.cham %}<i class="nv-cham">{% for c in o.cham %}<b class="nv-cham--{{ c }}"></b>{% endfor %}</i>{% endif %}
       </a>
     </div>
     {% endfor %}
   </div>
   <div class="cc-chu-giai">
+    <span><i class="nv-ch nv-ch--hn"></i>Hôm nay</span>
     <span><i class="nv-ch nv-cham--co_viec"></i>Có việc</span>
     <span><i class="nv-ch nv-cham--qua_han"></i>Quá hạn</span>
     <span><i class="nv-ch nv-cham--xong"></i>Hoàn thành</span>
   </div>
 </div>
 
-{# ---------------- Điểm tuần ---------------- #}
-{% if diem %}
-<div class="the nv-diem" style="--d:{{ diem.diem }}">
-  <div class="nv-diem-so">
-    <strong>{{ diem.diem }}</strong><span>điểm tuần</span>
-  </div>
-  <div class="nv-diem-ct">
-    {% for nhan, gt, w in [('Khối lượng', diem.khoi_luong, diem.trong_so[0]), ('Chất lượng', diem.chat_luong, diem.trong_so[1]), ('Đúng hạn', diem.dung_han, diem.trong_so[2])] %}
-    <div class="nv-diem-dong">
-      <span>{{ nhan }} <small>{{ w }}%</small></span>
-      <div class="nv-thanh nv-thanh--xanh"><i style="width:{{ gt }}%"></i></div>
-      <b>{{ gt }}%</b>
-    </div>
-    {% endfor %}
-    <small class="goi-y" style="margin:4px 0 0">{{ diem.xong }}/{{ diem.tong }} việc được duyệt hoàn thành · chỉ tính kết quả đã được xác nhận</small>
-  </div>
-</div>
-{% endif %}
-
 {# ---------------- Việc theo ngày ---------------- #}
 {% set o_chon = o_ngay|selectattr('ngay', 'equalto', ngay_chon)|first %}
 {% set viec_ngay = o_chon.viec if o_chon else [] %}
 <div class="the nv-ngay" id="ngay">
   <div class="nv-ngay-dau">
-    <h2>{{ THU[ngay_chon.weekday()] }}, {{ ngay_chon.strftime('%d/%m') }}</h2>
+    <div class="nv-ngay-tieu-de">
+      <h2>{{ THU[ngay_chon.weekday()] }}, {{ ngay_chon.strftime('%d/%m') }}</h2>
+      {% if ngay_chon == hom_nay %}<span class="nv-hn-tag">Hôm nay</span>{% endif %}
+    </div>
     <span class="dem">{{ viec_ngay|length }} việc</span>
   </div>
+  {% if viec_ngay %}
   <div class="nv-nguon" data-nguon-loc>
-    <button type="button" class="active" data-nguon="">Tất cả</button>
+    <button type="button" class="active" data-nguon="">Tất cả ({{ viec_ngay|length }})</button>
     {% for ma in NguonViec.TAT_CA %}
-    <button type="button" data-nguon="{{ ma }}">{{ NguonViec.NHAN[ma] }} ({{ viec_ngay|selectattr('nguon', 'equalto', ma)|list|length }})</button>
+    {% set sl_nguon = viec_ngay|selectattr('nguon', 'equalto', ma)|list|length %}
+    {% if sl_nguon %}
+    <button type="button" data-nguon="{{ ma }}">{{ NguonViec.NHAN[ma] }} ({{ sl_nguon }})</button>
+    {% endif %}
     {% endfor %}
   </div>
+  {% endif %}
   {% for v in viec_ngay %}
   <a class="nv-viec" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}" data-nguon="{{ v.nguon }}">
-    <span class="nv-viec-gio">{{ v.han.strftime('%H:%M') }}</span>
+    <span class="nv-viec-gio {{ 'nv-viec-gio--tre' if v.qua_han }}">{{ v.han.strftime('%H:%M') }}</span>
     <span class="nv-viec-ten">
       <b>{{ v.tieu_de }}</b>
       <small><span class="nv-tag nv-tag--{{ v.nguon }}">{{ NguonViec.NHAN.get(v.nguon, '') }}</span>{% if v.nguoi_giao and v.nguon != 'hang_ngay' %} · giao bởi {{ v.nguoi_giao.ho_ten }}{% endif %}</small>
@@ -178,38 +111,152 @@
     <i class="nv-viec-mui">{{ bi('chevron-right') }}</i>
   </a>
   {% else %}
-  <div class="trong-rong" style="padding:16px 4px">Không có việc nào trong ngày này.</div>
+  <div class="trong-rong" style="padding:18px 4px">Không có việc nào trong ngày {{ ngay_chon.strftime('%d/%m') }}.</div>
   {% endfor %}
+
+  {% if la_minh %}
+  <div class="nv-ngay-chan">
+    <a class="nut nut--vien-vang nut--rong" href="{{ url_for('nhiem_vu.de_xuat') }}">{{ bi('plus') }} Đề xuất nhận việc mới</a>
+    <small>{{ bi('lightbulb', 'ic--xs') }} Tự đề xuất ý tưởng / đầu việc — quản lý duyệt xong sẽ tính vào kết quả.</small>
+  </div>
+  {% endif %}
 </div>
 
-{% if la_minh %}
-<a class="nut nut--vien-vang nut--rong nut--lon nv-de-xuat-nut" href="{{ url_for('nhiem_vu.de_xuat') }}">{{ bi('plus') }} Đề xuất nhận việc</a>
-<div class="ghi-chu-nho">{{ bi('lightbulb', 'ic--xs') }} Việc đề xuất được quản lý duyệt mới bắt đầu.</div>
-{% endif %}
 {% if de_xuat %}
-<div class="tieu-khu"><h2>Đề xuất đang chờ duyệt</h2><span class="dem">{{ de_xuat|length }}</span></div>
-{% for d in de_xuat %}
-<div class="the nv-dx-nho"><strong>{{ d.tieu_de }}</strong><small>Hạn {{ d.han.strftime('%H:%M %d/%m') }}</small></div>
-{% endfor %}
+<div class="tieu-khu">
+  <h2>Đề xuất đang chờ duyệt</h2>
+  <a class="lien-ket-nho" href="{{ url_for('nhiem_vu.de_xuat') }}">Xem tất cả ({{ de_xuat|length }}) {{ bi('chevron-right') }}</a>
+</div>
+<div class="the the--khong-dem">
+  {% for d in de_xuat %}
+  <a class="nv-dx-nho" href="{{ url_for('nhiem_vu.de_xuat') }}">
+    <span class="nv-bo-icon" style="width:32px;height:32px;background:var(--chinh-nhat);color:var(--chinh-dam)">{{ bi('lightbulb', 'ic--sm') }}</span>
+    <strong style="flex:1;min-width:0;font-size:.86rem">{{ d.tieu_de }}</strong>
+    <small>Hạn {{ d.han.strftime('%H:%M %d/%m') }}</small>
+  </a>
+  {% endfor %}
+</div>
 {% endif %}
+
+{# ---------------- Mục tiêu tuần & Điểm tuần ---------------- #}
+<div class="the nv-muc-tieu" id="muc-tieu">
+  <div class="nv-tuan-dau">
+    <a class="nv-tuan-mui" href="{{ lk(ngay=ngay_chon.isoformat(), tuan=tuan_truoc) }}#muc-tieu" aria-label="Tuần trước">{{ bi('chevron-left') }}</a>
+    <div class="nv-tuan-giua">
+      <h2>Tuần {{ tuan.strftime('%d/%m') }} – {{ tuan_cuoi.strftime('%d/%m') }}</h2>
+      <small>Mục tiêu & điểm kết quả tuần</small>
+    </div>
+    {% if not (tuan <= hom_nay and (hom_nay - tuan).days < 7) %}
+    <a class="nv-tuan-nay" href="{{ url_for('nhiem_vu.cua_toi', nguoi=None if la_minh else nd.id) }}#muc-tieu">Tuần này</a>
+    {% endif %}
+    <a class="nv-tuan-mui" href="{{ lk(ngay=ngay_chon.isoformat(), tuan=tuan_sau) }}#muc-tieu" aria-label="Tuần sau">{{ bi('chevron-right') }}</a>
+  </div>
+
+  {% if diem %}
+  <div class="nv-diem" style="--d:{{ diem.diem }}">
+    <div class="nv-diem-so">
+      <strong>{{ diem.diem }}</strong><span>điểm tuần</span>
+    </div>
+    <div class="nv-diem-ct">
+      {% for nhan, gt, w in [('Khối lượng', diem.khoi_luong, diem.trong_so[0]), ('Chất lượng', diem.chat_luong, diem.trong_so[1]), ('Đúng hạn', diem.dung_han, diem.trong_so[2])] %}
+      <div class="nv-diem-dong">
+        <span>{{ nhan }} <small>{{ w }}%</small></span>
+        <div class="nv-thanh nv-thanh--xanh"><i style="width:{{ gt }}%"></i></div>
+        <b>{{ gt }}%</b>
+      </div>
+      {% endfor %}
+      <small class="goi-y" style="margin:4px 0 0">{{ diem.xong }}/{{ diem.tong }} việc được duyệt hoàn thành trong tuần</small>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="nv-mt-ds">
+    {% for mt in muc_tieu %}
+    <div class="nv-mt">
+      <span class="nv-mt-icon {{ 'nv-mt-icon--xong' if mt.phan_tram >= 100 }}">{{ bi('check-circle') if mt.phan_tram >= 100 else bi('target') }}</span>
+      <div class="nv-mt-than">
+        <div class="nv-mt-dong">
+          <strong>{{ mt.ten }}</strong>
+          <span class="nv-mt-so"><b>{{ mt.dat }}/{{ mt.chi_tieu }}</b> ({{ mt.phan_tram }}%)</span>
+        </div>
+        <div class="nv-thanh {{ 'nv-thanh--xanh' if mt.phan_tram >= 100 }}"><i style="width:{{ mt.phan_tram }}%"></i></div>
+        <div class="nv-mt-phu">
+          {% if mt.viec_dinh_ky_id %}<small>{{ bi('repeat', 'ic--xs') }} Tự đếm việc đã được duyệt</small>
+          {% elif la_minh or quan_ly %}
+          <form method="post" action="{{ url_for('nhiem_vu.cap_nhat_muc_tieu', id=mt.id) }}" class="nv-mt-sua">
+            <button type="submit" name="da_dat" value="{{ [mt.da_dat - 1, 0]|max }}" aria-label="Giảm">−</button>
+            <span>{{ mt.da_dat }}</span>
+            <button type="submit" name="da_dat" value="{{ mt.da_dat + 1 }}" aria-label="Tăng">+</button>
+            <small>Cập nhật tiến độ</small>
+          </form>
+          {% endif %}
+          {% if quan_ly %}
+          <form method="post" action="{{ url_for('nhiem_vu.xoa_muc_tieu', id=mt.id) }}" onsubmit="return confirm('Xoá mục tiêu này?')" style="margin-left:auto">
+            <button class="nv-xoa" type="submit" aria-label="Xoá mục tiêu">{{ bi('trash', 'ic--xs') }}</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="trong-rong" style="padding:12px 4px">{{ 'Quản lý chưa đặt mục tiêu cho tuần này.' if la_minh else 'Chưa có mục tiêu tuần này.' }}</div>
+    {% endfor %}
+  </div>
+
+  {% if quan_ly %}
+  <div class="nv-mt-quan-ly">
+    <details class="nv-them-mt">
+      <summary>{{ bi('plus', 'ic--sm') }} Đặt mục tiêu tuần</summary>
+      <form method="post" action="{{ url_for('nhiem_vu.them_muc_tieu') }}">
+        <input type="hidden" name="nguoi_dung_id" value="{{ nd.id }}">
+        <input type="hidden" name="tuan" value="{{ tuan.isoformat() }}">
+        {% if mau_nv %}
+        <select name="viec_dinh_ky_id">
+          <option value="">— Mục tiêu tự nhập (cập nhật số tay) —</option>
+          {% for m in mau_nv %}<option value="{{ m.id }}">Đếm theo nhiệm vụ: {{ m.tieu_de }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <div class="nv-them-mt-hang">
+          <input type="text" name="ten" placeholder="VD: Đăng 5 video sản phẩm" maxlength="200">
+          <input type="number" name="chi_tieu" min="1" value="5" required aria-label="Chỉ tiêu">
+          <button class="nut nut--vang nut--nho" type="submit">Thêm</button>
+        </div>
+      </form>
+    </details>
+    <form method="post" action="{{ url_for('nhiem_vu.chep_muc_tieu') }}" class="nv-chep-mt-form">
+      <input type="hidden" name="nguoi_dung_id" value="{{ nd.id }}">
+      <input type="hidden" name="tuan" value="{{ tuan.isoformat() }}">
+      <button class="nut nut--phu nut--nho" type="submit">{{ bi('copy', 'ic--xs') }} Chép tuần trước</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
 
 {# ---------------- Bộ nhiệm vụ hằng ngày ---------------- #}
 {% if mau_nv %}
-<div class="tieu-khu">
-  <h2>Nhiệm vụ hằng ngày</h2>
-  <span class="lien-ket-nho" style="cursor:default">Theo bộ nhiệm vụ {{ nd.ten_giai_doan }}</span>
-</div>
-<div class="the the--khong-dem nv-bo">
-  {% for m in mau_nv %}
-  <div class="nv-bo-dong">
-    <span class="nv-bo-icon">{{ bi('repeat') if m.tu_dong else bi('alarm-clock') }}</span>
-    <div style="flex:1;min-width:0">
-      <strong>{{ m.tieu_de }} <span class="nv-tag nv-tag--hang_ngay">{{ 'Tự động' if m.tu_dong else 'Khi phát sinh' }}</span></strong>
-      <small>Hạn {{ m.gio_han }} · {{ m.ten_cac_thu }}{% if m.ket_qua %} · {{ m.ket_qua }}{% endif %}</small>
+<details class="the nv-bo-khung">
+  <summary class="nv-bo-dau">
+    <span class="nv-bo-dau-trai">
+      {{ bi('repeat') }}
+      <span>
+        <strong>Bộ nhiệm vụ hằng ngày</strong>
+        <small>Áp dụng giai đoạn {{ nd.ten_giai_doan }}</small>
+      </span>
+    </span>
+    <span class="dem">{{ mau_nv|length }} nhiệm vụ</span>
+  </summary>
+  <div class="nv-bo">
+    {% for m in mau_nv %}
+    <div class="nv-bo-dong">
+      <span class="nv-bo-icon {{ 'nv-bo-icon--vang' if not m.tu_dong }}">{{ bi('repeat') if m.tu_dong else bi('alarm-clock') }}</span>
+      <div style="flex:1;min-width:0">
+        <strong>{{ m.tieu_de }} <span class="nv-tag {{ 'nv-tag--hang_ngay' if not m.tu_dong else 'nv-tag--quan_ly_giao' }}">{{ 'Tự động' if m.tu_dong else 'Khi phát sinh' }}</span></strong>
+        <small>Trước {{ m.gio_han }} · {{ m.ten_cac_thu }}{% if m.ket_qua %} · {{ m.ket_qua }}{% endif %}</small>
+      </div>
     </div>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
+</details>
 {% endif %}
 {% endblock %}
 
