@@ -64,6 +64,13 @@ def gui_zalo(chat_id: str, noi_dung: str, nguoi_dung: NguoiDung | None = None,
     return log.thanh_cong
 
 
+def link_anh_zalo(duong_dan: str) -> str:
+    """Link công khai của 1 ảnh để Zalo tự tải về (sendPhoto). Dùng
+    ZALO_MEDIA_BASE_URL (mặc định = BASE_URL) — tách riêng để khi đổi tên
+    miền vẫn gửi ảnh được qua tên miền cũ Zalo đã tin tưởng."""
+    return f"{current_app.config['ZALO_MEDIA_BASE_URL']}/media-cong-khai/{duong_dan}"
+
+
 def gui_zalo_anh(chat_id: str, url_anh: str, caption: str = "",
                   nguoi_dung: NguoiDung | None = None,
                   cong_viec: CongViec | None = None, token_ghi_de: str | None = None) -> bool:
@@ -676,7 +683,7 @@ def bao_de_xuat_moi(dx: "DeXuat"):
     base = current_app.config["BASE_URL"]
     anh = [d for d in dx.dinh_kem_de_xuat if d.loai == LoaiDinhKem.ANH]
     for a in anh[:5]:
-        gui_anh_nhom_ql(f"{base}/media-cong-khai/{a.duong_dan}")
+        gui_anh_nhom_ql(link_anh_zalo(a.duong_dan))
 
 
 def bao_duyet_de_xuat(dx: "DeXuat"):
@@ -698,7 +705,7 @@ def bao_duyet_de_xuat(dx: "DeXuat"):
     base = current_app.config["BASE_URL"]
     anh = [d for d in dx.dinh_kem_duyet if d.loai == LoaiDinhKem.ANH]
     for a in anh[:5]:
-        gui_anh_cho_nhan_vien(dx.nguoi_de_xuat, f"{base}/media-cong-khai/{a.duong_dan}")
+        gui_anh_cho_nhan_vien(dx.nguoi_de_xuat, link_anh_zalo(a.duong_dan))
 
 
 def bao_goi_hang(gh: "GoiHang"):
@@ -711,7 +718,6 @@ def bao_goi_hang(gh: "GoiHang"):
     1 lần gói giờ có thể nhiều ảnh — gửi 1 tin nhắn text tóm tắt (giống
     bao_de_xuat_moi) rồi gửi kèm từng ảnh thật (sendPhoto), giới hạn 5
     ảnh để tránh dội quá nhiều tin liên tiếp."""
-    base = current_app.config["BASE_URL"]
     so_anh = len(gh.anh)
     nd = (
         f"📦 Đóng gói: {gh.ma_van_don}\n"
@@ -719,10 +725,15 @@ def bao_goi_hang(gh: "GoiHang"):
         f"Ảnh: {so_anh}\n"
         f"{gh.tao_luc.strftime('%H:%M %d/%m/%Y')}"
     )
+    # Kèm link xem ảnh ngay trong tin (mở được không cần đăng nhập) — vẫn xem
+    # được hàng khi Zalo không hiện ảnh gửi kèm (VD tên miền mới bị Zalo chặn
+    # hiện ảnh trong thời gian đầu).
+    if gh.anh:
+        nd += "\n\nXem ảnh:\n" + "\n".join(link_anh_zalo(a.duong_dan) for a in gh.anh[:5])
     chat_id, token = kenh_dong_goi()
     gui_zalo(chat_id, nd, token_ghi_de=token)
     for a in gh.anh[:5]:
-        gui_zalo_anh(chat_id, f"{base}/media-cong-khai/{a.duong_dan}", token_ghi_de=token)
+        gui_zalo_anh(chat_id, link_anh_zalo(a.duong_dan), token_ghi_de=token)
 
 
 def kenh_dong_goi() -> tuple[str, str]:
@@ -779,7 +790,7 @@ def bao_cong_no_moi(cn: "ThanhToanCongNo") -> bool:
     )
     ok = gui_zalo(chat_id, nd, token_ghi_de=token)
     for a in cn.anh[:5]:
-        gui_zalo_anh(chat_id, f"{base}/media-cong-khai/{a.duong_dan}", token_ghi_de=token)
+        gui_zalo_anh(chat_id, link_anh_zalo(a.duong_dan), token_ghi_de=token)
     return ok
 
 
@@ -1000,7 +1011,7 @@ def bao_giao_viec(viec: CongViec):
     # dội quá nhiều tin nhắn liên tiếp nếu ai đó lỡ đính kèm rất nhiều ảnh.
     base = current_app.config["BASE_URL"]
     for a in viec.anh_yeu_cau[:5]:
-        gui_anh_cho_nhan_vien(viec.nguoi_nhan, f"{base}/media-cong-khai/{a.duong_dan}", cong_viec=viec)
+        gui_anh_cho_nhan_vien(viec.nguoi_nhan, link_anh_zalo(a.duong_dan), cong_viec=viec)
 
 
 def bao_giao_viec_hang_ngay(nguoi_nhan: NguoiDung, tieu_de: str, ngay_dau, ngay_cuoi,

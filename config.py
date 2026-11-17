@@ -22,6 +22,10 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280}
 
     BASE_URL = os.getenv("BASE_URL", "http://localhost:5000").rstrip("/")
+    # Tên miền riêng cho LINK ẢNH gửi Zalo (sendPhoto) — để trống = dùng BASE_URL.
+    # Dùng khi vừa đổi tên miền: Zalo có thể chưa chịu tải ảnh từ tên miền mới
+    # (link chữ vẫn hiện nhưng ảnh không ra) -> tạm để tên miền cũ Zalo đã quen.
+    ZALO_MEDIA_BASE_URL = (os.getenv("ZALO_MEDIA_BASE_URL") or os.getenv("BASE_URL", "http://localhost:5000")).rstrip("/")
 
     ZALO_API_BASE = os.getenv("ZALO_API_BASE", "https://bot-api.zapps.me/bot").rstrip("/")
     ZALO_DEFAULT_BOT_TOKEN = os.getenv("ZALO_DEFAULT_BOT_TOKEN", "")
