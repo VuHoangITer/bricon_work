@@ -108,13 +108,49 @@ def gui_zalo_anh(chat_id: str, url_anh: str, caption: str = "",
     return log.thanh_cong
 
 
+def nguoi_cung_nhom(chat_id: str | None) -> list[NguoiDung]:
+    """Nhân viên đang làm cùng dùng 1 nhóm Zalo (1 nhóm có thể chung cho
+    nhiều người, VD 2 nhân viên kho chung 1 nhóm)."""
+    if not chat_id:
+        return []
+    return NguoiDung.query.filter_by(zalo_group_id=chat_id, dang_hoat_dong=True).order_by(NguoiDung.ho_ten).all()
+
+
+def _ghi_ten_neu_chung_nhom(nv: NguoiDung, noi_dung: str) -> str:
+    """Nhóm Zalo dùng chung nhiều người -> thêm dòng tên người nhận ở đầu tin
+    riêng ("Bạn có việc mới…") để cả nhóm biết tin này của ai."""
+    if noi_dung and len(nguoi_cung_nhom(nv.zalo_group_id)) > 1:
+        return f"👤 {nv.ho_ten}\n{noi_dung}"
+    return noi_dung
+
+
 def gui_cho_nhan_vien(nv: NguoiDung, noi_dung: str, cong_viec: CongViec | None = None) -> bool:
-    return gui_zalo(nv.zalo_group_id, noi_dung, nguoi_dung=nv, cong_viec=cong_viec)
+    return gui_zalo(nv.zalo_group_id, _ghi_ten_neu_chung_nhom(nv, noi_dung), nguoi_dung=nv, cong_viec=cong_viec)
 
 
 def gui_anh_cho_nhan_vien(nv: NguoiDung, url_anh: str, caption: str = "",
                           cong_viec: CongViec | None = None) -> bool:
-    return gui_zalo_anh(nv.zalo_group_id, url_anh, caption, nguoi_dung=nv, cong_viec=cong_viec)
+    return gui_zalo_anh(nv.zalo_group_id, url_anh, _ghi_ten_neu_chung_nhom(nv, caption) if caption else caption,
+                        nguoi_dung=nv, cong_viec=cong_viec)
+
+
+def gui_chung_nhan_vien(ds: list[NguoiDung], noi_dung: str, ghi_ten: bool = False) -> int:
+    """Gửi CÙNG 1 nội dung cho nhiều nhân viên — nhóm Zalo dùng chung chỉ
+    nhận 1 lần (không lặp tin). ghi_ten=True: nhóm chung thì ghi tên những
+    người trong danh sách thuộc nhóm đó (VD nhắc chấm công đúng người).
+    Trả về số nhân viên đã được báo (gửi thành công)."""
+    theo_nhom: dict[str, list[NguoiDung]] = {}
+    for nv in ds:
+        if nv.zalo_group_id:
+            theo_nhom.setdefault(nv.zalo_group_id, []).append(nv)
+    so = 0
+    for nhom in theo_nhom.values():
+        nd = noi_dung
+        if ghi_ten and len(nguoi_cung_nhom(nhom[0].zalo_group_id)) > 1:
+            nd = f"👤 {', '.join(n.ho_ten for n in nhom)}\n{noi_dung}"
+        if gui_zalo(nhom[0].zalo_group_id, nd, nguoi_dung=nhom[0]):
+            so += len(nhom)
+    return so
 
 
 def gui_nhom_ql(noi_dung: str, cong_viec: CongViec | None = None) -> bool:
@@ -934,9 +970,16 @@ def _tra_loi_viec_hom_nay(chat_id: str) -> str:
     với Dashboard/Trợ lý AI (dieu_kien_viec_trong_ngay) để không lệch số
     liệu giữa web và Zalo. Việc 0 sao tách hẳn thành đoạn riêng, có dòng
     trống ngăn cách, mỗi việc 1 dòng bắt đầu bằng "- "."""
-    nv = NguoiDung.query.filter_by(zalo_group_id=chat_id).first()
-    if not nv:
+    ds_nv = nguoi_cung_nhom(chat_id)
+    if not ds_nv:
         return "Không tìm thấy tài khoản nào gắn với nhóm Zalo này."
+    if len(ds_nv) > 1:
+        # Nhóm dùng chung nhiều nhân viên -> trả việc của từng người
+        return "\n\n".join(f"👤 {n.ho_ten}\n{_viec_hom_nay_cua(n)}" for n in ds_nv)
+    return _viec_hom_nay_cua(ds_nv[0])
+
+
+def _viec_hom_nay_cua(nv: NguoiDung) -> str:
     if nv.la_admin_sep:
         return "Vai trò này không được giao việc trực tiếp nên không có việc hạn hôm nay."
 
@@ -1131,8 +1174,7 @@ def nhac_cham_cong_sang() -> int:
     base = current_app.config["BASE_URL"]
     nd = f"⏰ Nhớ chấm công vào nhé!\n\n{base}/cham-cong"
     ds = _nhan_vien_khong_phai_admin_sep()
-    for nv in ds:
-        gui_cho_nhan_vien(nv, nd)
+    gui_chung_nhan_vien(ds, nd, ghi_ten=True)
     return len(ds)
 
 
@@ -1148,14 +1190,10 @@ def nhac_cham_cong_chieu() -> int:
           .filter(ChamCong.gio_vao.isnot(None), ChamCong.gio_ra.is_(None))
           .all())
     nd = f"⏰ Nhớ chấm công ra trước khi về nhé!\n\n{base}/cham-cong"
-    so_luong = 0
-    for cc in ds:
-        nv = cc.nguoi_dung
-        if not nv or not nv.dang_hoat_dong or nv.vai_tro in (VaiTro.ADMIN, VaiTro.SEP):
-            continue
-        gui_cho_nhan_vien(nv, nd)
-        so_luong += 1
-    return so_luong
+    can_nhac = [cc.nguoi_dung for cc in ds if cc.nguoi_dung and cc.nguoi_dung.dang_hoat_dong
+                and cc.nguoi_dung.vai_tro not in (VaiTro.ADMIN, VaiTro.SEP)]
+    gui_chung_nhan_vien(can_nhac, nd, ghi_ten=True)
+    return len(can_nhac)
 
 
 def nhac_viec_hom_nay() -> int:
@@ -1164,10 +1202,9 @@ def nhac_viec_hom_nay() -> int:
     if la_hom_nay_nghi():
         return 0
     base = current_app.config["BASE_URL"]
-    nd = f"📋 Xem công việc hôm nay của bạn:\n\n{base}/viec"
+    nd = f"📋 Xem công việc hôm nay của bạn:\n\n{base}/cong-viec/"
     ds = _nhan_vien_khong_phai_admin_sep()
-    for nv in ds:
-        gui_cho_nhan_vien(nv, nd)
+    gui_chung_nhan_vien(ds, nd)
     return len(ds)
 
 
@@ -1185,9 +1222,16 @@ def gui_thong_bao(tb: "ThongBao", nguoi_nhan: list[NguoiDung]) -> int:
     ThongBao.so_nguoi_nhan."""
     import json
     nd = f"THÔNG BÁO NỘI BỘ – CÔNG TY BRICON\n\n{tb.noi_dung}"
-    ds = []
+    ds, da_gui = [], {}
     for nv in nguoi_nhan:
-        ok = gui_cho_nhan_vien(nv, nd)
+        # Nhóm Zalo dùng chung nhiều người: chỉ gửi 1 lần, người sau dùng
+        # lại kết quả của lần gửi đó.
+        if nv.zalo_group_id and nv.zalo_group_id in da_gui:
+            ok = da_gui[nv.zalo_group_id]
+        else:
+            ok = gui_zalo(nv.zalo_group_id, nd, nguoi_dung=nv)
+            if nv.zalo_group_id:
+                da_gui[nv.zalo_group_id] = ok
         ds.append({"id": nv.id, "ten": nv.ho_ten, "ma": nv.ma_dinh_danh, "ok": bool(ok)})
     tb.ds_nguoi_nhan = json.dumps(ds, ensure_ascii=False)
     return len(nguoi_nhan)
@@ -1741,13 +1785,17 @@ def gui_chuc_mung_sinh_nhat(ngay: date | None = None) -> int:
         # của họ (giống module Thông báo) — không phải chọn nhóm/bot, không
         # vướng giới hạn 3 nhóm/bot. Người có sinh nhật không nhận tin báo
         # về chính mình (đã có lời chúc riêng); nhóm QL vẫn được báo.
-        id_sinh_nhat = {n.id for n in ds}
+        theo_nhom: dict[str, list] = {}
         for nv in NguoiDung.query.filter(NguoiDung.dang_hoat_dong.is_(True),
                                          NguoiDung.zalo_group_id.isnot(None)).all():
-            if nv.id in id_sinh_nhat and len(ds) == 1:
-                continue
-            nguoi_khac = [n for n in ds if n.id != nv.id]
-            gui_cho_nhan_vien(nv, _noi_dung_bao_sinh_nhat(ngay, nguoi_khac))
+            theo_nhom.setdefault(nv.zalo_group_id, []).append(nv)
+        for chat_id, thanh_vien in theo_nhom.items():
+            # Mỗi nhóm 1 tin; không báo cho nhóm về chính người trong nhóm
+            # (người có sinh nhật đã nhận lời chúc riêng).
+            id_nhom = {n.id for n in thanh_vien}
+            nguoi_khac = [n for n in ds if n.id not in id_nhom]
+            if nguoi_khac:
+                gui_zalo(chat_id, _noi_dung_bao_sinh_nhat(ngay, nguoi_khac), nguoi_dung=thanh_vien[0])
         gui_nhom_ql(_noi_dung_bao_sinh_nhat(ngay, ds))
     return len(ds)
 

@@ -105,7 +105,9 @@
       <h3 style="margin-top:18px">{{ bi('message-circle') }} Zalo</h3>
       <div class="hang">
         <div class="o-nhap"><label>Zalo chat id</label>
-          <input type="text" name="zalo_group_id" value="{{ n.zalo_group_id or '' }}" placeholder="zgr-..."></div>
+          <input type="text" name="zalo_group_id" value="{{ n.zalo_group_id or '' }}" placeholder="zgr-...">
+          {% set _cung = (nguoi_cung_nhom(n.zalo_group_id) if n.zalo_group_id else [])|rejectattr('id', 'equalto', n.id)|list %}
+          <div class="goi-y">{% if _cung %}Đang dùng chung nhóm với: <b>{{ _cung|map(attribute='ho_ten')|join(', ') }}</b> — tin riêng sẽ ghi tên người nhận, tin chung chỉ gửi 1 lần.{% else %}Nhiều nhân viên có thể dùng chung 1 nhóm (điền cùng chat id).{% endif %}</div></div>
         <div class="o-nhap"><label>Bot Zalo riêng</label>
           <select name="bot_zalo_id">
             <option value="">— Dùng bot mặc định —</option>

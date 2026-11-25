@@ -367,6 +367,8 @@ def create_app(config_class=Config):
     app.jinja_env.globals["so_don_cho_duyet"] = so_don_cho_duyet
     from views.menu import so_can_duyet
     app.jinja_env.globals["tong_can_duyet"] = so_can_duyet
+    from services import nguoi_cung_nhom
+    app.jinja_env.globals["nguoi_cung_nhom"] = nguoi_cung_nhom
 
     def menu_chinh():
         from views.menu import menu_chinh as _menu

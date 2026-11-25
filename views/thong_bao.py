@@ -9,12 +9,13 @@ bp = Blueprint("thong_bao", __name__, url_prefix="/thong-bao")
 
 
 def _nguoi_nhan_hop_le():
-    """Người được phép gửi thông báo tới: Admin/Ban giám đốc = toàn công ty;
-    Quản lý bộ phận = chỉ nhân viên trong bộ phận mình."""
+    """Người được phép gửi thông báo tới: Admin/Ban giám đốc và Quản lý bộ
+    phận đều gửi được cho TOÀN công ty (sếp bận thì quản lý nhắn hộ cả công
+    ty) — quản lý không tự gửi cho chính mình."""
     ds = services.danh_sach_nhan_vien_nhan_thong_bao()
     if current_user.la_admin_sep:
         return ds
-    return [n for n in ds if n.id != current_user.id and current_user.trong_pham_vi(n)]
+    return [n for n in ds if n.id != current_user.id]
 
 
 def _duoc_xem(tb: ThongBao) -> bool:
