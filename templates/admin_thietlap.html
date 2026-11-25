@@ -118,7 +118,7 @@
       <strong>{{ b.ten }}</strong>
       {% set ds_nv = nv_theo_bot.get(b.id, []) %}
       <span style="font-size:.78rem;color:var(--muc-mo);display:inline-flex;align-items:center;gap:4px">
-        {{ bi('link', 'ic--xs') }} {{ ds_nv|length }}/3 —
+        {{ bi('link', 'ic--xs') }} {{ ds_nv|map(attribute='zalo_group_id')|select|unique|list|length }}/3 nhóm —
         {% if ds_nv %}{{ ds_nv|map(attribute='ho_ten')|join(', ') }}
         {% else %}chưa ai dùng{% endif %}</span>
     </span>

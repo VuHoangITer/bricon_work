@@ -271,14 +271,21 @@ def luu_nhan_vien():
         return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) if uid else url_for("admin.nhan_vien"))
 
     bot_zalo_id = request.form.get("bot_zalo_id", type=int) or None
+    nhom_moi = (request.form.get("zalo_group_id") or "").strip() or None
     if bot_zalo_id:
-        q_dem_bot = NguoiDung.query.filter_by(bot_zalo_id=bot_zalo_id, dang_hoat_dong=True)
+        # Zalo giới hạn 1 bot vào tối đa 3 NHÓM -> đếm số nhóm khác nhau bot
+        # đang phục vụ (nhiều nhân viên dùng chung 1 nhóm chỉ tính 1). Vào
+        # chung 1 nhóm bot đã có thì luôn được.
+        q_dem_bot = NguoiDung.query.filter(NguoiDung.bot_zalo_id == bot_zalo_id,
+                                           NguoiDung.dang_hoat_dong.is_(True),
+                                           NguoiDung.zalo_group_id.isnot(None))
         if nd.id:
             q_dem_bot = q_dem_bot.filter(NguoiDung.id != nd.id)
-        if q_dem_bot.count() >= 3:
+        nhom_cua_bot = {n.zalo_group_id for n in q_dem_bot.all()}
+        if nhom_moi and nhom_moi not in nhom_cua_bot and len(nhom_cua_bot) >= 3:
             bot = db.session.get(BotZalo, bot_zalo_id)
-            flash(f"Bot {bot.ten if bot else ''} đã có đủ 3 nhân viên sử dụng — "
-                  f"chọn bot khác hoặc thêm bot mới ở Thiết lập.", "error")
+            flash(f"Bot {bot.ten if bot else ''} đã ở đủ 3 nhóm Zalo — chọn bot khác, thêm bot mới ở Thiết lập, "
+                  f"hoặc cho nhân viên này dùng chung 1 nhóm bot đang có.", "error")
             return redirect(url_for("admin.chi_tiet_nhan_vien", uid=uid) if uid else url_for("admin.nhan_vien"))
 
     nd.ma_dinh_danh = ma
