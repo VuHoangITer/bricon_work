@@ -2,7 +2,7 @@
 {% block title %}Công việc · BRICON WORK{% endblock %}
 
 {% macro the_viec_luoi(v, keo_tha=false) %}
-<a class="viec-the" data-tt="{{ v.trang_thai }}" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}"
+<a class="viec-the" data-tt="{{ v.trang_thai }}" data-id="{{ v.id }}" href="{{ url_for('tasks.chi_tiet', viec_id=v.id) }}"
    {% if keo_tha %}draggable="true" data-viec-id="{{ v.id }}"{% endif %}>
   <div class="viec-the-dau">
     <span class="ma-viec">{{ v.ma }}</span>
@@ -35,8 +35,27 @@
     <p>{{ {'can_lam': 'Việc được giao cho bạn, chưa hoàn thành.', 'doi_duyet': 'Việc bạn đã gửi đối chứng, đang chờ quản lý duyệt.', 'can_duyet': 'Nhân viên đã gửi đối chứng, chờ bạn đánh giá.'}.get(f_xem, 'Theo dõi, lọc và xử lý toàn bộ công việc được giao.') }}</p></div>
   {% if current_user.la_quan_ly %}<div class="page-actions">
     {% if f_nguoi %}<a class="nut nut--phu" href="{{ url_for('nhiem_vu.cua_toi', nguoi=f_nguoi) }}">{{ bi('calendar') }} Xem lịch tháng</a>{% endif %}
+    <button type="button" class="nut nut--phu" data-chon-nhieu>{{ bi('check-circle') }} Chọn nhiều</button>
     <a class="nut nut--vang" href="{{ url_for('tasks.giao_viec', nguoi_nhan_id=f_nguoi if f_nguoi else None) }}">{{ bi('plus') }} Giao việc</a>
   </div>{% endif %}
+
+{% if current_user.la_quan_ly %}
+<form class="cn-thanh" method="post" action="{{ url_for('tasks.xu_ly_nhieu') }}" data-cn-form hidden>
+  <input type="hidden" name="tiep" value="{{ request.full_path }}">
+  <div class="cn-thanh-trai">
+    <b data-cn-dem>0</b> việc đã chọn
+    <button type="button" class="cn-lien-ket" data-cn-tat-ca>Chọn tất cả</button>
+    <button type="button" class="cn-lien-ket" data-cn-bo>Bỏ chọn</button>
+  </div>
+  <div class="cn-thanh-phai">
+    <button type="submit" class="nut nut--phu nut--nho" name="hanh_dong" value="huy" data-cn-xac-nhan="huỷ">{{ bi('ban') }} Huỷ việc</button>
+    {% if current_user.la_admin_sep %}
+    <button type="submit" class="nut nut--vien-do nut--nho" name="hanh_dong" value="xoa" data-cn-xac-nhan="XOÁ VĨNH VIỄN">{{ bi('trash') }} Xoá vĩnh viễn</button>
+    {% endif %}
+    <button type="button" class="nut nut--phu nut--nho" data-cn-thoat>Xong</button>
+  </div>
+</form>
+{% endif %}
 </div>
 
 {% if not current_user.la_quan_ly %}
@@ -144,6 +163,48 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function () {
+  var nut = document.querySelector('[data-chon-nhieu]'), form = document.querySelector('[data-cn-form]');
+  if (!nut || !form) return;
+  var dem = form.querySelector('[data-cn-dem]'), chon = new Set();
+  function capNhat() {
+    dem.textContent = chon.size;
+    form.querySelectorAll('button[type=submit]').forEach(function (b) { b.disabled = !chon.size; });
+    document.querySelectorAll('.viec-the[data-id]').forEach(function (t) { t.classList.toggle('cn-da-chon', chon.has(t.dataset.id)); });
+  }
+  function bat(on) {
+    document.body.classList.toggle('cn-bat', on);
+    form.hidden = !on;
+    if (!on) chon.clear();
+    nut.classList.toggle('nut--den', on);
+    capNhat();
+  }
+  nut.addEventListener('click', function () { bat(!document.body.classList.contains('cn-bat')); });
+  form.querySelector('[data-cn-thoat]').addEventListener('click', function () { bat(false); });
+  form.querySelector('[data-cn-bo]').addEventListener('click', function () { chon.clear(); capNhat(); });
+  form.querySelector('[data-cn-tat-ca]').addEventListener('click', function () {
+    document.querySelectorAll('.viec-the[data-id]').forEach(function (t) { if (t.offsetParent) chon.add(t.dataset.id); });
+    capNhat();
+  });
+  // Đang chọn nhiều: bấm thẻ = chọn/bỏ chọn (không mở việc, không kéo thả)
+  document.addEventListener('click', function (e) {
+    if (!document.body.classList.contains('cn-bat')) return;
+    var t = e.target.closest('.viec-the[data-id]'); if (!t) return;
+    e.preventDefault();
+    chon.has(t.dataset.id) ? chon.delete(t.dataset.id) : chon.add(t.dataset.id);
+    capNhat();
+  }, true);
+  document.addEventListener('dragstart', function (e) { if (document.body.classList.contains('cn-bat')) e.preventDefault(); }, true);
+  form.addEventListener('submit', function (e) {
+    var b = e.submitter;
+    if (!chon.size || !confirm('Bạn chắc chắn ' + b.dataset.cnXacNhan + ' ' + chon.size + ' công việc đã chọn?'
+        + (b.value === 'xoa' ? '\nKhông thể khôi phục.' : ''))) { e.preventDefault(); return; }
+    form.querySelectorAll('input[name=viec_id]').forEach(function (x) { x.remove(); });
+    chon.forEach(function (id) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'viec_id'; i.value = id; form.appendChild(i); });
+  });
+})();
+</script>
 <script>
 (function () {
   const nutHomNay = document.getElementById('nut-han-hom-nay');

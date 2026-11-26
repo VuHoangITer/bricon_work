@@ -878,6 +878,56 @@ def xoa_viec(viec_id):
     return redirect(url_for("tasks.danh_sach"))
 
 
+@bp.route("/viec/xu-ly-nhieu", methods=["POST"])
+@login_required
+def xu_ly_nhieu():
+    """Chọn nhiều việc trên trang danh sách rồi xử lý 1 lần:
+    - "xoa": xoá vĩnh viễn (chỉ Admin/Ban giám đốc), giống xoá từng việc.
+    - "huy": chuyển sang Đã huỷ (người có quyền duyệt việc đó).
+    Mỗi nhân viên chỉ nhận 1 tin Zalo gom các việc của họ (không dội tin)."""
+    hanh_dong = request.form.get("hanh_dong")
+    ids = {int(x) for x in request.form.getlist("viec_id") if x.isdigit()}
+    tiep = request.form.get("tiep") or ""
+    ve = redirect(tiep if tiep.startswith("/") else url_for("tasks.danh_sach"))
+    if hanh_dong not in ("xoa", "huy") or not ids:
+        flash("Chưa chọn công việc nào.", "error")
+        return ve
+    if hanh_dong == "xoa" and not current_user.la_admin_sep:
+        abort(403)
+    ds = CongViec.query.filter(CongViec.id.in_(ids)).all()
+    duoc = [v for v in ds if current_user.la_admin_sep or current_user.duoc_duyet_viec(v)]
+    if hanh_dong == "huy":
+        duoc = [v for v in duoc if v.trang_thai != TrangThai.HUY]
+    if not duoc:
+        flash("Không có việc nào bạn được phép xử lý trong các việc đã chọn.", "error")
+        return ve
+
+    theo_nguoi: dict[int, list] = {}
+    for v in duoc:
+        theo_nguoi.setdefault(v.nguoi_nhan_id, []).append((v.ma, v.tieu_de))
+    nguoi = {v.nguoi_nhan_id: v.nguoi_nhan for v in duoc}
+    for v in duoc:
+        if hanh_dong == "xoa":
+            services.xoa_file_dinh_kem(v)
+            services.go_lien_ket_log_zalo_cho_viec(v)
+            db.session.delete(v)
+        else:
+            v.trang_thai = TrangThai.HUY
+    db.session.commit()
+    for nid, viec in theo_nguoi.items():
+        if nguoi.get(nid):
+            services.gui_cho_nhan_vien(
+                nguoi[nid],
+                f"🚫 {len(viec)} công việc đã được huỷ bởi {current_user.ho_ten}, bạn không cần làm nữa:\n"
+                + "\n".join(f"• [{ma}] {ten}" for ma, ten in viec[:15])
+                + (f"\n… và {len(viec) - 15} việc khác" if len(viec) > 15 else ""))
+    db.session.commit()
+    bo_qua = len(ids) - len(duoc)
+    flash(f"Đã {'xoá vĩnh viễn' if hanh_dong == 'xoa' else 'huỷ'} {len(duoc)} công việc."
+          + (f" Bỏ qua {bo_qua} việc không đủ quyền hoặc đã huỷ." if bo_qua else ""), "success")
+    return ve
+
+
 @bp.route("/kpi")
 @login_required
 def kpi():
